@@ -174,6 +174,20 @@ section.paper{background:var(--paper)}
 .range .btn{align-self:flex-start;margin-top:auto}
 @media (max-width:820px){.ranges{grid-template-columns:1fr}}
 
+.pcats{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.pcat{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:grid;grid-template-columns:38% 1fr}
+.pcat .pic{background:var(--gold-tint);display:grid;place-items:center;padding:20px;border-right:4px solid var(--gold);min-height:240px}
+.pcat .pic img{max-height:200px;width:100%;object-fit:contain}
+.pcat .pic-ic{width:120px;height:120px;color:var(--gold-deep)}
+.pcat .pic-ic svg{width:100%;height:100%}
+.pcat .body{padding:24px 24px 24px;display:flex;flex-direction:column;gap:10px}
+.pcat h3{font-size:28px}
+.pcat p{color:var(--muted);font-size:15.5px}
+.pcat .meta{color:var(--gold-deep);font-weight:600;font-size:14px}
+.pcat .plinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
+.pcat .plinks .btn{padding:10px 16px;font-size:15px}
+@media (max-width:1000px){.pcats{grid-template-columns:1fr}}
+@media (max-width:560px){.pcat{grid-template-columns:1fr}.pcat .pic{border-right:0;border-bottom:4px solid var(--gold);min-height:0}}
 .compounds{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
 .compound{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px 24px 26px;text-decoration:none;display:flex;flex-direction:column;gap:10px}
 .compound:hover{border-color:var(--gold)}
@@ -793,14 +807,14 @@ ddMenu.innerHTML=ddItem("#/products/braking-system","disc","Braking System","Pad
   ddItem("#/products/shock-absorbers","shock","Shock Absorbers","Dampers for ride and handling")+
   ddItem("#/products/filters","f_oil","Filters","Air, oil, fuel and cabin filters")+
   `<a class="dd-sub" href="#/filters"><span>Filter catalogue<small id="dd-fcount">Search by Stravik, OE or cross-reference number</small></span></a>`+
-  `<a class="dd-all" href="#/products">All products</a>`;
+  `<a class="dd-all" href="#/products">All products and catalogues</a>`;
 const DDS=[...document.querySelectorAll(".dd")];
 const ddOne=(d,o)=>{d.classList.toggle("open",o);d.querySelector(".dd-btn").setAttribute("aria-expanded",o);};
 const ddSet=o=>DDS.forEach(d=>ddOne(d,o));
 const wideHover=()=>matchMedia("(hover:hover) and (min-width:861px)").matches;
 DDS.forEach(d=>{
   const b=d.querySelector(".dd-btn");let hoverAt=0;
-  b.addEventListener("click",e=>{e.stopPropagation();const open=d.classList.contains("open");const next=open&&Date.now()-hoverAt<700?true:!open;DDS.forEach(x=>{if(x!==d)ddOne(x,false);});ddOne(d,next);});
+  b.addEventListener("click",e=>{e.stopPropagation();if(b===ddBtn&&wideHover()){ddSet(false);location.hash="#/products";return;}const open=d.classList.contains("open");const next=open&&Date.now()-hoverAt<700?true:!open;DDS.forEach(x=>{if(x!==d)ddOne(x,false);});ddOne(d,next);});
   d.addEventListener("mouseenter",()=>{if(wideHover()){hoverAt=Date.now();DDS.forEach(x=>{if(x!==d)ddOne(x,false);});ddOne(d,true);}});
   d.addEventListener("mouseleave",()=>{if(wideHover())ddOne(d,false);});
   d.addEventListener("focusout",e=>{if(!d.contains(e.relatedTarget)&&wideHover())ddOne(d,false);});
@@ -911,10 +925,6 @@ function home(){
     <form id="ffind" role="search"><label for="ffq">Find a filter</label><div class="field"><input id="ffq" type="search" autocomplete="off" placeholder="OE or cross-reference number, or vehicle"><button type="submit">Search</button></div><small>For example 17801-0L040, Z212 or Hilux</small></form>
   </div></section>
 
-  <section class="block paper"><div class="wrap">
-    <div class="head"><div><h2>Brake pads in three compounds</h2><p>Ceramic, semi-metallic and low-metallic, each in its own box.</p></div><a class="btn line" href="#/product/brake-pads">Compare compounds</a></div>
-    <div class="compounds">${PADS.map(p=>`<a class="compound" href="#/product/brake-pads?c=${p.key}"><img src="${p.img}" alt="Stravik ${esc(p.name)} brake pads box"><h3>${esc(p.name)}</h3><span class="tag">${esc(p.line)}</span></a>`).join("")}</div>
-  </div></section>
 
   <section class="block"><div class="wrap exp-grid">
     <div class="exp-big brandpanel"><img src="assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
@@ -991,7 +1001,48 @@ function filtersOverview(){
     app.querySelector("#fov-grid").innerHTML=d.types.map(t=>{const n=FCOUNT(d,t[0]);return `<a class="card" href="#/filters/${t[1]}"><span class="ic">${icon(FICON[t[0]])}</span><h3>${esc(t[2])}</h3><p>${n} ${n===1?"part number":"part numbers"} in the catalogue</p></a>`;}).join("");
   }).catch(err=>{app.querySelector("#fov-grid").innerHTML=`<div class="noresults"><p>The filter list didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
 }
+function productsHome(){
+  const B=CATALOG.find(c=>c.id==="braking-system"),S=CATALOG.find(c=>c.id==="shock-absorbers");
+  const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
+  const pc=(img,ic,name,txt,meta,links)=>`<article class="pcat"><div class="pic">${img?`<img src="${img}" alt="Stravik ${esc(name)} packaging" loading="lazy">`:`<span class="pic-ic">${icon(ic)}</span>`}</div>
+    <div class="body"><h3>${name}</h3><p>${txt}</p><small class="meta"${meta[0]?` id="${meta[0]}"`:""}>${meta[1]}</small><div class="plinks">${links}</div></div></article>`;
+  app.innerHTML=`
+  <div class="pagehead"><div class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span>/</span><span>Our products</span></div>
+    <h1>Our products</h1>
+    <p>Braking, steering and suspension, shock absorbers and filters, built to OE standards.</p>
+    <div class="tabs" role="list">${prodTabs("")}</div>
+  </div></div>
+
+  <section class="block"><div class="wrap">
+    <div class="head"><div><h2>Product ranges</h2><p>Choose a range to see its part types, or open a catalogue to search by part number.</p></div></div>
+    <div class="pcats">
+      ${pc(B.img,"disc","Braking System",esc(B.intro),["",lines(B)+(lines(B)===1?" part line":" part lines")],`<a class="btn gold" href="#/products/braking-system">View the range</a>`)}
+      ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["pc-ss","Searchable catalogue"],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
+      ${pc(S.img,"shock","Shock Absorbers",esc(S.intro),["",lines(S)+(lines(S)===1?" part line":" part lines")],`<a class="btn gold" href="#/products/shock-absorbers">View the range</a>`)}
+      ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["pc-fl","Searchable catalogue"],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
+    </div>
+  </div></section>
+
+  <section class="block paper"><div class="wrap">
+    <div class="head"><div><h2>Brake pads in three compounds</h2><p>Ceramic, semi-metallic and low-metallic, each in its own box.</p></div><a class="btn line" href="#/product/brake-pads">Compare compounds</a></div>
+    <div class="compounds">${PADS.map(p=>`<a class="compound" href="#/product/brake-pads?c=${p.key}"><img src="${p.img}" alt="Stravik ${esc(p.name)} brake pads box"><h3>${esc(p.name)}</h3><span class="tag">${esc(p.line)}</span></a>`).join("")}</div>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <div class="head"><div><h2>Search the catalogues</h2><p>Enter the OE or cross-reference number you have to find the matching Stravik part and the vehicles it fits.</p></div></div>
+    <div class="catcall"><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a></div>
+  </div></section>
+
+  <section class="block paper"><div class="wrap">
+    <div class="head" style="margin-bottom:0"><div><h2>Can't find a part?</h2><p>Send us the vehicle and the part you need, and we'll come back with prices and availability.</p></div><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/cart">Request a price</a><a class="btn line" href="#/contact">Contact us</a></div></div>
+  </div></section>`;
+  loadSS().then(d=>{const n=d.items.length.toLocaleString("en-US");const a=app.querySelector("#cc-ss");if(a)a.textContent=n+" parts with CTR and OE numbers";const b=app.querySelector("#pc-ss");if(b)b.textContent=n+" parts in the catalogue";}).catch(()=>{});
+  loadFilters().then(d=>{const a=app.querySelector("#cc-fl");if(a)a.textContent=d.items.length+" filters with OE and cross-reference numbers";const b=app.querySelector("#pc-fl");if(b)b.textContent=d.items.length+" filters in the catalogue";}).catch(()=>{});
+}
+
 function products(catId,typeId,q){
+  if(!catId&&!q){productsHome();return;}
   if(catId==="filters"){filtersOverview();return;}
   if(catId==="steering-suspension"){ssOverview();return;}
   const cat=CATALOG.find(c=>c.id===catId);
