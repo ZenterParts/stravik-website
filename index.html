@@ -342,6 +342,45 @@ nav.main a.cart-link{display:inline-flex;align-items:center;gap:7px}
   nav.main .dd-menu a.dd-sub{margin-left:58px}
 }
 
+/* filter catalogue: list / cards */
+.fbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.fbar .fcount{margin:0}
+.vtoggle{display:inline-flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.vtoggle button{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:7px 13px;font:inherit;font-size:14px;font-weight:600;color:var(--muted)}
+.vtoggle button+button{border-left:1.5px solid var(--line)}
+.vtoggle button:hover{color:var(--ink)}
+.vtoggle button[aria-pressed="true"]{background:var(--ink);color:var(--white)}
+.vtoggle svg{width:16px;height:16px}
+.ftable-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.ftable{width:100%;border-collapse:collapse;font-size:14.5px}
+.ftable th{text-align:left;font-size:12.5px;color:var(--muted);font-weight:600;padding:10px 12px;background:var(--paper);border-bottom:1px solid var(--line);white-space:nowrap}
+.ftable td{padding:11px 12px;border-top:1px solid var(--line);vertical-align:top;line-height:1.4}
+.ftable tbody tr:first-child td{border-top:0}
+.ftable tbody tr{cursor:pointer}
+.ftable tbody tr:hover td{background:var(--gold-tint)}
+.ftable td.fpn a{font-family:var(--display);font-weight:700;font-size:16px;text-decoration:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ftable td.fpn a:hover{color:var(--gold-deep)}
+.ftable td.fty b{display:block;font-weight:600;color:var(--gold-deep)}
+.ftable td.fty span,.ftable td.fveh,.ftable td.fnum{color:var(--muted)}
+.ftable td.fnum{overflow-wrap:anywhere;max-width:230px;font-variant-numeric:tabular-nums}
+.ftable td.fact{text-align:right;white-space:nowrap;width:1%}
+.ftable mark{background:var(--gold-tint);color:inherit;border-radius:3px;padding:0 2px}
+.fadd.inline{position:static}
+@media (max-width:700px){
+  .ftable thead{display:none}
+  .ftable,.ftable tbody,.ftable tr,.ftable td{display:block;width:100%}
+  .ftable tbody tr{display:grid;grid-template-columns:1fr auto;gap:3px 12px;padding:12px 14px;border-top:1px solid var(--line)}
+  .ftable tbody tr:first-child{border-top:0}
+  .ftable td{border:0!important;padding:0}
+  .ftable td.fpn{grid-column:1;grid-row:1}
+  .ftable td.fact{grid-column:2;grid-row:1}
+  .ftable td.fty,.ftable td.fveh,.ftable td.fnum{grid-column:1/-1}
+  .ftable td.fty b{display:inline}
+  .ftable td.fveh:not(:empty)::before{content:"Fits ";font-weight:600;color:var(--ink)}
+  .ftable td.fnum:not(:empty)::before{content:"OE / ref. ";font-weight:600;color:var(--ink)}
+  .ftable td.fnum{max-width:none}
+}
+
 /* cart */
 .fcell{position:relative;display:grid}
 .fcell .fcard{padding-bottom:60px}
@@ -936,6 +975,17 @@ function fmatch(i,q){
   return words.every(w=>i.text.includes(w)||(fclean(w).length>=2&&i.keys.some(k=>k.includes(fclean(w)))));
 }
 const fdesc=(d,i)=>d.T[i.t].one+(i.d?", "+i.d.charAt(0).toLowerCase()+i.d.slice(1):"");
+function frow(d,i,q){
+  const c=fclean(q),hit=c.length>=3?(i.n||[]).filter(n=>fclean(n).includes(c)):[];
+  const nums=hit.concat((i.n||[]).filter(n=>!hit.includes(n))),shown=nums.slice(0,3);
+  const veh=[(i.mk||[]).join(", "),i.mo,i.y].filter(Boolean).join(" · ");
+  const item={key:i.pn,no:i.pn,cat:"Filters",desc:fdesc(d,i),link:"#/filter/"+i.pn,kind:"filter"},on=Cart.has(i.pn);
+  return `<tr data-href="#/filter/${esc(i.pn)}"><td class="fpn"><a href="#/filter/${esc(i.pn)}">${esc(i.pn)}</a></td>`+
+    `<td class="fty"><b>${esc(d.T[i.t].one)}</b>${i.d&&i.d.toLowerCase()!==d.T[i.t].one.toLowerCase()?` <span>${esc(i.d)}</span>`:""}</td>`+
+    `<td class="fveh">${veh?esc(veh):""}</td>`+
+    `<td class="fnum">${shown.length?shown.map(n=>hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)).join(", ")+(nums.length>3?` +${nums.length-3} more`:""):""}</td>`+
+    `<td class="fact"><button type="button" class="fadd inline" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button></td></tr>`;
+}
 function fcard(d,i,q){
   const c=fclean(q),hit=c.length>=3?(i.n||[]).filter(n=>fclean(n).includes(c)):[];
   const nums=hit.concat((i.n||[]).filter(n=>!hit.includes(n))),shown=nums.slice(0,4);
@@ -947,14 +997,18 @@ function fcard(d,i,q){
     `<button type="button" class="fadd" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button></div>`;
 }
 function filtersPage(slugT,params){
-  let q=params.get("q")||"",mk=params.get("make")||"",shown=48;
+  let q=params.get("q")||"",mk=params.get("make")||"",view="list";
+  try{if(localStorage.getItem("stravik-fview")==="cards")view="cards";}catch(e){}
+  const STEP=()=>view==="list"?100:48;let shown=STEP();
   app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/filters">Filters</a><span>/</span><span>Catalogue</span></div><h1>Filter catalogue</h1>
     <p>Air, oil, fuel and cabin filters under the Stravik name. Search by Stravik part number, OE number or cross-reference, or pick your vehicle make.</p><div class="tabs" id="ftabs"></div></div></div>
     <div class="wrap catalog"><aside class="side"><div class="tools">
       <label class="lbl" for="fq">Part number or vehicle</label><input id="fq" type="search" autocomplete="off" placeholder="e.g. 04152-YZZA6 or Hilux" value="${esc(q)}">
       <label class="lbl" for="fmk">Vehicle make</label><select id="fmk"><option value="">All makes</option></select>
-      <p class="fcount" id="fcount" aria-live="polite"></p></div><nav aria-label="Filter types" class="ftypes-nav" id="fnav"></nav></aside>
-    <div id="flist"><p class="loading">Loading filters…</p></div></div>`;
+      </div><nav aria-label="Filter types" class="ftypes-nav" id="fnav"></nav></aside>
+    <div><div class="fbar"><p class="fcount" id="fcount" aria-live="polite"></p>
+      <div class="vtoggle" role="group" aria-label="Show filters as"><button type="button" data-v="list" aria-pressed="${view==="list"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2 3.5h12M2 8h12M2 12.5h12"/></svg>List</button><button type="button" data-v="cards" aria-pressed="${view==="cards"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Cards</button></div></div>
+    <div id="flist"><p class="loading">Loading filters…</p></div></div></div>`;
   loadFilters().then(d=>{
     const T=d.types.find(t=>t[1]===slugT);const code=T?T[0]:"";
     if(T){app.querySelector(".pagehead h1").textContent=T[2];app.querySelector(".crumbs").innerHTML=`<a href="#/">Home</a><span>/</span><a href="#/products/filters">Filters</a><span>/</span><a href="#/filters">Catalogue</a><span>/</span><span>${esc(T[2])}</span>`;document.title=T[2]+" | Stravik";}
@@ -965,14 +1019,22 @@ function filtersPage(slugT,params){
     const draw=()=>{
       const res=d.items.filter(i=>(!code||i.t===code)&&(!mk||(i.mk||[]).includes(mk))&&fmatch(i,q));
       app.querySelector("#fcount").textContent=`${res.length} ${res.length===1?"filter":"filters"}`;
-      list.innerHTML=res.length?`<div class="fgrid">${res.slice(0,shown).map(i=>fcard(d,i,q)).join("")}</div>`+(res.length>shown?`<div class="more"><button type="button" class="btn line" id="fmore">Show more (${res.length-shown} left)</button></div>`:""):
+      const page=res.slice(0,shown);
+      list.innerHTML=res.length?(view==="list"
+        ?`<div class="ftable-wrap"><table class="ftable"><thead><tr><th>Stravik no.</th><th>Filter</th><th>Fits</th><th>OE / ref. numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${page.map(i=>frow(d,i,q)).join("")}</tbody></table></div>`
+        :`<div class="fgrid">${page.map(i=>fcard(d,i,q)).join("")}</div>`)+(res.length>shown?`<div class="more"><button type="button" class="btn line" id="fmore">Show more (${res.length-shown} left)</button></div>`:""):
         `<div class="noresults"><p>No filters match${q?` “${esc(q)}”`:""}${mk?` for ${esc(mk)}`:""}.</p><p style="margin-top:8px">Send us the OE number or the vehicle and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="fclear">Clear search</button><a class="btn gold" href="#/contact?part=${encodeURIComponent(T?T[2]:"Oil filters")}">Ask us</a></p></div>`;
-      const more=list.querySelector("#fmore");if(more)more.onclick=()=>{shown+=48;draw();};
+      const more=list.querySelector("#fmore");if(more)more.onclick=()=>{shown+=STEP();draw();};
       const clr=list.querySelector("#fclear");if(clr)clr.onclick=()=>{q="";mk="";inp.value="";sel.value="";sync();draw();};
     };
     const sync=()=>{const p=new URLSearchParams();if(q)p.set("q",q);if(mk)p.set("make",mk);history.replaceState(null,"","#/filters"+(T?"/"+T[1]:"")+(p.toString()?"?"+p:""));};
-    let t;inp.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(()=>{q=inp.value.trim();shown=48;sync();draw();},150);});
-    sel.addEventListener("change",()=>{mk=sel.value;shown=48;sync();draw();});
+    let t;inp.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(()=>{q=inp.value.trim();shown=STEP();sync();draw();},150);});
+    sel.addEventListener("change",()=>{mk=sel.value;shown=STEP();sync();draw();});
+    app.querySelectorAll(".vtoggle button").forEach(b=>b.addEventListener("click",()=>{
+      if(view===b.dataset.v)return;view=b.dataset.v;shown=STEP();
+      try{localStorage.setItem("stravik-fview",view);}catch(e){}
+      app.querySelectorAll(".vtoggle button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===view));draw();}));
+    list.addEventListener("click",e=>{if(e.target.closest("a,button,input"))return;const tr=e.target.closest("tr[data-href]");if(tr)location.hash=tr.dataset.href;});
     draw();
   }).catch(err=>{app.querySelector("#flist").innerHTML=`<div class="noresults"><p>The filter list didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
 }
