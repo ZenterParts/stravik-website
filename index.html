@@ -3,8 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stravik | Brake, Steering & Suspension Parts</title>
-<meta name="description" content="Stravik brake, steering and suspension parts, matched to OE fit.">
+<title>Stravik | Auto Spare Parts</title>
+<meta name="description" content="Stravik auto spare parts: brakes, steering, suspension and filters. Search the Stravik filter catalogue by part, OE or cross-reference number and request a price.">
+<link rel="canonical" href="https://stravikautomotiveparts.com/">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="assets/icons/stravik-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="assets/icons/stravik-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="assets/icons/stravik-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="assets/icons/stravik-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="assets/icons/stravik-180.png">
+<meta name="theme-color" content="#15264a">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Stravik">
+<meta property="og:title" content="Stravik | Auto Spare Parts">
+<meta property="og:description" content="Brakes, steering, suspension and filters. Search the Stravik filter catalogue and request a price.">
+<meta property="og:url" content="https://stravikautomotiveparts.com/">
+<meta property="og:image" content="https://stravikautomotiveparts.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Stravik logo: Auto spare parts">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://stravikautomotiveparts.com/assets/og.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Stravik","alternateName":"Stravik Auto Parts","url":"https://stravikautomotiveparts.com/"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Stravik","url":"https://stravikautomotiveparts.com/","logo":"https://stravikautomotiveparts.com/assets/icons/stravik-512.png","email":"info@zenterparts.com"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1195,7 +1216,7 @@ function route(){
   ddSet(false);cartPaint();
   nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");
   if(!(parts[0]==="products"&&parts[2]))window.scrollTo(0,0);
-  const titles={home:"Stravik | Brake, Steering & Suspension Parts",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",cart:"Your cart | Stravik"};
+  const titles={home:"Stravik | Auto Spare Parts",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",cart:"Your cart | Stravik"};
   if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]!=="filter")document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key];
 }
 addEventListener("hashchange",route);route();
