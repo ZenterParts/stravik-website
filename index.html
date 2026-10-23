@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stravik | Auto Parts</title>
-<meta name="description" content="Stravik auto parts, backed by 30 years of experience: brakes, steering, suspension and filters built to OE standards. Search the steering and suspension and filter catalogues by Stravik, CTR, OE or cross-reference number and request a price.">
+<meta name="description" content="Stravik auto parts: brakes, steering, suspension and filters built to OE standards. Search the Stravik catalogues by OE or cross-reference number and request a price.">
 <link rel="canonical" href="https://stravikautomotiveparts.com/">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="assets/icons/stravik-32.png" type="image/png" sizes="32x32">
@@ -16,12 +16,12 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Stravik">
 <meta property="og:title" content="Stravik | Auto Parts">
-<meta property="og:description" content="Stravik. Own the road. 30 years of experience in brakes, steering, suspension and filters. Search the Stravik filter catalogue and request a price.">
+<meta property="og:description" content="Stravik. Own the road. Brakes, steering, suspension and filters built to OE standards. Search the Stravik catalogues by OE or cross-reference number.">
 <meta property="og:url" content="https://stravikautomotiveparts.com/">
 <meta property="og:image" content="https://stravikautomotiveparts.com/assets/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Stravik. Own the road. Auto parts, with 30 years in the auto parts trade.">
+<meta property="og:image:alt" content="Stravik. Own the road. Brakes, steering, suspension and filters.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://stravikautomotiveparts.com/assets/og.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Stravik","alternateName":"Stravik Auto Parts","url":"https://stravikautomotiveparts.com/"}</script>
@@ -193,6 +193,10 @@ section.paper{background:var(--paper)}
 .exp-big::after{content:"";position:absolute;right:-40px;top:0;bottom:0;width:120px;background:linear-gradient(160deg,#c49450,#a3762f);clip-path:polygon(55% 0,100% 0,100% 100%,0 100%)}
 .exp-big .num{font-family:var(--display);font-weight:700;font-size:clamp(120px,14vw,180px);line-height:.82;color:#e3bd84;letter-spacing:-.02em;position:relative;z-index:1}
 .exp-big .unit{font-family:var(--display);font-weight:700;font-size:24px;text-transform:uppercase;letter-spacing:.06em;margin-top:14px;position:relative;z-index:1}
+.exp-big.brandpanel{background:#0b203d;justify-content:center;align-items:flex-start;gap:6px;padding:48px 44px}
+.exp-big.brandpanel img{position:relative;z-index:1;width:min(300px,64%);height:auto}
+.exp-big.brandpanel .unit{color:#d3a864;text-transform:none;letter-spacing:.01em;font-size:28px;margin-top:22px}
+.exp-txt .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
 .exp-txt h2{font-size:clamp(32px,3.8vw,48px)}
 .exp-txt p{color:var(--muted);margin-top:14px;font-size:18px;max-width:34em}
 .exp-txt .checks{margin-top:24px}
@@ -406,6 +410,7 @@ form.enq input:focus,form.enq select:focus,form.enq textarea:focus{border-color:
 .dd.open .dd-btn svg{transform:rotate(180deg)}
 .dd-menu{position:absolute;top:calc(100% + 8px);left:-10px;width:340px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 22px 44px -20px rgba(21,38,74,.4);padding:8px;display:none;z-index:50}
 .dd-menu::before{content:"";position:absolute;left:0;right:0;top:-10px;height:10px}
+.dd-co .dd-menu{width:320px}
 .dd.open .dd-menu{display:block}
 nav.main .dd-menu a{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:8px;font-weight:600;font-size:15.5px;line-height:1.25}
 nav.main .dd-menu a:hover{background:var(--gold-tint)}
@@ -622,13 +627,19 @@ footer .legal{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
     <button class="menu-btn" aria-expanded="false" aria-controls="mainnav">Menu</button>
     <nav class="main" id="mainnav" aria-label="Main">
       <a href="#/" data-nav="home">Home</a>
-      <a href="#/about" data-nav="about">About us</a>
       <div class="dd">
         <button type="button" class="dd-btn" aria-expanded="false" aria-controls="dd-products">Products <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="dd-menu" id="dd-products"></div>
       </div>
+      <div class="dd dd-co">
+        <button type="button" class="dd-btn" aria-expanded="false" aria-controls="dd-company">Company <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="dd-menu" id="dd-company">
+          <a href="#/about" data-nav="about"><span>About us<small>Our story, mission and brand values</small></span></a>
+          <a href="#/contact" data-nav="contact"><span>Contact us<small>Enquiries, prices and stockist applications</small></span></a>
+        </div>
+      </div>
       <a href="#/cart" class="cart-link" data-nav="cart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.6a1.6 1.6 0 0 0 1.6-1.2L21 8H6.3"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17.5" cy="20" r="1.3"/></svg>Cart <span data-cart-count data-empty="true">0</span></a>
-      <a href="#/contact" class="cta" data-nav="contact">Contact us</a>
+      <a href="#/contact" class="cta">Become a stockist</a>
     </nav>
   </div>
 </header>
@@ -774,7 +785,7 @@ const menuBtn=document.querySelector(".menu-btn"),nav=document.getElementById("m
 menuBtn.addEventListener("click",()=>{const o=nav.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
 
 // ---------- products dropdown ----------
-const dd=document.querySelector(".dd"),ddBtn=dd.querySelector(".dd-btn"),ddMenu=document.getElementById("dd-products");
+const ddMenu=document.getElementById("dd-products"),ddBtn=document.querySelector('[aria-controls="dd-products"]'),coBtn=document.querySelector('[aria-controls="dd-company"]');
 const ddItem=(h,ic,name,sub)=>`<a href="${h}"><span class="dd-ic">${icon(ic)}</span><span>${name}<small>${sub}</small></span></a>`;
 ddMenu.innerHTML=ddItem("#/products/braking-system","disc","Braking System","Pads, discs, shoes and hydraulics")+
   ddItem("#/products/steering-suspension","ball","Steering &amp; Suspension","Ball joints, tie rod ends, arms, links and mounts")+
@@ -783,15 +794,19 @@ ddMenu.innerHTML=ddItem("#/products/braking-system","disc","Braking System","Pad
   ddItem("#/products/filters","f_oil","Filters","Air, oil, fuel and cabin filters")+
   `<a class="dd-sub" href="#/filters"><span>Filter catalogue<small id="dd-fcount">Search by Stravik, OE or cross-reference number</small></span></a>`+
   `<a class="dd-all" href="#/products">All products</a>`;
-const ddSet=o=>{dd.classList.toggle("open",o);ddBtn.setAttribute("aria-expanded",o);};
+const DDS=[...document.querySelectorAll(".dd")];
+const ddOne=(d,o)=>{d.classList.toggle("open",o);d.querySelector(".dd-btn").setAttribute("aria-expanded",o);};
+const ddSet=o=>DDS.forEach(d=>ddOne(d,o));
 const wideHover=()=>matchMedia("(hover:hover) and (min-width:861px)").matches;
-let ddHoverAt=0;
-ddBtn.addEventListener("click",e=>{e.stopPropagation();const open=dd.classList.contains("open");ddSet(open&&Date.now()-ddHoverAt<700?true:!open);});
-dd.addEventListener("mouseenter",()=>{if(wideHover()){ddHoverAt=Date.now();ddSet(true);}});
-dd.addEventListener("mouseleave",()=>{if(wideHover())ddSet(false);});
-document.addEventListener("click",e=>{if(!dd.contains(e.target))ddSet(false);});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dd.classList.contains("open")){ddSet(false);ddBtn.focus();}});
-dd.addEventListener("focusout",e=>{if(!dd.contains(e.relatedTarget)&&wideHover())ddSet(false);});
+DDS.forEach(d=>{
+  const b=d.querySelector(".dd-btn");let hoverAt=0;
+  b.addEventListener("click",e=>{e.stopPropagation();const open=d.classList.contains("open");const next=open&&Date.now()-hoverAt<700?true:!open;DDS.forEach(x=>{if(x!==d)ddOne(x,false);});ddOne(d,next);});
+  d.addEventListener("mouseenter",()=>{if(wideHover()){hoverAt=Date.now();DDS.forEach(x=>{if(x!==d)ddOne(x,false);});ddOne(d,true);}});
+  d.addEventListener("mouseleave",()=>{if(wideHover())ddOne(d,false);});
+  d.addEventListener("focusout",e=>{if(!d.contains(e.relatedTarget)&&wideHover())ddOne(d,false);});
+});
+document.addEventListener("click",e=>{DDS.forEach(d=>{if(!d.contains(e.target))ddOne(d,false);});});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;const d=DDS.find(x=>x.classList.contains("open"));if(d){ddOne(d,false);d.querySelector(".dd-btn").focus();}});
 
 // ---------- cart (kept in this browser only) ----------
 const CART_KEY="stravik-rfp-cart-v1";let cartMem=[];
@@ -863,10 +878,9 @@ function home(){
   <section class="hero"><div class="art" aria-hidden="true"></div><div class="wrap">
     <div class="copy">
       <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
-      <p class="lede">Backed by 30 years in the auto parts trade: precision-engineered brakes, steering, suspension and filters, built to OE standards so every stop is sure and every turn is true.</p>
+      <p class="lede">Precision-engineered brakes, steering, suspension and filters, built to OE standards for workshops, distributors and retailers.</p>
       ${finderHTML("hero-find")}
-      <div class="actions"><a class="btn gold" href="#/products">Browse products</a><a class="btn line" href="#/contact">Become a stockist</a></div>
-      <ul class="proof"><li><b>OE standard</b><span>quality on every part</span></li></ul>
+      <div class="actions"><a class="btn gold" href="#/products">Browse products</a><a class="btn line" href="#/cart">Request a price</a></div>
     </div>
   </div></section>
 
@@ -903,10 +917,10 @@ function home(){
   </div></section>
 
   <section class="block"><div class="wrap exp-grid">
-    <div class="exp-big"><span class="num">30</span><span class="unit">years of experience</span></div>
-    <div class="exp-txt"><h2>Experience that drives us</h2>
-      <p>Stravik is built on 30 years in the auto parts trade: knowing the vehicles on the road, the parts workshops ask for, and the quality drivers depend on. That experience goes into every part that carries the Stravik name.</p>
-      <ul class="checks"><li>Premium quality materials</li><li>OE fitment guarantee</li><li>Enhanced safety and durability</li><li>OE quality standard on every box</li></ul></div>
+    <div class="exp-big brandpanel"><img src="assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
+    <div class="exp-txt"><h2>Why Stravik</h2>
+      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
+      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact">Become a stockist</a></div></div>
   </div></section>
 `;
   wireFinder(app.querySelector("[data-finder]"));
@@ -942,7 +956,7 @@ function about(){
       <li><span class="l" aria-hidden="true">A</span><b>Availability</b><span class="d">A wide range, ready to supply to customers in over 60 countries.</span></li>
       <li><span class="l" aria-hidden="true">V</span><b>Value</b><span class="d">Competitive pricing without cutting corners on quality.</span></li>
       <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Online catalogues that find the right part from an OE or cross-reference number.</span></li>
-      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">30 years of knowing the vehicles, and the parts each market needs.</span></li>
+      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Knowing the vehicles on each market's roads, and the parts they need.</span></li>
     </ol>
     <p class="promise"><span>The Right Parts.</span><span>The Right Value.</span><span>Every Time.</span></p>
   </div></section>
@@ -953,11 +967,6 @@ function about(){
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
         <p class="links"><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
     </div>
-  </div></section>
-  <section class="block"><div class="wrap exp-grid">
-    <div class="exp-big"><span class="num">30</span><span class="unit">years of experience</span></div>
-    <div class="exp-txt"><h2>Why Stravik</h2>
-      <ul class="checks"><li>30 years of expertise in the auto parts trade</li><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul></div>
   </div></section>
   <section class="block paper"><div class="wrap">
     <div class="head"><div><h2>Questions about a part?</h2><p>Send us the vehicle and the part you need.</p></div><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/products">See our products</a><a class="btn line" href="#/contact">Contact us</a></div></div>
@@ -1497,6 +1506,7 @@ function route(){
   else notFound();
   document.querySelectorAll("nav.main a").forEach(a=>{if(a.dataset.nav===key)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   const inProducts=key==="products"||key==="filters"||key==="steering";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
+  if(key==="about"||key==="contact")coBtn.setAttribute("aria-current","page");else coBtn.removeAttribute("aria-current");
   ddSet(false);cartPaint();
   nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");
   if(!(parts[0]==="products"&&parts[2]))window.scrollTo(0,0);
