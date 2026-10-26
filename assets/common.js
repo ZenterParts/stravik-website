@@ -19,12 +19,13 @@ const MENU=[
   {name:"Braking",icon:"disc",href:"/#/products/braking-system",kids:catNode(CATALOG.find(c=>c.id==="braking-system"))},
   {name:"Steering & suspension",icon:"ball",href:"/#/products/steering-suspension",kids:["Suspension","Steering","Mountings"].map(g=>({name:g,href:"/#/steering",kids:SS_TYPES.filter(t=>t[3]===g).map(t=>({name:t[2],href:"/#/steering/"+slug(t[2])}))})).concat([{name:"Search the catalogue",href:"/#/steering"}])},
   {name:"Shock absorbers",icon:"shock",href:"/#/products/shock-absorbers",kids:catNode(CATALOG.find(c=>c.id==="shock-absorbers"))},
-  {name:"Filtration",icon:"f_oil",href:"/#/products/filters",kids:[["air-filters","Air filters"],["oil-filters","Oil filters"],["fuel-filters","Fuel filters"],["cabin-filters","Cabin filters"],["filter-kits","Filter kits"],["coolant-filters","Coolant filters"],["filter-housings","Filter housings"]].map(f=>({name:f[1],href:"/#/filters/"+f[0]})).concat([{name:"Search the catalogue",href:"/#/filters"}])}];
+  {name:"Filtration",icon:"f_oil",href:"/#/products/filters",kids:[["air-filters","Air filters"],["oil-filters","Oil filters"],["fuel-filters","Fuel filters"],["cabin-filters","Cabin filters"],["filter-kits","Filter kits"],["coolant-filters","Coolant filters"],["filter-housings","Filter housings"]].map(f=>({name:f[1],href:"/#/filters/"+f[0]})).concat([{name:"Search the catalogue",href:"/#/filters"}])},
+  {name:"Batteries (coming soon)",icon:"battery",href:"/#/contact",kids:[]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const megaCol=(items,lvl)=>`<ul class="mcol" data-lvl="${lvl}">${items.map((it,k)=>`<li${it.kids&&it.kids.length?' class="has"':""} data-k="${k}"><a href="${it.href}">${esc(it.name)}</a>${it.kids&&it.kids.length?`<span class="chev">${CHEV}</span>`:""}</li>`).join("")}</ul>`;
 ddMenu.classList.add("mega");
 ddMenu.innerHTML=`<div class="mega-cols">${megaCol(MENU,0)}<div class="mcol2"></div><div class="mcol3"></div></div>
-  <div class="mega-m">${MENU.map(f=>`<details><summary><a href="${f.href}">${esc(f.name)}</a></summary><ul>${f.kids.flatMap(g=>g.href==="/#/steering"&&g.kids?g.kids:[g]).map(g=>`<li><a href="${g.href}">${esc(g.name)}</a></li>`).join("")}</ul></details>`).join("")}<a class="mega-all" href="/#/products">All products</a></div>
+  <div class="mega-m">${MENU.map(f=>!f.kids.length?`<a class="mega-solo" href="${f.href}">${esc(f.name)}</a>`:`<details><summary><a href="${f.href}">${esc(f.name)}</a></summary><ul>${f.kids.flatMap(g=>g.href==="/#/steering"&&g.kids?g.kids:[g]).map(g=>`<li><a href="${g.href}">${esc(g.name)}</a></li>`).join("")}</ul></details>`).join("")}<a class="mega-all" href="/#/products">All products</a></div>
   <a class="mega-foot" href="/#/products">All products</a>`;
 (function(){
   const c1=ddMenu.querySelector('[data-lvl="0"]'),c2=ddMenu.querySelector(".mcol2"),c3=ddMenu.querySelector(".mcol3");let f=null;

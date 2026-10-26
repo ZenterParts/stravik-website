@@ -845,3 +845,6 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .fam-soon{position:absolute;top:14px;left:14px;background:#0b203d;color:#d3a864;font-family:var(--display);font-weight:600;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;border-radius:999px}
 @media (max-width:1000px){.fams5{grid-template-columns:1fr 1fr}.fams5 .fam:nth-child(n){grid-column:auto}}
 @media (max-width:560px){.fams5{grid-template-columns:1fr}}
+.pslider .c-ss{background:#0b203d}
+@media (max-width:860px){nav.main .mega-m a.mega-solo{display:block;font-weight:600;border-bottom:1px solid var(--line)}}
+@media (min-width:1001px){.pcats .pcat:last-child:nth-child(odd){grid-column:1/-1;grid-template-columns:19% 1fr}}
