@@ -23,6 +23,12 @@ const uniq = a => [...new Set(a.filter(Boolean))];
 const list = (a, n) => a.slice(0, n).join(", ") + (a.length > n ? ` and ${a.length - n} more` : "");
 
 // ---- page shell from index.html
+// ---- cache-busting: stamp each shared asset with a short content hash so browsers fetch the new file after every change
+const crypto = require("crypto");
+const ASSETS = ["site.css", "catalog.js", "common.js", "app.js"];
+const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
+{ const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|catalog\.js|common\.js|app\.js)(\?v=[0-9a-f]+)?/g, (m, f) => V[f]);
+  if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
 const index = rd("index.html");
 const cut = (a, b) => { const i = index.indexOf(a), j = index.indexOf(b, i); if (i < 0 || j < 0) throw new Error("index.html: missing " + a); return index.slice(i, j + b.length); };
 const SHELL = {
@@ -54,7 +60,7 @@ ${SHELL.icons}
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, "\\u003c")}</script>
 ${SHELL.fonts}
-<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="${V["site.css"]}">
 </head>
 <body>
 ${SHELL.strip}
@@ -65,8 +71,8 @@ ${body}
 ${SHELL.fcart}
 ${SHELL.toast}
 ${SHELL.footer}
-<script src="/assets/catalog.js"></script>
-<script src="/assets/common.js"></script>
+<script src="${V["catalog.js"]}"></script>
+<script src="${V["common.js"]}"></script>
 </body>
 </html>
 `;

@@ -60,7 +60,7 @@ jobs:
       - name: Rebuild part pages and sitemap
         run: |
           node tools/build-pages.js
-          git add -A part filter sitemap.xml robots.txt "$FILE"
+          git add -A part filter sitemap.xml robots.txt index.html "$FILE"
           if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_ENV"; else echo "pages=yes" >> "$GITHUB_ENV"; fi
 
       - name: Commit and publish
@@ -70,7 +70,7 @@ jobs:
         run: |
           git config user.name "Stravik catalogue publisher"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A part filter sitemap.xml robots.txt "$FILE"
+          git add -A part filter sitemap.xml robots.txt index.html "$FILE"
           git commit -q -m "Publish catalogue and part pages (${{ steps.read.outputs.parts || 'pages only' }})"
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
           gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages build will start from the push"
