@@ -195,7 +195,7 @@ function home(){
     <div class="intro-txt">
       <div class="eyebrow-d">The Stravik range</div>
       <h2>One trusted source for automotive parts</h2>
-      <p>Stravik parts are OE equivalent, made in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
+      <p>Stravik parts are OE equivalent, made in IATF and ISO certified factories. The range offers extensive vehicle coverage, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
       <ul class="checks"><li>OE equivalent, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
     </div>
     <figure class="intro-pic"><img src="/assets/home-road.webp" width="1400" height="788" loading="lazy" alt="A dark saloon car driving along a coastal road at sunset over the words Own the road painted on the asphalt"></figure>
@@ -283,7 +283,7 @@ function newPage(){
 }
 
 // ---------- Where to buy ----------
-const MARKETS=[["Middle East","Supplied across the region from Dubai."],["Africa","Supplied to customers across Africa."],["Over 60 countries","Stravik is available for supply in over 60 countries. Ask us about yours."]];
+const MARKETS=[["Over 60 countries","Stravik is available for supply in over 60 countries. Ask us about yours."],["Workshops and parts stores","Buy Stravik through a local stockist. Tell us where you are and we'll put you in touch."],["Distributors","Stock Stravik in your market. Tell us about your business and the markets you cover."]];
 function wherePage(params){
   const dist=params.get("t")==="distributor";
   const F=[["wt","I want to","select",{options:["Find a Stravik stockist","Become a Stravik distributor"],value:dist?"Become a Stravik distributor":"Find a Stravik stockist",full:true}],
@@ -297,7 +297,7 @@ function wherePage(params){
     <h1>Where to buy</h1><p>Stravik is sold through the trade: distributors, parts stores and workshops. Tell us where you are and we'll put you in touch with a stockist, or apply to distribute Stravik in your market.</p></div></div>
   <section class="block"><div class="wrap"><div class="markets">${MARKETS.map(m=>`<div><h3>${m[0]}</h3><p>${m[1]}</p></div>`).join("")}</div></div></section>
   <section class="block paper" id="wform"><div class="wrap"><div class="head"><div><h2>${dist?"Become a Stravik distributor":"Find a stockist or become a distributor"}</h2><p>We reply by email with the stockist nearest you, or with the next steps for distributors.</p></div></div>
-    <div class="contact">${tradeForm(F,"Send")}<aside class="details"><h3>Distributors</h3><ul class="checks"><li>One supplier for brakes, steering, suspension, shock absorbers and filters</li><li>Online catalogues your counter staff can search by OE number</li><li>Range covering Japanese, European, Korean and American vehicles</li></ul></aside></div></div></section>`;
+    <div class="contact">${tradeForm(F,"Send")}<aside class="details"><h3>Distributors</h3><ul class="checks"><li>One supplier for brakes, steering, suspension, shock absorbers and filters</li><li>Online catalogues your counter staff can search by OE number</li><li>Extensive vehicle coverage</li></ul></aside></div></div></section>`;
   wireTradeForm(app.querySelector("form"),F,d=>`${d["I want to"]}: ${d["Business name"]||d["Your name"]}, ${d["Country"]}`,`<b>Message sent.</b> Thanks. We'll reply to the email address you gave us.`);
   if(dist)setTimeout(()=>{const el=document.getElementById("wform");if(el)el.scrollIntoView();},50);
 }
@@ -306,19 +306,25 @@ const BRAND_VALUES=`<section class="bv" aria-labelledby="bvh"><div class="wrap">
     <h2 id="bvh">Our brand values</h2>
     <p class="lede">Seven values, one name. Every letter of Stravik stands for something we hold ourselves to.</p>
     <ol class="acro">
-      <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Quick, knowledgeable answers on fitment, pricing and supply.</span></li>
-      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">OE equivalent parts, so they fit and perform as they should.</span></li>
+      <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Responsive, expert support from first enquiry to delivery.</span></li>
+      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">Honest advice and parts that do what we say they will.</span></li>
       <li><span class="l" aria-hidden="true">R</span><b>Reliability</b><span class="d">Consistent quality from one order to the next.</span></li>
       <li><span class="l" aria-hidden="true">A</span><b>Availability</b><span class="d">A wide range, ready to supply to customers in over 60 countries.</span></li>
       <li><span class="l" aria-hidden="true">V</span><b>Value</b><span class="d">Competitive pricing without cutting corners on quality.</span></li>
-      <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Online catalogues that find the right part from an OE or cross-reference number.</span></li>
-      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Knowing the vehicles on each market's roads, and the parts they need.</span></li>
+      <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Always improving our range, our tools and the way we serve you.</span></li>
+      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Deep product expertise that matches the right part to every vehicle.</span></li>
     </ol>
     <p class="promise"><span>The Right Parts.</span><span>The Right Value.</span><span>Every Time.</span></p>
   </div></section>`;
 function about(){
   app.innerHTML=`
-  <div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><span>About us</span></div><h1>About Stravik</h1><p>Thirty years in the auto parts trade.</p></div></div>
+  <div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><span>About us</span></div><h1>About Stravik</h1></div></div>
+  <section class="block"><div class="wrap exp-grid">
+    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
+    <div class="exp-txt"><h2>Why Stravik</h2>
+      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Extensive vehicle coverage</li><li>Available for supply in over 60 countries</li></ul>
+      <div class="actions"><a class="btn ink" href="#/products">Browse products</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
+  </div></section>
   <section class="block"><div class="wrap about-lead">
     <div class="txt">
       <p class="first">Stravik is built on three decades of expertise supplying quality automotive parts to customers in over 60 countries.</p>
@@ -334,17 +340,11 @@ function about(){
   ${BRAND_VALUES}
   <section class="block paper"><div class="wrap">
     <div class="values three">
-      <div><h3>What we offer</h3><p>Our range covers Japanese, European, Korean and American vehicles, giving workshops, distributors and retailers one reliable source for the parts they need.</p></div>
-      <div><h3>Serving markets worldwide</h3><p>We supply customers across a wide range of markets, including the Middle East and Africa. Whatever the region, we understand the vehicles on its roads and the parts its customers need, so you get a range that fits your market.</p></div>
+      <div><h3>What we offer</h3><p>Our range offers extensive vehicle coverage, giving workshops, distributors and retailers one reliable source for the parts they need.</p></div>
+      <div><h3>Serving markets worldwide</h3><p>We supply customers across a wide range of markets in over 60 countries. Whatever the region, we understand the vehicles on its roads and the parts its customers need, so you get a range that fits your market.</p></div>
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
         <p class="links"><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
     </div>
-  </div></section>
-  <section class="block"><div class="wrap exp-grid">
-    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
-    <div class="exp-txt"><h2>Why Stravik</h2>
-      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
-      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
   </div></section>
   <section class="block paper"><div class="wrap">
     <div class="head"><div><h2>Questions about a part?</h2><p>Send us the vehicle and the part you need.</p></div><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/products">See our products</a><a class="btn line" href="#/contact">Contact us</a></div></div>
@@ -784,7 +784,7 @@ function sscard(d,i,q,mkIx){
 function ssOverview(){
   app.innerHTML=`<div class="pagehead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Steering &amp; Suspension</span></div>
-    <h1>Steering &amp; Suspension</h1><p>Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts for Japanese, Korean, American and European vehicles, each with its CTR and OE cross-references.</p>
+    <h1>Steering &amp; Suspension</h1><p>Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts with extensive vehicle coverage, each with its CTR and OE cross-references.</p>
     <div class="tabs" role="list">${prodTabs("steering-suspension")}</div></div></div>
   <section class="fband"><div class="wrap">
     <div><div class="kicker">Catalogue</div><h2>Steering &amp; suspension catalogue</h2><p id="sov-lede">Every part with its Stravik number, CTR number, OE numbers and the vehicles it fits.</p>
