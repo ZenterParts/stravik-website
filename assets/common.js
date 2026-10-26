@@ -12,10 +12,8 @@ const ddMenu=document.getElementById("dd-products"),ddBtn=document.querySelector
 const ddItem=(h,ic,name,sub)=>`<a href="${h}"><span class="dd-ic">${icon(ic)}</span><span>${name}<small>${sub}</small></span></a>`;
 ddMenu.innerHTML=ddItem("/#/products/braking-system","disc","Braking","Pads, discs, shoes and hydraulics")+
   ddItem("/#/products/steering-suspension","ball","Steering &amp; suspension","Ball joints, tie rod ends, arms, links and mounts")+
-  `<a class="dd-sub" href="/#/steering"><span>Steering &amp; suspension catalogue<small>Search by Stravik, CTR or OE number</small></span></a>`+
   ddItem("/#/products/shock-absorbers","shock","Shock absorbers","Dampers for ride and handling")+
   ddItem("/#/products/filters","f_oil","Filtration","Air, oil, fuel and cabin filters")+
-  `<a class="dd-sub" href="/#/filters"><span>Filter catalogue<small>Search by Stravik, OE or cross-reference number</small></span></a>`+
   `<a class="dd-all" href="/#/products">All products</a>`;
 const DDS=[...document.querySelectorAll(".dd")];
 const ddOne=(d,o)=>{d.classList.toggle("open",o);d.querySelector(".dd-btn").setAttribute("aria-expanded",o);};
