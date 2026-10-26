@@ -2,6 +2,8 @@
 # Source: tables stravik_ss_* through the public function stravik_ss_catalogue() (no prices, no internal fields).
 # - every hour: publishes only if the catalogue in the database changed
 # - by hand: Actions > Publish steering and suspension catalogue > Run workflow
+# - after either, and whenever the site template or filter data changes on main, it rebuilds the
+#   per-part pages (/part/..., /filter/...), sitemap.xml and robots.txt with tools/build-pages.js
 name: Publish steering and suspension catalogue
 
 on:
@@ -10,7 +12,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/publish-steering-suspension.yml']
+    paths: ['.github/workflows/publish-steering-suspension.yml', 'index.html', 'assets/**', 'tools/**', 'filters.json', 'steering-suspension.json']
 
 permissions:
   contents: write
@@ -51,14 +53,24 @@ jobs:
             jq -c . "$RUNNER_TEMP/new.json" > "$FILE"; echo "changed=yes" >> "$GITHUB_OUTPUT"; echo "parts=$N" >> "$GITHUB_OUTPUT"
           fi
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rebuild part pages and sitemap
+        run: |
+          node tools/build-pages.js
+          git add -A part filter sitemap.xml robots.txt "$FILE"
+          if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_ENV"; else echo "pages=yes" >> "$GITHUB_ENV"; fi
+
       - name: Commit and publish
-        if: steps.read.outputs.changed == 'yes'
+        if: steps.read.outputs.changed == 'yes' || env.pages == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "Stravik catalogue publisher"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$FILE"
-          git commit -q -m "Publish steering and suspension catalogue from database (${{ steps.read.outputs.parts }} parts)"
+          git add -A part filter sitemap.xml robots.txt "$FILE"
+          git commit -q -m "Publish catalogue and part pages (${{ steps.read.outputs.parts || 'pages only' }})"
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
           gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages build will start from the push"
