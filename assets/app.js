@@ -298,15 +298,15 @@ function wherePage(params){
 
 const BRAND_VALUES=`<section class="bv" aria-labelledby="bvh"><div class="wrap">
     <h2 id="bvh">Our brand values</h2>
-    <p class="lede">Seven values, one name. Every letter of Stravik stands for something we hold ourselves to.</p>
+    <p class="lede">Seven values, one name. Every letter of STRAVIK represents the standards we stand by.</p>
     <ol class="acro">
-      <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Responsive, expert support from first enquiry to delivery.</span></li>
-      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">Honest advice and parts that do what we say they will.</span></li>
+      <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Responsive support, dependable supply, and partnerships that go further.</span></li>
+      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">Honest commitments, consistent standards, and confidence in every part.</span></li>
       <li><span class="l" aria-hidden="true">R</span><b>Reliability</b><span class="d">Consistent quality from one order to the next.</span></li>
       <li><span class="l" aria-hidden="true">A</span><b>Availability</b><span class="d">A wide range, ready to supply to customers in over 60 countries.</span></li>
       <li><span class="l" aria-hidden="true">V</span><b>Value</b><span class="d">Competitive pricing without cutting corners on quality.</span></li>
-      <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Always improving our range, our tools and the way we serve you.</span></li>
-      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Deep product expertise that matches the right part to every vehicle.</span></li>
+      <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Evolving products and smarter solutions for tomorrow's automotive needs.</span></li>
+      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Automotive expertise that delivers accurate fitment and the right solution.</span></li>
     </ol>
     <p class="promise"><span>The Right Parts.</span><span>The Right Value.</span><span>Every Time.</span></p>
   </div></section>`;
