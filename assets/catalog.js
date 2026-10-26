@@ -42,7 +42,7 @@ const CATALOG = [
      ["Brake Bleed Nipples","nipple","Bleed screws for calipers and wheel cylinders, in the common thread sizes.","Rounded, seized, or snapped during bleeding",1]
    ]}
  ]},
- { id:"shock-absorbers", name:"Shock Absorbers", img:SS_IMG,
+ { id:"shock-absorbers", name:"Shock Absorbers", img:"",
    intro:"Dampers that keep the tyres on the road by controlling how quickly the springs compress and rebound.",
    types:[
    { name:"Shock Absorbers", points:[], subs:[
