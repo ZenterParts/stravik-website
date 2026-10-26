@@ -57,6 +57,7 @@ const PADS = [
 ];
 
 const ICONS = {
+  battery:'<rect x="8" y="18" width="48" height="34" rx="3"/><path d="M16 18v-6h8v6M40 18v-6h8v6M17 35h8M44 31v8M40 35h8"/>',
  pad:'<path d="M8 40c2-15 12-22 24-22s22 7 24 22l-5 5c-6-5-12-7-19-7s-13 2-19 7z"/><path d="M14 34c4-6 10-9 18-9s14 3 18 9"/><circle cx="12" cy="42" r="1.6"/><circle cx="52" cy="42" r="1.6"/>',
  disc:'<circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="10"/><circle cx="32" cy="32" r="3"/><path d="M32 16.5v.1M45.5 26v.1M40 45v.1M24 45v.1M18.5 26v.1" stroke-width="4" stroke-linecap="round"/>',
  caliper:'<path d="M14 36a20 20 0 0 1 36 0" stroke-dasharray="3 4"/><path d="M18 14h28a6 6 0 0 1 6 6v10H40v-6H24v6H12V20a6 6 0 0 1 6-6z"/><circle cx="20" cy="22" r="2"/><circle cx="44" cy="22" r="2"/><path d="M12 30v20M52 30v20"/>',
