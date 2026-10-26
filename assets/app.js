@@ -206,31 +206,7 @@ function home(){
   <section class="block"><div class="wrap">
     <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a></div>
     <div class="fams">${FAMILIES.map(f=>`<article class="fam"><a class="fam-top" href="${f.href}"><span class="ic">${icon(f.icon)}</span><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p><small id="fc-${f.id}"></small></a><a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`).join("")}</div>
-  </div></section>
-
-  <section class="block paper"><div class="wrap">
-    <div class="head"><div><div class="eyebrow-d">New to range</div><h2>Latest additions</h2></div><a class="btn line" href="#/new">See what's new</a></div>
-    <div class="news">${NEWS.slice(0,3).map(newsCard).join("")}</div>
-  </div></section>
-
-  <section class="tradeband"><div class="wrap">
-    <div class="tb-head"><div class="eyebrow">For the trade</div><h2>Workshops, parts stores and distributors</h2><p>Stravik sells through the trade. Ask for prices, find a stockist, or apply to distribute Stravik in your market.</p></div>
-    <div class="tb-links">
-      <a href="#/where-to-buy"><b>Where to buy</b><span>Find a Stravik stockist near you</span></a>
-      <a href="#/where-to-buy?t=distributor"><b>Become a distributor</b><span>Stock Stravik in your market</span></a>
-      <a href="#/request"><b>Can't find your part?</b><span>Tell us what you need</span></a>
-      <a href="#/cart"><b>Request a price</b><span>Add parts to your cart and send one enquiry</span></a>
-    </div>
-  </div></section>
-
-  <section class="block"><div class="wrap exp-grid">
-    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
-    <div class="exp-txt"><h2>Why Stravik</h2>
-      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
-      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
-  </div></section>
-
-  ${BRAND_VALUES}`;
+  </div></section>`;
   initSlider(app.querySelector("[data-slider]"),6500);
   const hv=app.querySelector(".hvideo");
   if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
@@ -366,6 +342,12 @@ function about(){
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
         <p class="links"><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
     </div>
+  </div></section>
+  <section class="block"><div class="wrap exp-grid">
+    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
+    <div class="exp-txt"><h2>Why Stravik</h2>
+      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
+      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
   </div></section>
   <section class="block paper"><div class="wrap">
     <div class="head"><div><h2>Questions about a part?</h2><p>Send us the vehicle and the part you need.</p></div><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/products">See our products</a><a class="btn line" href="#/contact">Contact us</a></div></div>
