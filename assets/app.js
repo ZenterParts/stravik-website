@@ -192,7 +192,7 @@ function home(){
       <div class="slide s-range" role="group" aria-roledescription="slide" aria-label="2 of 2">
         <div class="wrap"><div class="copy">
           <div class="eyebrow">The Stravik range</div>
-          <h2>One trusted source for brakes, steering, suspension and filters</h2>
+          <h2>One trusted source for automotive parts</h2>
           <p class="lede">Stravik parts are made to an OE standard in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
           <ul class="checks hchecks"><li>Made to OE standard, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
         </div>
