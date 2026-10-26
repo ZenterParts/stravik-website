@@ -34,7 +34,6 @@ const cut = (a, b) => { const i = index.indexOf(a), j = index.indexOf(b, i); if 
 const SHELL = {
   icons: index.split("\n").filter(l => /rel="(icon|apple-touch-icon)"/.test(l)).join("\n"),
   fonts: cut('<link rel="preconnect" href="https://fonts.googleapis.com">', 'display=swap" rel="stylesheet">'),
-  strip: cut('<div class="strip">', "</div></div>"),
   header: cut('<header class="site">', "</header>").replace('class="dd-btn" aria-expanded="false"', 'class="dd-btn" aria-current="page" aria-expanded="false"'),
   fcart: cut('<a href="/#/cart" class="fcart"', "</a>"),
   toast: cut('<div class="toast"', "</div>"),
@@ -63,7 +62,6 @@ ${SHELL.fonts}
 <link rel="stylesheet" href="${V["site.css"]}">
 </head>
 <body>
-${SHELL.strip}
 ${SHELL.header}
 <main id="app" tabindex="-1">
 ${body}

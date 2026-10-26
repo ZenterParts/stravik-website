@@ -178,7 +178,7 @@ const FAMILIES=[
   {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"Dampers that keep the tyres on the road by controlling spring movement.",cat:"#/products/shock-absorbers",catText:"View the range"},
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
   {id:"bat",name:"Batteries",icon:"battery",soon:true,text:"Stravik batteries are being added to the range. Ask us to be told when they're available.",cat:"#/contact",catText:"Ask about batteries"}];
-const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p><small id="fc-${f.id}"></small></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
+const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
 function home(){
   app.innerHTML=`
   <section class="hero hvid">
@@ -208,12 +208,6 @@ function home(){
   const hv=app.querySelector(".hvideo");
   if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
     if(!still&&!save){hv.play().catch(()=>{});}}
-  const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
-  const set=(id,t)=>{const e=app.querySelector("#fc-"+id);if(e)e.textContent=t;};
-  set("braking",lines(CATALOG.find(c=>c.id==="braking-system"))+" part lines");
-  set("shock",lines(CATALOG.find(c=>c.id==="shock-absorbers"))+" part line");
-  loadSS().then(d=>set("ss",d.items.length.toLocaleString("en-US")+" parts in the catalogue")).catch(()=>{});
-  loadFilters().then(d=>set("fl",d.items.length+" filters in the catalogue")).catch(()=>{});
 }
 
 // ---------- Find a part ----------
@@ -322,8 +316,8 @@ function about(){
   <section class="block"><div class="wrap exp-grid">
     <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
     <div class="exp-txt"><h2>Why Stravik</h2>
-      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Extensive vehicle coverage</li><li>Available for supply in over 60 countries</li></ul>
-      <div class="actions"><a class="btn ink" href="#/products">Browse products</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
+      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing</li><li>Extensive vehicle coverage</li><li>Available for supply in over 60 countries</li></ul>
+      <div class="actions"><a class="btn ink" href="#/products">Browse products</a><a class="btn line" href="#/contact">Contact us</a></div></div>
   </div></section>
   <section class="block"><div class="wrap about-lead">
     <div class="txt">
@@ -461,7 +455,7 @@ function product(id,params){
   app.innerHTML=`
   <div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><a href="#/products/${p.cat.id}">${esc(p.cat.name)}</a><span>/</span><a href="#/products/${p.cat.id}/${p.type.id}">${esc(p.type.name)}</a></div><h1>${esc(p.name)}</h1></div></div>
   <div class="wrap detail">
-    <div class="visual" id="vis">${pads?`<img class="box" id="padimg" src="${start.img}" alt="">`:`<div class="big">${icon(p.icon)}</div><img class="corner" src="${p.cat.img}" alt="">`}</div>
+    <div class="visual" id="vis">${pads?`<img class="box" id="padimg" src="${start.img}" alt="">`:`<div class="big">${icon(p.icon)}</div>${p.cat.img?`<img class="corner" src="${p.cat.img}" alt="">`:""}`}</div>
     <div class="info">
       <div class="type">${esc(p.cat.name)}, ${esc(p.type.name)}</div>
       <p class="desc">${esc(p.desc)}</p>
