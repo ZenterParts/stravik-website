@@ -179,37 +179,37 @@ const FAMILIES=[
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"}];
 function home(){
   app.innerHTML=`
-  <section class="hero hfind"><div class="wrap">
-    <div class="copy">
-      <div class="eyebrow">Find a part</div>
-      <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
-      <p class="lede">Search the Stravik range by Stravik, OE or competitor number, or by vehicle.</p>
-      ${searchPanel("h",null)}
-    </div>
-    <div class="slider hvis" data-slider aria-roledescription="carousel" aria-label="The Stravik range">
-      <div class="slides">
-        <div class="slide v-car" role="group" aria-roledescription="slide" aria-label="1 of 2"><div class="art" role="img" aria-label="Blueprint of a car showing its steering, suspension and brakes"></div></div>
-        <div class="slide v-range" role="group" aria-roledescription="slide" aria-label="2 of 2"><figure><img src="/assets/range-parts.webp" width="1400" height="725" loading="lazy" alt="Brake disc, brake pads, control arm, tie rod ends, stabiliser link, bushes, strut mount, shock absorber, oil filter and air filter"><figcaption>Brakes, steering, suspension and filters</figcaption></figure></div>
+  <section class="hero slider" data-slider aria-roledescription="carousel" aria-label="Stravik">
+    <div class="slides">
+      <div class="slide s-car" role="group" aria-roledescription="slide" aria-label="1 of 2">
+        <div class="art" aria-hidden="true"></div>
+        <div class="wrap"><div class="copy">
+          <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
+          <p class="lede">Precision-engineered brakes, steering, suspension and filters, built to OE standards for workshops, distributors and retailers.</p>
+          <div class="actions"><a class="btn gold" href="#/products">Browse products</a><a class="btn line" href="#/contact">Contact us</a></div>
+        </div></div>
       </div>
-      ${sliderCtl()}
+      <div class="slide s-range" role="group" aria-roledescription="slide" aria-label="2 of 2">
+        <div class="wrap"><div class="copy">
+          <div class="eyebrow">The Stravik range</div>
+          <h2>Brakes, steering, suspension and filters</h2>
+          <p class="lede">Brake pads and discs, ball joints, tie rod ends, control arms, stabiliser links, bushes, mounts, shock absorbers and filters, all built to OE standards.</p>
+          <div class="rb-links"><a href="#/products/braking-system">Braking</a><a href="#/products/steering-suspension">Steering &amp; suspension</a><a href="#/products/shock-absorbers">Shock absorbers</a><a href="#/products/filters">Filtration</a></div>
+        </div>
+        <figure class="pic"><img src="/assets/range-parts.webp" width="1400" height="725" alt="Brake disc, brake pads, control arm, tie rod ends, stabiliser link, bushes, strut mount, shock absorber, oil filter and air filter"></figure></div>
+      </div>
     </div>
-  </div></section>
+    ${sliderCtl()}
+  </section>
 
   <section class="block"><div class="wrap">
-    <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or search a catalogue by part number.</p></div><a class="btn line" href="#/products">All products</a></div>
+    <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a></div>
     <div class="fams">${FAMILIES.map(f=>`<article class="fam"><a class="fam-top" href="${f.href}"><span class="ic">${icon(f.icon)}</span><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p><small id="fc-${f.id}"></small></a><a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`).join("")}</div>
   </div></section>
 
   <section class="block paper"><div class="wrap">
     <div class="head"><div><div class="eyebrow-d">New to range</div><h2>Latest additions</h2></div><a class="btn line" href="#/new">See what's new</a></div>
     <div class="news">${NEWS.slice(0,3).map(newsCard).join("")}</div>
-  </div></section>
-
-  <section class="block"><div class="wrap exp-grid">
-    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
-    <div class="exp-txt"><h2>Why Stravik</h2>
-      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
-      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
   </div></section>
 
   <section class="tradeband"><div class="wrap">
@@ -220,8 +220,16 @@ function home(){
       <a href="#/request"><b>Can't find your part?</b><span>Tell us what you need</span></a>
       <a href="#/cart"><b>Request a price</b><span>Add parts to your cart and send one enquiry</span></a>
     </div>
-  </div></section>`;
-  wireSearchPanel(app.querySelector("[data-spanel]"),null);
+  </div></section>
+
+  <section class="block"><div class="wrap exp-grid">
+    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
+    <div class="exp-txt"><h2>Why Stravik</h2>
+      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
+      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
+  </div></section>
+
+  ${BRAND_VALUES}`;
   initSlider(app.querySelector("[data-slider]"),6500);
   const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
   const set=(id,t)=>{const e=app.querySelector("#fc-"+id);if(e)e.textContent=t;};
@@ -317,6 +325,20 @@ function wherePage(params){
   if(dist)setTimeout(()=>{const el=document.getElementById("wform");if(el)el.scrollIntoView();},50);
 }
 
+const BRAND_VALUES=`<section class="bv" aria-labelledby="bvh"><div class="wrap">
+    <h2 id="bvh">Our brand values</h2>
+    <p class="lede">Seven values, one name. Every letter of Stravik stands for something we hold ourselves to.</p>
+    <ol class="acro">
+      <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Quick, knowledgeable answers on fitment, pricing and supply.</span></li>
+      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">Parts made to an OE standard, so they fit and perform as they should.</span></li>
+      <li><span class="l" aria-hidden="true">R</span><b>Reliability</b><span class="d">Consistent quality from one order to the next.</span></li>
+      <li><span class="l" aria-hidden="true">A</span><b>Availability</b><span class="d">A wide range, ready to supply to customers in over 60 countries.</span></li>
+      <li><span class="l" aria-hidden="true">V</span><b>Value</b><span class="d">Competitive pricing without cutting corners on quality.</span></li>
+      <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Online catalogues that find the right part from an OE or cross-reference number.</span></li>
+      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Knowing the vehicles on each market's roads, and the parts they need.</span></li>
+    </ol>
+    <p class="promise"><span>The Right Parts.</span><span>The Right Value.</span><span>Every Time.</span></p>
+  </div></section>`;
 function about(){
   app.innerHTML=`
   <div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><span>About us</span></div><h1>About Stravik</h1><p>Thirty years in the auto parts trade.</p></div></div>
@@ -332,20 +354,7 @@ function about(){
     <div><h2>Our mission</h2><p>To deliver reliable, high-quality automotive aftermarket solutions that keep vehicles moving and businesses growing. At STRAVIK, we are committed to providing dependable products, competitive value, accurate vehicle compatibility, and responsive customer service. Through continuous improvement and a customer-first approach, we strive to build lasting partnerships with distributors, retailers, workshops, and automotive professionals worldwide.</p></div>
     <div><h2>Our vision</h2><p>To become a trusted and recognized name in the global automotive aftermarket, known for quality, reliability, innovation, and exceptional value. STRAVIK aspires to set higher standards in automotive replacement parts by continuously expanding its product range, strengthening global partnerships, and delivering solutions that meet the evolving needs of the automotive industry worldwide.</p></div>
   </div></section>
-  <section class="bv" aria-labelledby="bvh"><div class="wrap">
-    <h2 id="bvh">Our brand values</h2>
-    <p class="lede">Seven values, one name. Every letter of Stravik stands for something we hold ourselves to.</p>
-    <ol class="acro">
-      <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Quick, knowledgeable answers on fitment, pricing and supply.</span></li>
-      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">Parts made to an OE standard, so they fit and perform as they should.</span></li>
-      <li><span class="l" aria-hidden="true">R</span><b>Reliability</b><span class="d">Consistent quality from one order to the next.</span></li>
-      <li><span class="l" aria-hidden="true">A</span><b>Availability</b><span class="d">A wide range, ready to supply to customers in over 60 countries.</span></li>
-      <li><span class="l" aria-hidden="true">V</span><b>Value</b><span class="d">Competitive pricing without cutting corners on quality.</span></li>
-      <li><span class="l" aria-hidden="true">I</span><b>Innovation</b><span class="d">Online catalogues that find the right part from an OE or cross-reference number.</span></li>
-      <li><span class="l" aria-hidden="true">K</span><b>Knowledge</b><span class="d">Knowing the vehicles on each market's roads, and the parts they need.</span></li>
-    </ol>
-    <p class="promise"><span>The Right Parts.</span><span>The Right Value.</span><span>Every Time.</span></p>
-  </div></section>
+  ${BRAND_VALUES}
   <section class="block paper"><div class="wrap">
     <div class="values three">
       <div><h3>What we offer</h3><p>Our range covers Japanese, European, Korean and American vehicles, giving workshops, distributors and retailers one reliable source for the parts they need.</p></div>

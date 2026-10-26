@@ -38,7 +38,7 @@ ddMenu.innerHTML=`<div class="mega-cols">${megaCol(MENU,0)}<div class="mcol2"></
 const DDS=[...document.querySelectorAll(".dd")];
 const ddOne=(d,o)=>{d.classList.toggle("open",o);d.querySelector(".dd-btn").setAttribute("aria-expanded",o);};
 const ddSet=o=>DDS.forEach(d=>ddOne(d,o));
-const wideHover=()=>matchMedia("(hover:hover) and (min-width:1101px)").matches;
+const wideHover=()=>matchMedia("(hover:hover) and (min-width:861px)").matches;
 DDS.forEach(d=>{
   const b=d.querySelector(".dd-btn");let hoverAt=0;
   b.addEventListener("click",e=>{e.stopPropagation();if(b===ddBtn&&wideHover()){ddSet(false);location.href="/#/products";return;}const open=d.classList.contains("open");const next=open&&Date.now()-hoverAt<700?true:!open;DDS.forEach(x=>{if(x!==d)ddOne(x,false);});ddOne(d,next);});
