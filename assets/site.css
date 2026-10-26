@@ -808,3 +808,6 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
   nav.main a.nav-ic svg{width:19px;height:19px}
   .nav-l{position:static;width:auto;height:auto;overflow:visible;clip:auto}
 }
+.hero .hchecks{margin-top:22px}
+.hero .hchecks li{color:#e8ecf2;font-weight:500}
+.hero .s-range h2{font-size:clamp(30px,3.4vw,46px)}
