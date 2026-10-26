@@ -173,41 +173,38 @@ function wireSearchPanel(root,params){
 
 // ---------- home ----------
 const FAMILIES=[
-  {id:"braking",name:"Braking",icon:"disc",href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/products/braking-system",catText:"View the range"},
-  {id:"ss",name:"Steering & suspension",icon:"ball",href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
+  {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking-box.webp",href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/products/braking-system",catText:"View the range"},
+  {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/ss-box.webp",href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
   {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"Dampers that keep the tyres on the road by controlling spring movement.",cat:"#/products/shock-absorbers",catText:"View the range"},
-  {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"}];
+  {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
+  {id:"bat",name:"Batteries",icon:"battery",soon:true,text:"Stravik batteries are being added to the range. Ask us to be told when they're available.",cat:"#/contact",catText:"Ask about batteries"}];
+const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p><small id="fc-${f.id}"></small></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
 function home(){
   app.innerHTML=`
-  <section class="hero slider" data-slider aria-roledescription="carousel" aria-label="Stravik">
-    <div class="slides">
-      <div class="slide s-car" role="group" aria-roledescription="slide" aria-label="1 of 2">
-        <video class="hvideo" muted loop playsinline preload="auto" poster="/assets/hero-road-poster.webp" aria-hidden="true"><source src="/assets/hero-road.webm" type="video/webm"><source src="/assets/hero-road.mp4" type="video/mp4"></video>
-        <div class="vshade" aria-hidden="true"></div>
-        <div class="wrap"><div class="copy">
-          <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
-          <p class="lede">Precision-engineered brakes, steering, suspension and filters of OE equivalent quality, for workshops, distributors and retailers.</p>
-          <div class="actions"><a class="btn gold" href="#/products">Browse products</a><a class="btn line" href="#/contact">Contact us</a></div>
-        </div></div>
-      </div>
-      <div class="slide s-range" role="group" aria-roledescription="slide" aria-label="2 of 2">
-        <div class="wrap"><div class="copy">
-          <div class="eyebrow">The Stravik range</div>
-          <h2>One trusted source for automotive parts</h2>
-          <p class="lede">Stravik parts are OE equivalent, made in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
-          <ul class="checks hchecks"><li>OE equivalent, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
-        </div>
-        <figure class="pic"><img src="/assets/road-own-the-road.webp" width="1400" height="788" alt="A dark saloon car driving along a coastal road at sunset over the words Own the road painted on the asphalt"></figure></div>
-      </div>
-    </div>
-    ${sliderCtl()}
+  <section class="hero hvid">
+    <video class="hvideo" muted loop playsinline preload="auto" poster="/assets/hero-road-poster.webp" aria-hidden="true"><source src="/assets/hero-road.webm" type="video/webm"><source src="/assets/hero-road.mp4" type="video/mp4"></video>
+    <div class="vshade" aria-hidden="true"></div>
+    <div class="wrap"><div class="copy">
+      <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
+      <p class="lede">Precision-engineered brakes, steering, suspension and filters of OE equivalent quality, for workshops, distributors and retailers.</p>
+      <div class="actions"><a class="btn gold" href="#/products">Browse products</a><a class="btn line" href="#/contact">Contact us</a></div>
+    </div></div>
   </section>
 
-  <section class="block"><div class="wrap">
+  <section class="block intro"><div class="wrap intro-grid">
+    <div class="intro-txt">
+      <div class="eyebrow-d">The Stravik range</div>
+      <h2>One trusted source for automotive parts</h2>
+      <p>Stravik parts are OE equivalent, made in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
+      <ul class="checks"><li>OE equivalent, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
+    </div>
+    <figure class="intro-pic"><img src="/assets/home-road.webp" width="1400" height="788" loading="lazy" alt="A dark saloon car driving along a coastal road at sunset over the words Own the road painted on the asphalt"></figure>
+  </div></section>
+
+  <section class="block paper"><div class="wrap">
     <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a></div>
-    <div class="fams">${FAMILIES.map(f=>`<article class="fam"><a class="fam-top" href="${f.href}"><span class="ic">${icon(f.icon)}</span><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p><small id="fc-${f.id}"></small></a><a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`).join("")}</div>
+    <div class="fams fams5">${FAMILIES.map(famCard).join("")}</div>
   </div></section>`;
-  initSlider(app.querySelector("[data-slider]"),6500);
   const hv=app.querySelector(".hvideo");
   if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
     if(!still&&!save){hv.play().catch(()=>{});}}
