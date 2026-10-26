@@ -182,7 +182,8 @@ function home(){
   <section class="hero slider" data-slider aria-roledescription="carousel" aria-label="Stravik">
     <div class="slides">
       <div class="slide s-car" role="group" aria-roledescription="slide" aria-label="1 of 2">
-        <div class="art" aria-hidden="true"></div>
+        <video class="hvideo" muted loop playsinline preload="auto" poster="/assets/hero-road-poster.webp" aria-hidden="true"><source src="/assets/hero-road.webm" type="video/webm"><source src="/assets/hero-road.mp4" type="video/mp4"></video>
+        <div class="vshade" aria-hidden="true"></div>
         <div class="wrap"><div class="copy">
           <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
           <p class="lede">Precision-engineered brakes, steering, suspension and filters, built to OE standards for workshops, distributors and retailers.</p>
@@ -196,7 +197,7 @@ function home(){
           <p class="lede">Stravik parts are made to an OE standard in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
           <ul class="checks hchecks"><li>Made to OE standard, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
         </div>
-        <figure class="pic"><img src="/assets/range-parts.webp" width="1400" height="725" alt="Brake disc, brake pads, control arm, tie rod ends, stabiliser link, bushes, strut mount, shock absorber, oil filter and air filter"></figure></div>
+        <figure class="pic"><img src="/assets/road-own-the-road.webp" width="1400" height="788" alt="A dark saloon car driving along a coastal road at sunset over the words Own the road painted on the asphalt"></figure></div>
       </div>
     </div>
     ${sliderCtl()}
@@ -231,6 +232,9 @@ function home(){
 
   ${BRAND_VALUES}`;
   initSlider(app.querySelector("[data-slider]"),6500);
+  const hv=app.querySelector(".hvideo");
+  if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
+    if(!still&&!save){hv.play().catch(()=>{});}}
   const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
   const set=(id,t)=>{const e=app.querySelector("#fc-"+id);if(e)e.textContent=t;};
   set("braking",lines(CATALOG.find(c=>c.id==="braking-system"))+" part lines");

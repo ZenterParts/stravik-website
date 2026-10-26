@@ -811,3 +811,12 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .hero .hchecks{margin-top:22px}
 .hero .hchecks li{color:#e8ecf2;font-weight:500}
 .hero .s-range h2{font-size:clamp(30px,3.4vw,46px)}
+
+/* home hero video (slide 1) */
+.hero .hvideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 50%}
+.hero .vshade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(11,32,61,.94) 0%,rgba(11,32,61,.82) 34%,rgba(11,32,61,.35) 66%,rgba(11,32,61,.12) 100%)}
+.hero .s-car .wrap{z-index:1}
+@media (max-width:900px){
+  .hero .vshade{background:linear-gradient(180deg,rgba(11,32,61,.88) 0%,rgba(11,32,61,.72) 60%,rgba(11,32,61,.55) 100%)}
+  .hero .s-car .wrap{padding:44px 0 84px}
+}
