@@ -186,7 +186,7 @@ function home(){
         <div class="vshade" aria-hidden="true"></div>
         <div class="wrap"><div class="copy">
           <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
-          <p class="lede">Precision-engineered brakes, steering, suspension and filters, built to OE standards for workshops, distributors and retailers.</p>
+          <p class="lede">Precision-engineered brakes, steering, suspension and filters of OE equivalent quality, for workshops, distributors and retailers.</p>
           <div class="actions"><a class="btn gold" href="#/products">Browse products</a><a class="btn line" href="#/contact">Contact us</a></div>
         </div></div>
       </div>
@@ -194,8 +194,8 @@ function home(){
         <div class="wrap"><div class="copy">
           <div class="eyebrow">The Stravik range</div>
           <h2>One trusted source for automotive parts</h2>
-          <p class="lede">Stravik parts are made to an OE standard in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
-          <ul class="checks hchecks"><li>Made to OE standard, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
+          <p class="lede">Stravik parts are OE equivalent, made in IATF and ISO certified factories. The range covers Japanese, European, Korean and American vehicles, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
+          <ul class="checks hchecks"><li>OE equivalent, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
         </div>
         <figure class="pic"><img src="/assets/road-own-the-road.webp" width="1400" height="788" alt="A dark saloon car driving along a coastal road at sunset over the words Own the road painted on the asphalt"></figure></div>
       </div>
@@ -206,31 +206,7 @@ function home(){
   <section class="block"><div class="wrap">
     <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a></div>
     <div class="fams">${FAMILIES.map(f=>`<article class="fam"><a class="fam-top" href="${f.href}"><span class="ic">${icon(f.icon)}</span><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p><small id="fc-${f.id}"></small></a><a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`).join("")}</div>
-  </div></section>
-
-  <section class="block paper"><div class="wrap">
-    <div class="head"><div><div class="eyebrow-d">New to range</div><h2>Latest additions</h2></div><a class="btn line" href="#/new">See what's new</a></div>
-    <div class="news">${NEWS.slice(0,3).map(newsCard).join("")}</div>
-  </div></section>
-
-  <section class="tradeband"><div class="wrap">
-    <div class="tb-head"><div class="eyebrow">For the trade</div><h2>Workshops, parts stores and distributors</h2><p>Stravik sells through the trade. Ask for prices, find a stockist, or apply to distribute Stravik in your market.</p></div>
-    <div class="tb-links">
-      <a href="#/where-to-buy"><b>Where to buy</b><span>Find a Stravik stockist near you</span></a>
-      <a href="#/where-to-buy?t=distributor"><b>Become a distributor</b><span>Stock Stravik in your market</span></a>
-      <a href="#/request"><b>Can't find your part?</b><span>Tell us what you need</span></a>
-      <a href="#/cart"><b>Request a price</b><span>Add parts to your cart and send one enquiry</span></a>
-    </div>
-  </div></section>
-
-  <section class="block"><div class="wrap exp-grid">
-    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
-    <div class="exp-txt"><h2>Why Stravik</h2>
-      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
-      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
-  </div></section>
-
-  ${BRAND_VALUES}`;
+  </div></section>`;
   initSlider(app.querySelector("[data-slider]"),6500);
   const hv=app.querySelector(".hvideo");
   if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
@@ -334,7 +310,7 @@ const BRAND_VALUES=`<section class="bv" aria-labelledby="bvh"><div class="wrap">
     <p class="lede">Seven values, one name. Every letter of Stravik stands for something we hold ourselves to.</p>
     <ol class="acro">
       <li><span class="l" aria-hidden="true">S</span><b>Service</b><span class="d">Quick, knowledgeable answers on fitment, pricing and supply.</span></li>
-      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">Parts made to an OE standard, so they fit and perform as they should.</span></li>
+      <li><span class="l" aria-hidden="true">T</span><b>Trust</b><span class="d">OE equivalent parts, so they fit and perform as they should.</span></li>
       <li><span class="l" aria-hidden="true">R</span><b>Reliability</b><span class="d">Consistent quality from one order to the next.</span></li>
       <li><span class="l" aria-hidden="true">A</span><b>Availability</b><span class="d">A wide range, ready to supply to customers in over 60 countries.</span></li>
       <li><span class="l" aria-hidden="true">V</span><b>Value</b><span class="d">Competitive pricing without cutting corners on quality.</span></li>
@@ -349,7 +325,7 @@ function about(){
   <section class="block"><div class="wrap about-lead">
     <div class="txt">
       <p class="first">Stravik is built on three decades of expertise supplying quality automotive parts to customers in over 60 countries.</p>
-      <p>Every part is made to an OE standard, and our manufacturing is IATF and ISO certified, so you can fit our parts with confidence.</p>
+      <p>Every part is OE equivalent, and our manufacturing is IATF and ISO certified, so you can fit our parts with confidence.</p>
       <p>Our key selling points are built on a commitment to quality, reliability, and competitive value. We work with reputable manufacturers worldwide, leveraging advanced manufacturing technologies, strict quality control processes, and proven industry expertise to deliver dependable automotive aftermarket products. By combining consistent product quality, reliable performance, competitive pricing, and efficient supply capabilities, we aim to meet diverse market requirements and provide lasting value to our customers.</p>
     </div>
     <div class="pics" aria-hidden="true"><img class="p1" src="/assets/img/ss-box.webp" alt=""><img class="p2" src="${PADS[2].img}" alt=""></div>
@@ -366,6 +342,12 @@ function about(){
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
         <p class="links"><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
     </div>
+  </div></section>
+  <section class="block"><div class="wrap exp-grid">
+    <div class="exp-big brandpanel"><img src="/assets/stravik-logo-reversed.webp" width="720" height="300" alt="Stravik"><span class="unit">Own the road.</span></div>
+    <div class="exp-txt"><h2>Why Stravik</h2>
+      <ul class="checks"><li>Quality-first approach, with OE equivalent parts</li><li>IATF and ISO certified manufacturing (certificates available on request)</li><li>Japanese, European, Korean and American vehicle coverage</li><li>Available for supply in over 60 countries, including the Middle East and Africa</li></ul>
+      <div class="actions"><a class="btn ink" href="#/about">About Stravik</a><a class="btn line" href="#/contact?t=certificates">Request certificates</a></div></div>
   </div></section>
   <section class="block paper"><div class="wrap">
     <div class="head"><div><h2>Questions about a part?</h2><p>Send us the vehicle and the part you need.</p></div><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/products">See our products</a><a class="btn line" href="#/contact">Contact us</a></div></div>
@@ -409,7 +391,7 @@ function productsHome(){
   <div class="pagehead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><span>Our products</span></div>
     <h1>Our products</h1>
-    <p>Braking, steering and suspension, shock absorbers and filters, built to OE standards.</p>
+    <p>Braking, steering and suspension, shock absorbers and filters, of OE equivalent quality.</p>
     <div class="tabs" role="list">${prodTabs("")}</div>
   </div></div>
 
