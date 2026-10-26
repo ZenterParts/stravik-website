@@ -368,21 +368,26 @@ function productsHome(){
   const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
   const pc=(img,ic,name,txt,meta,links)=>`<article class="pcat"><div class="pic">${img?`<img src="${img}" alt="Stravik ${esc(name)} packaging" loading="lazy">`:`<span class="pic-ic">${icon(ic)}</span>`}</div>
     <div class="body"><h3>${name}</h3><p>${txt}</p><small class="meta"${meta[0]?` id="${meta[0]}"`:""}>${meta[1]}</small><div class="plinks">${links}</div></div></article>`;
-  const padSlide=(p,k)=>`<div class="slide c-${p.key}" role="group" aria-roledescription="slide" aria-label="${k+1} of ${PADS.length}"><div class="wrap">
+  const padSlide=(p,k)=>`<div class="slide c-${p.key}" role="group" aria-roledescription="slide" aria-label="${k+1} of ${PADS.length+1}"><div class="wrap">
       <div><div class="eyebrow">Brake pads in three compounds</div><h2>${esc(p.name)} brake pads</h2><div class="tag">${esc(p.line)}</div>
         <p class="best">${esc(p.best)}</p>
         <div class="actions"><a class="btn gold" href="#/product/brake-pads?c=${p.key}">View ${esc(p.name.toLowerCase())} pads</a><a class="btn line" href="#/product/brake-pads">Compare compounds</a></div></div>
       <div class="pic"><img src="${p.img}" alt="Stravik ${esc(p.name)} brake pads box"></div>
     </div></div>`;
   app.innerHTML=`
-  <section class="slider pslider" data-slider aria-roledescription="carousel" aria-label="Brake pads in three compounds">
-    <div class="slides">${PADS.map(padSlide).join("")}</div>
+  <section class="slider pslider" data-slider aria-roledescription="carousel" aria-label="Stravik products">
+    <div class="slides">${PADS.map(padSlide).join("")}<div class="slide c-ss" role="group" aria-roledescription="slide" aria-label="${PADS.length+1} of ${PADS.length+1}"><div class="wrap">
+      <div><div class="eyebrow">Steering &amp; suspension</div><h2>Steering &amp; suspension parts</h2><div class="tag">Matched to OE fit</div>
+        <p class="best">Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references.</p>
+        <div class="actions"><a class="btn gold" href="#/steering">Search the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a></div></div>
+      <div class="pic"><img src="/assets/img/ss-box.webp" alt="Stravik steering and suspension box"></div>
+    </div></div></div>
     ${sliderCtl()}
   </section>
   <div class="pagehead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><span>Our products</span></div>
     <h1>Our products</h1>
-    <p>Braking, steering and suspension, shock absorbers and filters, of OE equivalent quality.</p>
+    <p>Braking, steering and suspension, shock absorbers, filters and batteries, of OE equivalent quality.</p>
     <div class="tabs" role="list">${prodTabs("")}</div>
   </div></div>
 
@@ -393,12 +398,8 @@ function productsHome(){
       ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["pc-ss","Searchable catalogue"],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
       ${pc(S.img,"shock","Shock Absorbers",esc(S.intro),["",lines(S)+(lines(S)===1?" part line":" part lines")],`<a class="btn gold" href="#/products/shock-absorbers">View the range</a>`)}
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["pc-fl","Searchable catalogue"],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
+      ${pc("","battery","Batteries","Stravik batteries are being added to the range. Ask us to be told when they're available.",["","Coming soon"],`<a class="btn gold" href="#/contact">Ask about batteries</a>`)}
     </div>
-  </div></section>
-
-  <section class="block"><div class="wrap">
-    <div class="head"><div><h2>Search the catalogues</h2><p>Enter the OE or cross-reference number you have to find the matching Stravik part and the vehicles it fits.</p></div></div>
-    <div class="catcall"><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a></div>
   </div></section>
 
   <section class="block paper"><div class="wrap">
