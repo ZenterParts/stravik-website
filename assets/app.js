@@ -185,7 +185,7 @@ const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class=
 function home(){
   app.innerHTML=`
   <section class="hero hvid">
-    <video class="hvideo" muted loop playsinline preload="auto" poster="/assets/hero-road-poster.webp" aria-hidden="true"><source src="/assets/hero-road.webm" type="video/webm"><source src="/assets/hero-road.mp4" type="video/mp4"></video>
+    <video class="hvideo" muted loop playsinline preload="auto" poster="/assets/hero-parts-poster.webp" aria-hidden="true"><source src="/assets/hero-parts.webm" type="video/webm"><source src="/assets/hero-parts.mp4" type="video/mp4"></video>
     <div class="vshade" aria-hidden="true"></div>
     <div class="wrap"><div class="copy">
       <h1><span>Stop sure.</span><span>Steer true.</span><span>Ride steady.</span></h1>
