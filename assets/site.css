@@ -823,7 +823,20 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 
 /* home: video banner (single), range intro, 3 + 2 product families */
 .hero.hvid .wrap{z-index:1}
-@media (max-width:900px){.hero.hvid .wrap{padding:48px 0 56px;min-height:520px}}
+/* split layout: text on a solid navy panel, video in an angled frame on the right with a gold edge */
+.hero.hvid{--vl:max(40%,calc(50% - 110px));--cut:120px}
+.hero.hvid .hvideo{left:var(--vl);right:auto;width:calc(100% - var(--vl));clip-path:polygon(var(--cut) 0,100% 0,100% 100%,0 100%);object-position:50% 50%}
+.hero.hvid .vshade{left:var(--vl);background:linear-gradient(90deg,rgba(11,32,61,.4) 0,rgba(11,32,61,0) 260px)}
+.hero.hvid .vshade::before{content:"";position:absolute;top:0;bottom:0;left:-3px;width:calc(var(--cut) + 6px);background:linear-gradient(to bottom right,transparent calc(50% - 3px),#a97c42 calc(50% - 3px),#a97c42 calc(50% + 2px),transparent calc(50% + 2px))}
+.hero.hvid .wrap{grid-template-columns:minmax(0,min(490px,calc(50vw - 150px)));min-height:580px}
+.hero.hvid h1{font-size:clamp(36px,4.3vw,62px)}
+.hero.hvid .lede{font-size:18px}
+@media (min-width:901px) and (max-width:1180px){.hero.hvid .wrap{min-height:520px}}
+@media (max-width:900px){
+  .hero.hvid .hvideo{position:relative;display:block;left:0;width:100%;height:auto;aspect-ratio:16/10;clip-path:polygon(0 0,100% 0,100% 86%,0 100%)}
+  .hero.hvid .vshade{display:none}
+  .hero.hvid .wrap{grid-template-columns:1fr;padding:28px 0 52px;min-height:0}
+}
 .intro-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:52px;align-items:center}
 .intro-txt h2{font-size:clamp(32px,3.6vw,48px)}
 .intro-txt p{color:var(--muted);font-size:18px;margin-top:16px;max-width:34em}
