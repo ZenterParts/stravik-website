@@ -848,3 +848,41 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .pslider .c-ss{background:#0b203d}
 @media (max-width:860px){nav.main .mega-m a.mega-solo{display:block;font-weight:600;border-bottom:1px solid var(--line)}}
 @media (min-width:1001px){.pcats .pcat:last-child:nth-child(odd){grid-column:1/-1;grid-template-columns:19% 1fr}}
+
+/* shock absorber catalogue */
+.ftable.sa th button.sort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.ftable.sa th button.sort:hover,.ftable.sa th button.sort:focus-visible{color:var(--ink)}
+.ftable.sa th button.sort:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px}
+.ftable.sa th button.sort::after{content:"";width:0;height:0;border:4px solid transparent;border-top-color:currentColor;opacity:.35;transform:translateY(2px)}
+.ftable.sa th button.sort[data-dir="asc"]::after{opacity:1;border-top-color:transparent;border-bottom-color:var(--gold-deep);transform:translateY(-2px)}
+.ftable.sa th button.sort[data-dir="desc"]::after{opacity:1;border-top-color:var(--gold-deep)}
+.ftable.sa td.fext{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ftable.sa td.fpos{white-space:nowrap}
+.ftable.sa td.fty span{display:block;font-size:13px}
+.ftable.sa td.fveh{min-width:200px}
+.ftable.sa td.fveh .fl,.fcard .sa-fits .fl{display:block}
+.ftable.sa td.fveh .fl b,.fcard .sa-fits .fl b{color:var(--ink);font-weight:600}
+.ftable.sa td.fveh .mc{color:var(--muted)}
+.ftable.sa td.fveh .yr{font-weight:600;color:var(--ink);white-space:nowrap}
+.ftable.sa td.fnum{max-width:200px}
+.satag{display:block;width:max-content;margin-top:5px;font-size:12px;font-weight:600;color:var(--muted)}
+.satag.new{color:var(--gold-deep)}
+.sabar select:disabled{opacity:.55}
+@media (max-width:700px){
+  .ftable.sa td.fpn{grid-column:1;grid-row:1}
+  .ftable.sa td.fext,.ftable.sa td.fpos{grid-column:1/-1}
+  .ftable.sa td.fext::before{content:"External no. ";font-weight:600;color:var(--ink)}
+  .ftable.sa td.fpos::before{content:"Position ";font-weight:600;color:var(--ink)}
+  .ftable.sa td.fext,.ftable.sa td.fpos{color:var(--muted);font-weight:400}
+  .ftable.sa td.fveh{min-width:0}
+}
+.catalog>div{min-width:0}
+.ftable-wrap:has(.ftable.sa){overflow-x:auto}
+.ftable.sa td.fnum .n{display:block}
+.ftable.sa td.fnum .n.nmore,.ftable.sa td.fveh .n{color:var(--gold-deep);font-weight:600;font-size:13px}
+.fcard .nums .n{margin-right:6px}
+@media (max-width:700px){.ftable.sa td.fnum .n{display:inline;margin-right:6px}}
+.ftable.sa td.fpn .fadd{display:block;margin-top:10px;font-size:13px;padding:5px 10px}
+.ftable.sa td.fveh{max-width:250px;overflow-wrap:anywhere}
+.fcard .nums .n{display:inline-block}
+@media (max-width:700px){.ftable.sa td.fpn .fadd{position:absolute;left:auto;bottom:auto;right:14px;top:12px;margin:0}.ftable.sa tbody tr{position:relative}.ftable.sa td.fveh{max-width:none}}

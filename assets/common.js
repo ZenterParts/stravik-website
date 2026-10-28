@@ -18,7 +18,7 @@ const catNode=c=>{const kids=c.types.length===1
 const MENU=[
   {name:"Braking",icon:"disc",href:"/#/products/braking-system",kids:catNode(CATALOG.find(c=>c.id==="braking-system"))},
   {name:"Steering & suspension",icon:"ball",href:"/#/products/steering-suspension",kids:["Suspension","Steering","Mountings"].map(g=>({name:g,href:"/#/steering",kids:SS_TYPES.filter(t=>t[3]===g).map(t=>({name:t[2],href:"/#/steering/"+slug(t[2])}))})).concat([{name:"Search the catalogue",href:"/#/steering"}])},
-  {name:"Shock absorbers",icon:"shock",href:"/#/products/shock-absorbers",kids:catNode(CATALOG.find(c=>c.id==="shock-absorbers"))},
+  {name:"Shock absorbers",icon:"shock",href:"/#/products/shock-absorbers",kids:SA_TYPES.map(t=>({name:t[2],href:"/#/shock-absorbers/"+slug(t[2])})).concat([{name:"Search the catalogue",href:"/#/shock-absorbers"}])},
   {name:"Filtration",icon:"f_oil",href:"/#/products/filters",kids:[["air-filters","Air filters"],["oil-filters","Oil filters"],["fuel-filters","Fuel filters"],["cabin-filters","Cabin filters"],["filter-kits","Filter kits"],["coolant-filters","Coolant filters"],["filter-housings","Filter housings"]].map(f=>({name:f[1],href:"/#/filters/"+f[0]})).concat([{name:"Search the catalogue",href:"/#/filters"}])},
   {name:"Batteries (coming soon)",icon:"battery",href:"/#/contact",kids:[]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';

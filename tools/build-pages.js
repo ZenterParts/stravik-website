@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
-//   /part/<Stravik no.>/    steering & suspension (from steering-suspension.json)
+//   /part/<Stravik no.>/    steering & suspension (from steering-suspension.json) and shock absorbers (from shock-absorbers.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
@@ -13,7 +13,7 @@ const rd = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 // ---- shared constants from the site's own catalogue script
 const ctx = { window: {} }; vm.createContext(ctx);
 vm.runInContext(rd("assets/catalog.js").replace(/^const /gm, "var "), ctx);
-const { ICONS, FICON, SS_TYPES, MKL } = ctx;
+const { ICONS, FICON, SS_TYPES, SA_TYPES, MKL } = ctx;
 const icon = k => '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[k] || ICONS.kit) + "</svg>";
 const slug = s => s.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -143,6 +143,65 @@ ${cantFind}`;
   urls.push(url);
 }
 
+// ================= shock absorbers =================
+const SAR = JSON.parse(rd("shock-absorbers.json"));
+const mp = t => String(t).replace(/macpherson/gi, "MacPherson");   // keep the brand-style capital P when lower-casing
+const saLabel = m => MKL[m] || String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g, c => c.toUpperCase());
+const samk = SAR.makes.map(m => ({ name: m, label: saLabel(m) }));
+const SAT = {}; SA_TYPES.forEach(t => SAT[t[0]] = { code: t[0], one: t[1], many: t[2], icon: t[3], slug: slug(t[2]) });
+const SA = SAR.parts.map(p => ({ pn: p[0], t: p[1], d: p[2] || "", pos: p[3] || "", fp: p[4] || "", ty: p[5] || "", sy: p[6] || "", um: p[7] || "", lm: p[8] || "", inc: p[9] || "", k: p[10] || "", x: p[11] || "", nw: !!p[12], oe: p[13] || [],
+  apps: (p[14] || []).map(a => ({ mk: a[0], mo: a[1] || "", mc: a[2] || "", yr: a[3] || "", pos: a[4] || "" })) }));
+{ const ssPn = new Set(SS.map(i => i.pn)); const clash = SA.filter(i => ssPn.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Shock absorber numbers also used in steering & suspension: " + clash.slice(0, 5).join(", ")); }
+const saBy = {}; SA.forEach(i => saBy[i.pn] = i);
+const saDesc = i => (SAT[i.t] ? SAT[i.t].one : "Part") + (i.pos ? ", " + ssCase(i.pos).toLowerCase() : "");
+const saMakes = i => uniq(i.apps.map(a => samk[a.mk] && samk[a.mk].label));
+const saVehs = i => uniq(i.apps.map(a => a.mo));
+const SA_SIDE = { "1": "Right", "2": "Left", "4": "Right", "5": "Left", "8": "Right", "9": "Left" };
+const SA_OTHER = { "1": "2", "2": "1", "4": "5", "5": "4", "8": "9", "9": "8" };
+const saByVeh = new Map();
+SA.forEach(i => uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => { if (!saByVeh.has(k)) saByVeh.set(k, []); saByVeh.get(k).push(i); }));
+function saRelated(i) {
+  const score = new Map();
+  uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => (saByVeh.get(k) || []).forEach(x => { if (x !== i && x.pn.slice(0, 8) !== i.pn.slice(0, 8)) score.set(x, (score.get(x) || 0) + 1); }));
+  const ranked = [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]);
+  const out = [], seen = new Set();
+  for (const x of ranked) { const k = x.t + x.pos; if (!seen.has(k)) { out.push(x); seen.add(k); } if (out.length >= 8) break; }
+  for (const x of ranked) { if (out.length >= 8) break; if (!out.includes(x)) out.push(x); }
+  return out;
+}
+const saCard = x => { const T = SAT[x.t] || { one: "Part", icon: "shock" }, mk = saMakes(x), vh = saVehs(x);
+  return `<div class="fcell"><a class="fcard" href="/part/${esc(x.pn)}/"><span class="ic">${icon(T.icon)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(saDesc(x))}</span><span class="veh"><b>Fits</b> ${esc(list(mk, 2))}${vh.length ? ": " + esc(list(vh, 2)) : ""}</span></a></div>`; };
+for (const i of SA) {
+  const T = SAT[i.t] || { one: "Part", many: "Parts", icon: "shock", slug: "" };
+  const url = `${SITE}/part/${i.pn}/`, mk = saMakes(i), vh = saVehs(i);
+  const last = i.pn.slice(-1), pair = SA_OTHER[last] ? saBy[i.pn.slice(0, 8) + SA_OTHER[last]] : null;
+  const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Description", mp(ssCase(i.d))], ["Position", ssCase(i.pos)], ["Side", SA_SIDE[last] || ""], ["Fitting position", i.fp],
+    ["External number", i.k], ["Type", i.ty], ["System", i.sy], ["Upper mount", i.um], ["Lower mount", i.lm], ["Supplied with", i.inc.replace(/^Supplied with /i, "")], ["Availability", i.x + (i.nw ? (i.x ? ", " : "") + "new to the range" : "")]].filter(r => r[1]);
+  const byMk = [...new Set(i.apps.map(a => a.mk))].filter(ix => samk[ix]).map(ix => ({ m: samk[ix], apps: i.apps.filter(a => a.mk === ix) }));
+  const nApps = i.apps.length;
+  const title = `Stravik ${i.pn} ${saDesc(i)}${mk.length ? " | " + list(mk.slice(0, 2), 2) : ""}`;
+  const desc = `Stravik ${mp(lc1(saDesc(i)))} ${i.pn}.` + (i.k ? ` External no. ${i.k}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
+  const item = { key: i.pn, no: i.pn, cat: "Shock Absorbers", desc: saDesc(i), link: `/part/${i.pn}/`, kind: "sa" };
+  const rel = saRelated(i);
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/shock-absorbers", "Shock absorbers"], [`/#/shock-absorbers/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(mp(lc1(saDesc(i))))}</p></div></div>
+<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span><div class="big">${icon(T.icon)}</div></div>
+<div class="info"><div class="type">Stravik ${esc(mp(T.one.toLowerCase()))}</div>
+<dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+${pair ? `<p class="sib">Other side: <a href="/part/${esc(pair.pn)}/">${esc(pair.pn)}</a> (${esc((SA_SIDE[pair.pn.slice(-1)] || "").toLowerCase())})</p>` : ""}
+${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
+<div class="replace"><b>Before you order</b><span>Check the vehicle, model code and years below against the original part, or send us the OE number and we'll confirm the fit.</span></div>
+${buyBox(item)}
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this part</a><a class="btn line" href="/#/shock-absorbers/${T.slug}">More ${esc(mp(T.many.toLowerCase()))}</a></div>
+</div></div>
+<section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${nApps} ${nApps === 1 ? "application" : "applications"}, ${byMk.length} ${byMk.length === 1 ? "make" : "makes"}</span></h2>
+${nApps ? `<div class="ftable-wrap"><table class="ctable apps"><thead><tr><th>Model</th><th>Model / engine</th><th>Years</th><th>Position</th></tr></thead><tbody>${byMk.map(g => `<tr class="catrow"><td colspan="4">${esc(g.m.label)}</td></tr>` + g.apps.map(a => `<tr><td>${esc(a.mo)}</td><td class="mc">${esc(a.mc)}</td><td class="yr">${esc(a.yr)}</td><td>${esc(ssCase(a.pos))}</td></tr>`).join("")).join("")}</tbody></table></div>` : `<p class="sib">Vehicle details to follow. Send us the vehicle and we'll confirm the fit.</p>`}
+</div></section>
+${rel.length ? `<section class="block related"><div class="wrap"><h2>Related parts for the same vehicles</h2><p class="pp-note">Other Stravik shock absorbers and struts that fit the vehicles above.</p><div class="fgrid">${rel.map(saCard).join("")}</div></div></section>` : ""}
+${cantFind}`;
+  write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${saDesc(i)} ${i.pn}`, i.pn, T.one, desc, "/assets/og.jpg"), body }));
+  urls.push(url);
+}
+
 // ================= filters =================
 const F = JSON.parse(rd("filters.json"));
 const FT = {}; F.types.forEach(t => FT[t[0]] = { code: t[0], slug: t[1], name: t[2], one: t[3] });
@@ -181,4 +240,4 @@ ${cantFind}`;
 // ================= sitemap and robots =================
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`Built ${SS.length} steering & suspension pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
+console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);

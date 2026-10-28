@@ -87,12 +87,13 @@ const YEARS=(()=>{const a=[],y=new Date().getFullYear()+1;for(let i=y;i>=1980;i-
 // ---------- vehicle index (built from both catalogues) ----------
 let VIX=null;
 function vehicleIndex(){
-  return VIX||(VIX=Promise.all([loadSS(),loadFilters()]).then(([ss,fl])=>{
+  return VIX||(VIX=Promise.all([loadSS(),loadFilters(),loadSA()]).then(([ss,fl,sa])=>{
     const makes=new Map();const add=(label,model)=>{const k=label.toUpperCase();if(!makes.has(k))makes.set(k,{label,models:new Set()});if(model)makes.get(k).models.add(model);};
     ss.items.forEach(i=>i.apps.forEach(a=>{const m=ss.makes[a.mk];if(m&&!/other makes/i.test(m.label))add(m.label,ssCase(a.veh).replace(/^\s+|\s+$/g,""));}));
     fl.items.forEach(i=>(i.mk||[]).forEach(mk=>{(i.mo||"").split(/[;,]/).map(x=>x.trim()).filter(Boolean).forEach(mo=>add(mk,mo));if(!i.mo)add(mk);}));
+    sa.items.forEach(i=>i.apps.forEach(a=>{const m=sa.makes[a.mk];if(m)add(m.label,ssCase(a.mo).trim());}));
     const list=[...makes.values()].sort((a,b)=>a.label.localeCompare(b.label));
-    return {ss,fl,makes:list};
+    return {ss,fl,sa,makes:list};
   }).catch(e=>{VIX=null;throw e;}));
 }
 // a make label matches a catalogue make if equal, or one is part of a "A / B" group label
@@ -101,24 +102,26 @@ function vehicleMatch(ix,mk,mo,yr){
   const m=lc(mo).replace(/\s+/g," ").trim(),y=parseInt(yr,10)||0;
   const ss=ix.ss.items.filter(i=>i.apps.some(a=>{const M=ix.ss.makes[a.mk];return M&&mkHit(mk,M.label)&&(!m||lc(a.veh+" "+a.mc).includes(m))&&yearIn(a.yr,y);}));
   const fl=ix.fl.items.filter(i=>(i.mk||[]).some(x=>mkHit(mk,x))&&(!m||lc(i.mo).includes(m))&&yearIn(i.y,y));
-  return {ss,fl};
+  const sa=ix.sa.items.filter(i=>i.apps.some(a=>{const M=ix.sa.makes[a.mk];return M&&mkHit(mk,M.label)&&(!m||lc(a.mo+" "+a.mc).includes(m))&&yearIn(a.yr,y);}));
+  return {ss,fl,sa};
 }
 
 // ---------- universal number search ----------
 function numScore(c,vals){let best=0,hit="";vals.forEach(v=>{const k=fclean(v);if(!k)return;const s=k===c?3:k.startsWith(c)?2:(c.length>=4&&k.includes(c))?1:0;if(s>best){best=s;hit=v;}});return [best,hit];}
 function searchAll(q){
-  return Promise.all([loadSS(),loadFilters()]).then(([ss,fl])=>{
-    const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[];
+  return Promise.all([loadSS(),loadFilters(),loadSA()]).then(([ss,fl,sa])=>{
+    const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[];
     if(num){
       ss.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["CTR number",[i.ctr]],["Old CTR number",i.old],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])S.push({i,score:b[0],on:b[2]+" "+b[1]});});
       fl.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE / cross-reference",i.n||[]]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])F.push({i,score:b[0],on:b[2]+" "+b[1]});});
-      if(S.length||F.length)mode="number";
+      sa.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["External number",[i.k]],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])A.push({i,score:b[0],on:b[2]+" "+b[1]});});
+      if(S.length||F.length||A.length)mode="number";
     }
-    if(mode==="text"){S=ss.items.filter(i=>ssmatch(i,q)).map(i=>({i,score:0}));F=fl.items.filter(i=>fmatch(i,q)).map(i=>({i,score:0}));}
-    S.sort((a,b)=>b.score-a.score);F.sort((a,b)=>b.score-a.score);
+    if(mode==="text"){S=ss.items.filter(i=>ssmatch(i,q)).map(i=>({i,score:0}));F=fl.items.filter(i=>fmatch(i,q)).map(i=>({i,score:0}));A=sa.items.filter(i=>samatch(i,q)).map(i=>({i,score:0}));}
+    S.sort((a,b)=>b.score-a.score);F.sort((a,b)=>b.score-a.score);A.sort((a,b)=>b.score-a.score);
     const words=lc(q).split(/\s+/).filter(w=>w.length>2);
     const P=words.length?ALL.filter(p=>words.every(w=>lc(p.name+" "+p.type.name+" "+p.cat.name+" "+p.desc).includes(w))):[];
-    return {ss,fl,S,F,P,mode};
+    return {ss,fl,sa,S,F,A,P,mode};
   });
 }
 
@@ -175,7 +178,7 @@ function wireSearchPanel(root,params){
 const FAMILIES=[
   {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking-box.webp",href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/products/braking-system",catText:"View the range"},
   {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/ss-box.webp",href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
-  {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"Dampers that keep the tyres on the road by controlling spring movement.",cat:"#/products/shock-absorbers",catText:"View the range"},
+  {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
   {id:"bat",name:"Batteries",icon:"battery",soon:true,text:"Stravik batteries are being added to the range. Ask us to be told when they're available.",cat:"#/contact",catText:"Ask about batteries"}];
 const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
@@ -215,7 +218,7 @@ function findPage(params){
   const q=(params.get("q")||"").trim(),byVeh=params.get("by")==="vehicle"&&params.get("mk");
   document.title="Find a part | Stravik";
   app.innerHTML=`<div class="pagehead findhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><span>Find a part</span></div>
-    <h1>Find a part</h1><p>Search by Stravik number, OE number, competitor or CTR number, or by vehicle.</p>
+    <h1>Find a part</h1><p>Search by Stravik number, OE number, competitor, CTR or external number, or by vehicle.</p>
     ${searchPanel("f",params)}</div></div>
   <div class="wrap results" id="results">${q||byVeh?`<p class="loading">Searching…</p>`:`<div class="fhelp">
     <div><h3>By number</h3><p>Type the number on the old part, the OE number from the vehicle maker, or a competitor's number. Spaces and dashes don't matter.</p></div>
@@ -227,17 +230,18 @@ function findPage(params){
   if(byVeh){
     const mk=params.get("mk"),mo=params.get("mo")||"",yr=params.get("yr")||"";const label=[mk,mo,yr].filter(Boolean).join(" ");
     document.title=`${label} parts | Stravik`;
-    vehicleIndex().then(ix=>{const r=vehicleMatch(ix,mk,mo,yr),n=r.ss.length+r.fl.length;
+    vehicleIndex().then(ix=>{const r=vehicleMatch(ix,mk,mo,yr),n=r.ss.length+r.fl.length+r.sa.length;
+      const sv={mk:ix.sa.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",yr:parseInt(yr,10)||0};
       box.innerHTML=`<p class="rsum"><b>${n.toLocaleString("en-US")}</b> ${n===1?"part fits":"parts fit"} <b>${esc(label)}</b></p>`+
-        (n?ssResults(ix.ss,r.ss.map(i=>({i})),"",100)+flResults(ix.fl,r.fl.map(i=>({i})),"",100):`<div class="noresults"><p>No parts listed for this vehicle yet. Check the spelling of the model, or try without the year.</p></div>`)+cantFind("",label);
+        (n?ssResults(ix.ss,r.ss.map(i=>({i})),"",100)+saResults(ix.sa,r.sa.map(i=>({i})),"",100,sv)+flResults(ix.fl,r.fl.map(i=>({i})),"",100):`<div class="noresults"><p>No parts listed for this vehicle yet. Check the spelling of the model, or try without the year.</p></div>`)+cantFind("",label);
     }).catch(fail);
     return;
   }
   if(!q)return;
   document.title=`${q} | Find a part | Stravik`;
-  searchAll(q).then(r=>{const n=r.S.length+r.F.length;
+  searchAll(q).then(r=>{const n=r.S.length+r.F.length+r.A.length;
     box.innerHTML=`<p class="rsum"><b>${n.toLocaleString("en-US")}</b> ${n===1?"part matches":"parts match"} <b>“${esc(q)}”</b>${r.mode==="number"?" by number":""}</p>`+
-      ssResults(r.ss,r.S,q,50)+flResults(r.fl,r.F,q,50)+
+      ssResults(r.ss,r.S,q,50)+saResults(r.sa,r.A,q,50)+flResults(r.fl,r.F,q,50)+
       (r.P.length?`<div class="rgroup"><h2>Product lines <span>${r.P.length}</span></h2><div class="grid">${r.P.slice(0,8).map(card).join("")}</div></div>`:"")+
       (!n&&!r.P.length?`<div class="noresults"><p>Nothing matches “${esc(q)}”. Check the number, try fewer words, or search by vehicle.</p></div>`:"")+cantFind(q,"");
   }).catch(fail);
@@ -396,7 +400,7 @@ function productsHome(){
     <div class="pcats">
       ${pc(B.img,"disc","Braking System",esc(B.intro),["",""],`<a class="btn gold" href="#/products/braking-system">View the range</a>`)}
       ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",""],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
-      ${pc(S.img,"shock","Shock Absorbers",esc(S.intro),["",""],`<a class="btn gold" href="#/products/shock-absorbers">View the range</a>`)}
+      ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`)}
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
       ${pc("","battery","Batteries","Stravik batteries are being added to the range. Ask us to be told when they're available.",["","Coming soon"],`<a class="btn gold" href="#/contact">Ask about batteries</a>`)}
     </div>
@@ -412,6 +416,7 @@ function products(catId,typeId,q){
   if(!catId&&!q){productsHome();return;}
   if(catId==="filters"){filtersOverview();return;}
   if(catId==="steering-suspension"){ssOverview();return;}
+  if(catId==="shock-absorbers"){saOverview();return;}
   const cat=CATALOG.find(c=>c.id===catId);
   const cats=cat?[cat]:CATALOG;
   app.innerHTML=`
@@ -429,9 +434,10 @@ function products(catId,typeId,q){
       </div>
       <nav aria-label="Part types">${cats.map(c=>`<h4>${esc(c.name)}</h4>${c.types.map(t=>`<a href="#/products/${c.id}/${t.id}">${esc(t.name)}</a>`).join("")}<div style="height:18px"></div>`).join("")}</nav>
     </aside>
-    <div>${cat?"":`<div class="catcall"><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a></div>`}<div id="groups"></div></div>
+    <div>${cat?"":`<div class="catcall"><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a></div>`}<div id="groups"></div></div>
   </div>`;
   if(!cat){loadSS().then(d=>{const e=app.querySelector("#cc-ss");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" parts with CTR and OE numbers";}).catch(()=>{});
+    loadSA().then(d=>{const e=app.querySelector("#cc-sa");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" parts with OE numbers and vehicles";}).catch(()=>{});
     loadFilters().then(d=>{const e=app.querySelector("#cc-fl");if(e)e.textContent=d.items.length+" filters with OE and cross-reference numbers";}).catch(()=>{});}
   const f=app.querySelector("#filter"),g=app.querySelector("#groups");
   const draw=()=>{const s=f.value.trim().toLowerCase();let total=0;
@@ -447,6 +453,7 @@ function products(catId,typeId,q){
 function product(id,params){
   const p=byId(id);
   if(!p&&id in OLD_SS){location.replace(OLD_SS[id]?"#/steering/"+OLD_SS[id]:"#/products/steering-suspension");return;}
+  if(p&&p.cat.id==="shock-absorbers"){location.replace("#/shock-absorbers");return;}
   if(!p){notFound();return;}
   const pads=p.special==="pads";
   const start=PADS.find(x=>x.key===params.get("c"))||PADS[0];
@@ -852,6 +859,169 @@ function ssPage(slugT,params){
     draw();
   }).catch(err=>{app.querySelector("#slist").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
 }
+// ---------- shock absorber catalogue ----------
+// Data: shock-absorbers.json, published from Supabase (tables stravik_sa_*, function stravik_sa_catalogue()).
+// parts: [sv_pn, type, description, position, fitting position, damper type, system, upper mount, lower mount,
+//         supplied with, external no, availability, new (0/1), [oe], [[make index, model, model code, years, position]]]
+const SAI={};SA_TYPES.forEach(t=>SAI[t[0]]={code:t[0],one:t[1],many:t[2],icon:t[3],slug:slug(t[2])});
+const saMkLabel=m=>MKL[m]||String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g,c=>c.toUpperCase());
+let SAP=null;
+function loadSA(){
+  return SAP||(SAP=fetch("/shock-absorbers.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(raw=>{
+    const d={at:raw.at,makes:raw.makes.map(m=>({name:m,label:saMkLabel(m)}))};
+    d.items=raw.parts.map((p,ord)=>{
+      const it={pn:p[0],t:p[1],d:p[2]||"",pos:p[3]||"",fp:p[4]||"",ty:p[5]||"",sy:p[6]||"",um:p[7]||"",lm:p[8]||"",inc:p[9]||"",k:p[10]||"",x:p[11]||"",nw:!!p[12],oe:p[13]||[],ord,
+        apps:(p[14]||[]).map(a=>({mk:a[0],mo:a[1]||"",mc:a[2]||"",yr:a[3]||"",pos:a[4]||""}))};
+      it.mks=[...new Set(it.apps.map(a=>a.mk))];
+      it.keys=[fclean(it.pn),fclean(it.k)].concat(it.oe.map(fclean));
+      const T=SAI[it.t]||{one:"",many:""};
+      it.text=[T.one,T.many,it.pos,it.ty,it.sy].concat(it.mks.map(i=>d.makes[i].name+" "+d.makes[i].label),it.apps.map(a=>a.mo+" "+a.mc+" "+a.yr)).join(" ").toLowerCase();
+      return it;});
+    d.byPn={};d.items.forEach(i=>d.byPn[i.pn]=i);
+    d.count={};d.items.forEach(i=>d.count[i.t]=(d.count[i.t]||0)+1);
+    d.mkCount=d.makes.map((m,ix)=>d.items.filter(i=>i.mks.includes(ix)).length);
+    return d;
+  }).catch(e=>{SAP=null;throw e;}));
+}
+const saPos=i=>ssCase(i.pos);
+const saDesc=i=>(SAI[i.t]?SAI[i.t].one:"")+(i.pos?", "+ssCase(i.pos).toLowerCase():"");
+const saItem=i=>({key:i.pn,no:i.pn,cat:"Shock Absorbers",desc:saDesc(i),link:"/part/"+i.pn+"/",kind:"sa"});
+function samatch(i,q){
+  if(!q)return true;
+  const c=fclean(q);
+  if(c.length>=3&&i.keys.some(k=>k.includes(c)))return true;
+  const words=q.toLowerCase().split(/\s+/).filter(Boolean);
+  return words.every(w=>i.text.includes(w)||(fclean(w).length>=2&&i.keys.some(k=>k.includes(fclean(w)))));
+}
+// vehicle filter: make index (-1 = any), model, year
+const saAppOk=(a,v)=>(v.mk<0||a.mk===v.mk)&&(!v.mo||a.mo===v.mo)&&yearIn(a.yr,v.yr);
+const saVehOn=v=>v.mk>=0||!!v.mo||!!v.yr;
+function saNums(i,q,max){
+  const c=fclean(q),hit=c.length>=3?i.oe.filter(n=>fclean(n).includes(c)):[],nums=hit.concat(i.oe.filter(n=>!hit.includes(n))),shown=nums.slice(0,max),more=nums.length-shown.length;
+  return shown.length?shown.map(n=>`<span class="n">${hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)}</span>`).join("")+(more>0?`<span class="n nmore">+${more} more</span>`:""):"";
+}
+function saFits(d,i,v,max){
+  const apps=saVehOn(v)?i.apps.filter(a=>saAppOk(a,v)):i.apps;const seen=new Set(),out=[];
+  apps.forEach(a=>{const t=`<b>${esc(d.makes[a.mk].label)}</b> ${esc(a.mo)}${a.mc?` <span class="mc">${esc(a.mc)}</span>`:""}${a.yr?` <span class="yr">${esc(a.yr)}</span>`:""}`;if(!seen.has(t)){seen.add(t);out.push(t);}});
+  return out.length?out.slice(0,max).map(t=>`<span class="fl">${t}</span>`).join("")+(out.length>max?`<span class="n">+${out.length-max} more</span>`:""):`<span class="n">Vehicle details to follow</span>`;
+}
+function saCartBtn(i,cls){const on=Cart.has(i.pn);
+  return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(saItem(i)))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button>`;}
+const saTags=i=>(i.nw?`<span class="satag new">New</span>`:"")+(i.x?`<span class="satag">${esc(i.x)}</span>`:"");
+function sarow(d,i,q,v){
+  const T=SAI[i.t]||{one:""},c=fclean(q),k=c.length>=3&&fclean(i.k).includes(c)?`<mark>${esc(i.k)}</mark>`:esc(i.k);
+  return `<tr data-href="/part/${esc(i.pn)}/"><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a>${saTags(i)}${saCartBtn(i,"inline")}</td>`+
+    `<td class="fext">${k||"–"}</td>`+
+    `<td class="fty"><b>${esc(T.one)}</b>${i.ty||i.sy?`<span>${esc([i.ty,i.sy].filter(Boolean).join(", "))}</span>`:""}</td>`+
+    `<td class="fpos">${esc(saPos(i))}</td>`+
+    `<td class="fnum">${saNums(i,q,4)||"–"}</td>`+
+    `<td class="fveh">${saFits(d,i,v,3)}</td></tr>`;
+}
+function sacard(d,i,q,v){
+  const T=SAI[i.t]||{one:"",icon:"shock"},nums=saNums(i,q,4);
+  return `<div class="fcell"><a class="fcard" href="/part/${esc(i.pn)}/"><span class="ic">${icon(T.icon)}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(saDesc(i))}</span>`+
+    (i.k?`<span class="veh"><b>External no.</b> ${esc(i.k)}</span>`:"")+
+    `<span class="veh sa-fits"><b>Fits</b> ${saFits(d,i,v,2)}</span>`+
+    (nums?`<span class="nums"><b>OE</b> ${nums}</span>`:"")+`</a>${saCartBtn(i)}</div>`;
+}
+function saOverview(){
+  app.innerHTML=`<div class="pagehead"><div class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Shock Absorbers</span></div>
+    <h1>Shock Absorbers</h1><p>MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit, each with its OE numbers and vehicle applications.</p>
+    <div class="tabs" role="list">${prodTabs("shock-absorbers")}</div></div></div>
+  <section class="fband"><div class="wrap">
+    <div><div class="kicker">Catalogue</div><h2>Shock absorber catalogue</h2><p id="saov-lede">Every part with its Stravik number, external number, OE numbers, position and the vehicles it fits.</p>
+      <div style="margin-top:22px"><a class="btn gold" href="#/shock-absorbers">Open the catalogue</a></div></div>
+    <form id="saovq" role="search"><label for="saovi">Search the catalogue</label><div class="field"><input id="saovi" type="search" autocomplete="off" placeholder="Stravik, external or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SV3300041, 334945, 48510-09550 or Corolla</small></form>
+  </div></section>
+  <section class="block"><div class="wrap" id="saov-body"><p class="loading">Loading the catalogue…</p></div></section>`;
+  app.querySelector("#saovq").addEventListener("submit",e=>{e.preventDefault();const q=app.querySelector("#saovi").value.trim();location.hash="#/shock-absorbers"+(q?"?q="+encodeURIComponent(q):"");});
+  loadSA().then(d=>{
+    app.querySelector("#saov-lede").textContent=`All ${d.items.length.toLocaleString("en-US")} parts with their Stravik number, external number, OE numbers, position and the vehicles they fit.`;
+    app.querySelector("#saov-body").innerHTML=`<div class="group"><h2>Part types<span>${d.items.length.toLocaleString("en-US")} parts</span></h2><div class="grid">${SA_TYPES.filter(t=>d.count[t[0]]).map(t=>{const T=SAI[t[0]];return `<a class="card" href="#/shock-absorbers/${T.slug}"><span class="ic">${icon(T.icon)}</span><h3>${esc(T.many)}</h3><p>View in the catalogue</p></a>`;}).join("")}</div></div>`+
+      `<div class="group" style="margin-bottom:0"><h2>Search by vehicle make<span>${d.makes.length} makes</span></h2><div class="mkgrid">${d.makes.map((m,ix)=>({m,ix})).sort((a,b)=>a.m.label.localeCompare(b.m.label)).map(({m,ix})=>`<a class="mk" href="#/shock-absorbers?make=${encodeURIComponent(m.name)}">${esc(m.label)}<span>${d.mkCount[ix].toLocaleString("en-US")}</span></a>`).join("")}</div></div>`;
+  }).catch(err=>{app.querySelector("#saov-body").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
+}
+function saPage(slugT,params){
+  let q=params.get("q")||"",mkName=params.get("make")||"",mo=params.get("model")||"",yr=parseInt(params.get("year"),10)||0,view="list",sk="",sd=1;
+  try{if(localStorage.getItem("stravik-fview")==="cards")view="cards";}catch(e){}
+  const STEP=()=>view==="list"?100:48;let shown=STEP();
+  const T0=SA_TYPES.find(t=>slug(t[2])===slugT);let code=T0?T0[0]:"";
+  const small=matchMedia("(max-width:600px)").matches;
+  app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/shock-absorbers">Shock Absorbers</a><span>/</span><span>Catalogue</span></div><h1>Shock absorber catalogue</h1>
+    <p>Search by Stravik, external or OE number, or pick the vehicle make, model and year. Matched to OE fit.</p></div></div>
+    <div class="wrap catalog"><aside class="side fside"><nav aria-label="Part types" class="ftypes-nav" id="anav"></nav></aside>
+    <div><div class="fsearch" role="search">
+      <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the shock absorber catalogue</span>
+        <input id="aq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik, external or OE no., or model":"Search Stravik, external or OE no., vehicle or model code"}" value="${esc(q)}">
+        <button type="button" class="fs-x" id="aqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
+      <span class="fs-hint">For example SV3300041, 334945, 48510-09550, Corolla or ZZE121</span></div>
+    <div class="fbar sabar"><div class="fbar-l"><label class="sr" for="amk">Vehicle make</label><select id="amk"><option value="">All makes</option></select>
+      <label class="sr" for="amo">Model</label><select id="amo" disabled><option value="">All models</option></select>
+      <label class="sr" for="ayr">Year</label><select id="ayr"><option value="">Any year</option>${YEARS.map(y=>`<option${y===yr?" selected":""}>${y}</option>`).join("")}</select>
+      <label class="sr" for="aty">Part type</label><select id="aty"><option value="">All part types</option></select><p class="fcount" id="acount" aria-live="polite"></p></div>
+      <div class="vtoggle" role="group" aria-label="Show parts as"><button type="button" data-v="list" aria-pressed="${view==="list"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2 3.5h12M2 8h12M2 12.5h12"/></svg>List</button><button type="button" data-v="cards" aria-pressed="${view==="cards"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Cards</button></div></div>
+    <div id="alist"><p class="loading">Loading the catalogue…</p></div></div></div>`;
+  loadSA().then(d=>{
+    const inp=app.querySelector("#aq"),qx=app.querySelector("#aqx"),amk=app.querySelector("#amk"),amo=app.querySelector("#amo"),ayr=app.querySelector("#ayr"),aty=app.querySelector("#aty"),list=app.querySelector("#alist");
+    let mkIx=d.makes.findIndex(m=>m.name===mkName);
+    const veh=()=>({mk:mkIx,mo,yr});
+    amk.innerHTML=`<option value="">All makes</option>`+d.makes.map((m,ix)=>({m,ix})).sort((a,b)=>a.m.label.localeCompare(b.m.label)).map(({m,ix})=>`<option value="${ix}"${ix===mkIx?" selected":""}>${esc(m.label)}</option>`).join("");
+    aty.innerHTML=`<option value="">All part types</option>`+SA_TYPES.filter(t=>d.count[t[0]]).map(t=>`<option value="${t[0]}"${t[0]===code?" selected":""}>${esc(t[2])}</option>`).join("");
+    const models=()=>{if(mkIx<0){amo.innerHTML=`<option value="">All models</option>`;amo.disabled=true;mo="";return;}
+      const ms=[...new Set(d.items.flatMap(i=>i.apps.filter(a=>a.mk===mkIx).map(a=>a.mo)))].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+      if(mo&&!ms.includes(mo))mo="";
+      amo.innerHTML=`<option value="">All models</option>`+ms.map(m=>`<option${m===mo?" selected":""}>${esc(m)}</option>`).join("");amo.disabled=false;};
+    const nav=()=>{app.querySelector("#anav").innerHTML=`<h4>Part types</h4><a href="#/shock-absorbers" aria-current="${!code}">All parts<span>${d.items.length.toLocaleString("en-US")}</span></a>`+
+      SA_TYPES.filter(t=>d.count[t[0]]).map(t=>`<a href="#/shock-absorbers/${SAI[t[0]].slug}" aria-current="${t[0]===code}">${esc(t[2])}<span>${d.count[t[0]].toLocaleString("en-US")}</span></a>`).join("");};
+    const head=()=>{const T=SAI[code];app.querySelector(".pagehead h1").textContent=T?T.many:"Shock absorber catalogue";
+      app.querySelector(".crumbs").innerHTML=`<a href="#/">Home</a><span>/</span><a href="#/products/shock-absorbers">Shock Absorbers</a><span>/</span>`+(T?`<a href="#/shock-absorbers">Catalogue</a><span>/</span><span>${esc(T.many)}</span>`:`<span>Catalogue</span>`);
+      document.title=(T?T.many:"Shock absorber catalogue")+" | Stravik";};
+    const showX=()=>{qx.hidden=!inp.value;};
+    const sync=()=>{const p=new URLSearchParams();if(q)p.set("q",q);if(mkIx>=0)p.set("make",d.makes[mkIx].name);if(mo)p.set("model",mo);if(yr)p.set("year",yr);history.replaceState(null,"","#/shock-absorbers"+(code?"/"+SAI[code].slug:"")+(p.toString()?"?"+p:""));};
+    const SORT={s:i=>i.pn,k:i=>i.k,t:i=>(SAI[i.t]?SA_TYPES.findIndex(t=>t[0]===i.t):9)+" "+i.ty+" "+i.sy,o:i=>i.pos,f:i=>-i.apps.length};
+    const th=(k,l)=>`<th><button type="button" class="sort" data-sort="${k}" data-dir="${sk===k?(sd>0?"asc":"desc"):""}">${l}</button></th>`;
+    const draw=()=>{
+      const v=veh(),c=fclean(q);
+      let res=d.items.filter(i=>(!code||i.t===code)&&(!saVehOn(v)||i.apps.some(a=>saAppOk(a,v)))&&samatch(i,q));
+      if(sk){const f=SORT[sk];res=res.slice().sort((a,b)=>{const x=f(a),y=f(b);return (x<y?-1:x>y?1:a.ord-b.ord)*sd;});}
+      else if(c.length>=3)res=res.slice().sort((a,b)=>(b.keys.some(k=>k===c)-a.keys.some(k=>k===c))||a.ord-b.ord);
+      app.querySelector("#acount").textContent=`${res.length.toLocaleString("en-US")} ${res.length===1?"part":"parts"}`;
+      const page=res.slice(0,shown);
+      list.innerHTML=res.length?(view==="list"
+        ?`<div class="ftable-wrap"><table class="ftable sa"><thead><tr>${th("s","Stravik no.")}${th("k","External no.")}${th("t","Type")}${th("o","Position")}<th>OE numbers</th>${th("f","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>sarow(d,i,q,v)).join("")}</tbody></table></div>`
+        :`<div class="fgrid">${page.map(i=>sacard(d,i,q,v)).join("")}</div>`)+
+        (res.length>shown?`<div class="more"><button type="button" class="btn line" id="amore">Show more (${(res.length-shown).toLocaleString("en-US")} left)</button></div>`:""):
+        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}${mo?" "+esc(mo):""}${yr?" "+yr:""}`:(yr?` for ${yr}`:"")}${code?` in ${esc(SAI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Check the Stravik, external or OE number, or send us the vehicle and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="aclear">Clear all filters</button><a class="btn gold" href="#/request${q?"?q="+encodeURIComponent(q):""}">Ask us</a></p></div>`;
+      const more=list.querySelector("#amore");if(more)more.onclick=()=>{shown+=STEP();draw();};
+      const clr=list.querySelector("#aclear");if(clr)clr.onclick=()=>{q="";mkIx=-1;mo="";yr=0;code="";inp.value="";amk.value="";ayr.value="";aty.value="";models();showX();nav();head();sync();draw();inp.focus();};
+    };
+    models();nav();head();
+    qx.addEventListener("click",()=>{inp.value="";q="";showX();shown=STEP();sync();draw();inp.focus();});
+    inp.addEventListener("keydown",e=>{if(e.key==="Escape"&&inp.value){e.preventDefault();qx.click();}});
+    let t;inp.addEventListener("input",()=>{showX();clearTimeout(t);t=setTimeout(()=>{q=inp.value.trim();shown=STEP();sync();draw();},180);});
+    amk.addEventListener("change",()=>{mkIx=amk.value===""?-1:+amk.value;mo="";models();shown=STEP();sync();draw();});
+    amo.addEventListener("change",()=>{mo=amo.value;shown=STEP();sync();draw();});
+    ayr.addEventListener("change",()=>{yr=parseInt(ayr.value,10)||0;shown=STEP();sync();draw();});
+    aty.addEventListener("change",()=>{code=aty.value;shown=STEP();nav();head();sync();draw();});
+    app.querySelector("#anav").addEventListener("click",e=>{const a=e.target.closest("a");if(!a)return;e.preventDefault();const s=a.getAttribute("href").split("/")[2]||"";const T=SA_TYPES.find(x=>slug(x[2])===s);code=T?T[0]:"";aty.value=code;shown=STEP();nav();head();sync();draw();});
+    app.querySelectorAll(".vtoggle button").forEach(b=>b.addEventListener("click",()=>{
+      if(view===b.dataset.v)return;view=b.dataset.v;shown=STEP();
+      try{localStorage.setItem("stravik-fview",view);}catch(e){}
+      app.querySelectorAll(".vtoggle button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===view));draw();}));
+    list.addEventListener("click",e=>{
+      const s=e.target.closest("button.sort");if(s){const k=s.dataset.sort;if(sk===k)sd=-sd;else{sk=k;sd=1;}draw();return;}
+      if(e.target.closest("a,button,input"))return;const tr=e.target.closest("tr[data-href]");if(tr)location.href=tr.dataset.href;});
+    draw();
+  }).catch(err=>{app.querySelector("#alist").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
+}
+function saResults(d,list,q,max,v){
+  if(!list.length)return "";const shown=list.slice(0,max);v=v||{mk:-1,mo:"",yr:0};
+  return `<div class="rgroup"><h2>Shock absorbers <span>${list.length.toLocaleString("en-US")} ${list.length===1?"part":"parts"}</span></h2>
+  <div class="ftable-wrap"><table class="ftable sa"><thead><tr><th>Stravik no.</th><th>External no.</th><th>Type</th><th>Position</th><th>OE numbers</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>sarow(d,x.i,q,v)).join("")}</tbody></table></div>
+  ${list.length>max?`<p class="rmore"><a class="btn line" href="#/shock-absorbers?q=${encodeURIComponent(q)}">See all ${list.length.toLocaleString("en-US")} in the shock absorber catalogue</a></p>`:""}</div>`;
+}
+
 // old steering & suspension product pages now live in the catalogue
 const OLD_SS={"ball-joints":"ball-joints","tie-rod-ends":"tie-rod-ends","control-arms":"control-arms","wishbone-arms":"control-arms","trailing-arms":"control-arms","sway-bar-links":"stabiliser-links","anti-roll-bar-drop-links":"stabiliser-links","stabilizer-bar":"stabiliser-links","bushings":"bushes","sway-bar-bushings":"bushes","subframe-bushings":"bushes","engine-cradle-bushings":"bushes","strut-mount-top-mount":"strut-mounts","strut-bearing-mount":"strut-mounts","track-rod-drag-link":"drag-links","steering-rack":"rack-ends","steering-gear-box":"other-steering-parts","struts":"","springs":"","coilover-assembly":"","spring-seat":"","air-suspension-valve":"","bump-stop-jounce-bumper":"","steering-column":"","steering-shaft-intermediate-shaft":"inner-shafts","steering-pump":"","power-steering-reservoir":"","power-steering-hose":"","electronic-power-steering-eps-motor":"","radius-rods":"","panhard-rod":"","lateral-links":"","camber-kit":""};
 
@@ -875,15 +1045,16 @@ function route(){
   else if(parts[0]==="filters"){key="filters";filtersPage(parts[1],params);}
   else if(parts[0]==="filter"&&parts[1]){location.replace(filterUrl(decodeURIComponent(parts[1])));return;}
   else if(parts[0]==="steering"){key="steering";ssPage(parts[1],params);}
+  else if(parts[0]==="shock-absorbers"){key="shocks";saPage(parts[1],params);}
   else if(parts[0]==="part"&&parts[1]){location.replace(partUrl(decodeURIComponent(parts[1])));return;}
   else notFound();
   document.querySelectorAll("nav.main a").forEach(a=>{if(a.dataset.nav===key)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
-  const inProducts=key==="products"||key==="filters"||key==="steering";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
+  const inProducts=key==="products"||key==="filters"||key==="steering"||key==="shocks";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
   ddSet(false);cartPaint();
   nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");
   if(!(parts[0]==="products"&&parts[2]))window.scrollTo(0,0);
-  const titles={home:"Stravik | Auto Parts: find a part by number or vehicle",find:"Find a part | Stravik",new:"New to range | Stravik",where:"Where to buy | Stravik",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",steering:"Steering & suspension catalogue | Stravik",cart:"Your cart | Stravik"};
-  if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(!["filter","steering","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key];
+  const titles={home:"Stravik | Auto Parts: find a part by number or vehicle",find:"Find a part | Stravik",new:"New to range | Stravik",where:"Where to buy | Stravik",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",steering:"Steering & suspension catalogue | Stravik",shocks:"Shock absorber catalogue | Stravik",cart:"Your cart | Stravik"};
+  if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="products"&&parts[1]==="shock-absorbers")document.title="Shock Absorbers | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(!["filter","steering","shock-absorbers","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key];
 }
 addEventListener("hashchange",route);route();
 })();
