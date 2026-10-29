@@ -1,0 +1,130 @@
+# Publishes the Stravik catalogues from the Master Data database (Supabase, tables stravik_*) to the website.
+# Sources (public catalogue functions: no prices, no supplier numbers, no internal fields):
+#   filters.json              <- stravik_filters_catalogue()
+#   steering-suspension.json  <- stravik_ss_catalogue()
+#   shock-absorbers.json      <- stravik_sa_catalogue()
+# - every 10 minutes: publishes only if someone pressed "Publish to website" in the Stravik admin site (/admin)
+# - every hour: publishes whatever changed (safety net)
+# - by hand: Actions > Publish Stravik catalogues > Run workflow
+# - after any of these, and whenever the site template changes on main, it rebuilds the per-part pages
+#   (/part/..., /filter/...), sitemap.xml and robots.txt with tools/build-pages.js
+# The job proves who it is to Supabase with GitHub's own identity token (for the publish log), so no password is stored here.
+name: Publish Stravik catalogues
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # Publish button requests
+    - cron: '23 * * * *'     # hourly
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Who started it'
+        default: manual
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-catalogues.yml', 'index.html', 'assets/**', 'tools/**']
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publish-catalogues
+  cancel-in-progress: false
+
+env:
+  SUPABASE_URL: https://kyegujgvlsbttyrlibgn.supabase.co
+  # Publishable key: safe in public code, it can only call the public catalogue functions.
+  SUPABASE_KEY: sb_publishable_tDldHk_KiFLeR7kOPzJKJg_IKmYLcwX
+  FN: https://kyegujgvlsbttyrlibgn.supabase.co/functions/v1/stravik-publish
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Identity token and what started this run
+        id: tok
+        run: |
+          T=$(curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=stravik-publish" | jq -r .value || true)
+          if [ -n "$T" ] && [ "$T" != "null" ]; then echo "::add-mask::$T"; umask 077; printf '%s' "$T" > "$RUNNER_TEMP/tok"; echo "has=yes" >> "$GITHUB_OUTPUT"; fi
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "23 * * * *" ]; then echo "source=hourly" >> "$GITHUB_OUTPUT";
+          elif [ "${{ github.event_name }}" = "schedule" ]; then echo "source=button" >> "$GITHUB_OUTPUT";
+          elif [ "${{ github.event_name }}" = "push" ]; then echo "source=site change" >> "$GITHUB_OUTPUT";
+          else echo "source=${{ inputs.source || 'manual' }}" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Anything requested?
+        id: go
+        run: |
+          call() { curl -sS --fail-with-body -X POST "$FN" -H "Authorization: Bearer $(cat "$RUNNER_TEMP/tok")" -H 'Content-Type: application/json' -d "$1"; }
+          if [ "${{ steps.tok.outputs.source }}" = "button" ]; then
+            [ "${{ steps.tok.outputs.has }}" = "yes" ] || { echo "run=no" >> "$GITHUB_OUTPUT"; exit 0; }
+            P=$(call '{"action":"pending"}' | jq -r .pending)
+            echo "pending: $P"
+            [ "$P" = "true" ] || { echo "run=no" >> "$GITHUB_OUTPUT"; exit 0; }
+          fi
+          echo "run=yes" >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.tok.outputs.has }}" = "yes" ] && { [ "${{ steps.tok.outputs.source }}" = "button" ] || [ "${{ steps.tok.outputs.source }}" = "manual" ]; }; then
+            call '{"action":"report","status":"running","source":"${{ steps.tok.outputs.source }}"}' || true; echo "reported=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.go.outputs.run == 'yes'
+
+      - name: Read the catalogues from Supabase
+        id: read
+        if: steps.go.outputs.run == 'yes'
+        run: |
+          read_one() {   # $1 function, $2 file, $3 list key, $4 label
+            curl -sS --fail-with-body -X POST "$SUPABASE_URL/rest/v1/rpc/$1" -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}' -o "$RUNNER_TEMP/$2"
+            N=$(jq ".$3 | length" "$RUNNER_TEMP/$2")
+            OLD=$( [ -f "$2" ] && jq ".$3 | length" "$2" || echo 0 )
+            echo "$4: $N in the database (website now: $OLD)"
+            # safety: never publish an empty or badly shrunk catalogue
+            if [ "$N" -lt 50 ] || [ "$N" -lt $(( OLD * 8 / 10 )) ]; then echo "::error::$4: only $N (was $OLD). Not publishing."; exit 3; fi
+            jq -cS 'del(.at)' "$RUNNER_TEMP/$2" > "$RUNNER_TEMP/new.cmp"
+            if [ -f "$2" ]; then jq -cS 'del(.at)' "$2" > "$RUNNER_TEMP/old.cmp"; else : > "$RUNNER_TEMP/old.cmp"; fi
+            if cmp -s "$RUNNER_TEMP/new.cmp" "$RUNNER_TEMP/old.cmp"; then echo "  no changes"; else jq -c . "$RUNNER_TEMP/$2" > "$2"; echo "  updated"; echo "changed=yes" >> "$GITHUB_OUTPUT"; fi
+            echo "$5=$N" >> "$GITHUB_OUTPUT"
+          }
+          read_one stravik_filters_catalogue filters.json items Filters filters
+          read_one stravik_ss_catalogue steering-suspension.json parts "Steering and suspension" steering
+          read_one stravik_sa_catalogue shock-absorbers.json parts "Shock absorbers" shock
+
+      - uses: actions/setup-node@v4
+        if: steps.go.outputs.run == 'yes'
+        with:
+          node-version: '20'
+
+      - name: Rebuild part pages and sitemap
+        id: build
+        if: steps.go.outputs.run == 'yes'
+        run: |
+          node tools/build-pages.js
+          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json
+          if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_OUTPUT"; else echo "pages=yes" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Commit and publish
+        id: push
+        if: steps.build.outputs.pages == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "Stravik catalogue publisher"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages build will start from the push"
+
+      - name: Report to the admin site
+        if: always() && steps.go.outputs.run == 'yes' && steps.tok.outputs.has == 'yes'
+        run: |
+          S="${{ job.status }}"; ST=failed
+          if [ "$S" = "success" ]; then if [ "${{ steps.build.outputs.pages }}" = "yes" ]; then ST=published; else ST=no_changes; fi; fi
+          if [ "${{ steps.go.outputs.reported }}" != "yes" ] && [ "$ST" = "no_changes" ]; then exit 0; fi   # quiet hourly runs are not logged
+          jq -n --arg st "$ST" --arg src "${{ steps.tok.outputs.source }}" --arg sha "${{ steps.push.outputs.sha }}" \
+            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" \
+            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
+          curl -sS -X POST "$FN" -H "Authorization: Bearer $(cat "$RUNNER_TEMP/tok")" -H 'Content-Type: application/json' -d @"$RUNNER_TEMP/report.json" || true
