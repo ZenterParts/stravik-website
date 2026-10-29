@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
-//   /part/<Stravik no.>/    steering & suspension (from steering-suspension.json) and shock absorbers (from shock-absorbers.json)
+//   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json) and brakes (brakes.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
@@ -202,6 +202,66 @@ ${cantFind}`;
   urls.push(url);
 }
 
+// ================= brakes =================
+const BRR = JSON.parse(rd("brakes.json"));
+const { BR_TYPES, BR_MKL, BR_BRANDS } = ctx;
+const brLabel = m => BR_MKL[m] || MKL[m] || String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g, c => c.toUpperCase());
+const brmk = BRR.makes.map(m => ({ name: m, label: brLabel(m), cv: m === "COMMERCIAL VEHICLES", brand: BR_BRANDS.includes(m) }));
+const BRT = {}; BR_TYPES.forEach(t => BRT[t[0]] = { code: t[0], one: t[1], many: t[2], icon: t[3], slug: slug(t[2]) });
+const BR = BRR.parts.map(p => ({ pn: p[0], t: p[1], pos: p[2] || "", sz: p[3] || "", dt: p[4] || "", k: p[5] || "", oe: p[6] || [], wva: p[7] || [],
+  apps: (p[8] || []).map(a => ({ mk: a[0], mo: a[1] || "", yr: a[2] || "", pos: a[3] || "", ds: a[4] || "" })) }));
+{ const used = new Set(SS.map(i => i.pn).concat(SA.map(i => i.pn))); const clash = BR.filter(i => used.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Brake numbers also used in another catalogue: " + clash.slice(0, 5).join(", ")); }
+const brDesc = i => (BRT[i.t] ? BRT[i.t].one : "Brake part") + (i.pos ? ", " + i.pos.toLowerCase() : "") + (i.dt ? ", " + i.dt.toLowerCase() : "");
+const brMakes = i => uniq(i.apps.map(a => brmk[a.mk] && !brmk[a.mk].cv && brmk[a.mk].label));
+const brVehs = i => uniq(i.apps.map(a => a.mo));
+// pads sold in more than one version share the external number root (KD2004Y-EC, KD2004Y-ET)
+const brRoot = i => i.k ? i.k.replace(/-[A-Z]{2}$/, "") : i.pn;
+const brVersions = new Map(); BR.forEach(i => { const r = brRoot(i); if (!brVersions.has(r)) brVersions.set(r, []); brVersions.get(r).push(i); });
+const brByVeh = new Map();
+BR.forEach(i => uniq(i.apps.filter(a => !brmk[a.mk].cv).map(a => a.mk + "|" + a.mo)).forEach(k => { if (!brByVeh.has(k)) brByVeh.set(k, []); brByVeh.get(k).push(i); }));
+function brRelated(i) {
+  const score = new Map();
+  uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => (brByVeh.get(k) || []).forEach(x => { if (x !== i && brRoot(x) !== brRoot(i)) score.set(x, (score.get(x) || 0) + 1); }));
+  const ranked = [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]);
+  const out = [], seen = new Set();
+  for (const x of ranked) { const k = x.t + x.pos; if (!seen.has(k)) { out.push(x); seen.add(k); } if (out.length >= 8) break; }
+  for (const x of ranked) { if (out.length >= 8) break; if (!out.includes(x)) out.push(x); }
+  return out;
+}
+const brCard = x => { const T = BRT[x.t] || { one: "Brake part", icon: "pad" }, mk = brMakes(x), vh = brVehs(x);
+  return `<div class="fcell"><a class="fcard" href="/part/${esc(x.pn)}/"><span class="ic">${icon(T.icon)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(brDesc(x))}</span>${x.sz ? `<span class="veh"><b>Size</b> ${esc(x.sz)}</span>` : ""}<span class="veh"><b>Fits</b> ${esc(list(mk, 2))}${vh.length ? ": " + esc(list(vh, 2)) : ""}</span></a></div>`; };
+for (const i of BR) {
+  const T = BRT[i.t] || { one: "Brake part", many: "Brake parts", icon: "pad", slug: "" };
+  const url = `${SITE}/part/${i.pn}/`, mk = brMakes(i), vh = brVehs(i), cv = i.t === "CVP";
+  const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Position", i.pos], ["Disc type", i.dt], ["Size", i.sz], ["External number", i.k], ["WVA numbers", i.wva.join(", ")]].filter(r => r[1]);
+  const byMk = [...new Set(i.apps.map(a => a.mk))].filter(ix => brmk[ix]).map(ix => ({ m: brmk[ix], apps: i.apps.filter(a => a.mk === ix) }));
+  const nApps = i.apps.length;
+  const title = `Stravik ${i.pn} ${brDesc(i)}${mk.length ? " | " + list(mk.slice(0, 2), 2) : cv && vh.length ? " | " + list(vh.slice(0, 2), 2) : ""}`.slice(0, 120);
+  const desc = `Stravik ${lc1(brDesc(i))} ${i.pn}.` + (i.sz ? ` Size ${i.sz}.` : "") + (i.k ? ` External no. ${i.k}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (i.wva.length ? ` WVA ${list(i.wva, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : cv && vh.length ? ` Fits ${list(vh, 3)}.` : "");
+  const item = { key: i.pn, no: i.pn, cat: "Brakes", desc: brDesc(i), link: `/part/${i.pn}/`, kind: "br" };
+  const rel = brRelated(i), vers = brVersions.get(brRoot(i)).filter(x => x !== i);
+  const appRows = cv
+    ? i.apps.map(a => `<tr><td colspan="3">${esc(a.mo)}</td><td>${esc(a.pos)}</td></tr>`).join("")
+    : byMk.map(g => `<tr class="catrow"><td colspan="4">${esc(g.m.label)}</td></tr>` + g.apps.map(a => `<tr><td colspan="2">${esc(a.mo)}</td><td class="yr">${esc(a.yr)}</td><td>${esc(a.ds || a.pos)}</td></tr>`).join("")).join("");
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/braking-system", "Braking"], [`/#/brakes/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(brDesc(i)))}</p></div></div>
+<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span><div class="big">${icon(T.icon)}</div></div>
+<div class="info"><div class="type">Stravik ${esc(T.one.toLowerCase())}</div>
+<dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+${vers.length ? `<p class="sib">Also available as ${vers.map(x => `<a href="/part/${esc(x.pn)}/">${esc(x.pn)}</a> (external no. ${esc(x.k)})`).join(", ")}</p>` : ""}
+${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
+<div class="replace"><b>Before you order</b><span>${i.t === "DSC" ? "Check the diameter, thickness and bolt pattern against the old disc" : "Check the size against the old part"}, and the vehicle and years below, or send us the OE number and we'll confirm the fit.</span></div>
+${buyBox(item)}
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this part</a><a class="btn line" href="/#/brakes/${T.slug}">More ${esc(T.many.toLowerCase())}</a></div>
+</div></div>
+<section class="block paper"><div class="wrap"><h2 class="apph">${cv ? "Applications" : "Vehicles it fits"}<span>${nApps} ${nApps === 1 ? "application" : "applications"}${cv ? "" : `, ${byMk.length} ${byMk.length === 1 ? "make" : "makes"}`}</span></h2>
+${nApps ? `<div class="ftable-wrap"><table class="ctable apps"><thead><tr><th colspan="2">${cv ? "Axle or vehicle" : "Model"}</th><th>${cv ? "" : "Years"}</th><th>Position</th></tr></thead><tbody>${appRows}</tbody></table></div>` : `<p class="sib">Vehicle details to follow. Send us your OE number and we'll confirm the match.</p>`}
+</div></section>
+${rel.length ? `<section class="block related"><div class="wrap"><h2>Matching brake parts for the same vehicles</h2><p class="pp-note">Other Stravik pads, discs and shoes that fit the vehicles above.</p><div class="fgrid">${rel.map(brCard).join("")}</div></div></section>` : ""}
+${cantFind}`;
+  write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${brDesc(i)} ${i.pn}`, i.pn, T.one, desc, "/assets/img/braking-box.webp"), body }));
+  urls.push(url);
+}
+
 // ================= filters =================
 const F = JSON.parse(rd("filters.json"));
 const FT = {}; F.types.forEach(t => FT[t[0]] = { code: t[0], slug: t[1], name: t[2], one: t[3] });
@@ -240,4 +300,4 @@ ${cantFind}`;
 // ================= sitemap and robots =================
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
+console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
