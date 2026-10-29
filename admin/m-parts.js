@@ -16,7 +16,8 @@
   var SEARCH = {
     stravik_filters_full: ['sv_pn', 'description', 'website_description', 'oe_numbers', 'cross_references', 'supplier_pn', 'vehicle_makes', 'vehicles', 'source_inquiry'],
     stravik_steering_suspension_full: ['sv_pn', 'description', 'position', 'ctr_number', 'old_ctr_numbers', 'oe_numbers', 'vehicle_makes'],
-    stravik_shock_absorbers_full: ['sv_pn', 'description', 'position', 'external_no', 'oe_numbers', 'vehicle_makes']
+    stravik_shock_absorbers_full: ['sv_pn', 'description', 'position', 'external_no', 'oe_numbers', 'vehicle_makes'],
+    stravik_brakes_full: ['sv_pn', 'description', 'type', 'position', 'size', 'external_no', 'wva_numbers', 'oe_numbers', 'vehicle_makes']
   };
   var REGIONS = [['north_africa', 'North Africa'], ['east_africa', 'East Africa'], ['west_africa', 'West Africa'], ['central_africa', 'Central Africa'],
     ['southern_africa', 'Southern Africa'], ['ocean_islands', 'Indian Ocean Islands'], ['gcc', 'GCC'], ['middle_east', 'Middle East']];
@@ -549,7 +550,7 @@
       var rows = L.must(await sb.from('stravik_publish_log').select('*').order('id', { ascending: false }).limit(50));
       var waiting = rows.find(function (r) { return r.status === 'requested' || r.status === 'running'; });
       var last = rows.find(function (r) { return r.status === 'published'; });
-      var intro = '<div class="card"><p>The Stravik website <a href="https://stravikautomotiveparts.com" target="_blank" rel="noopener">stravikautomotiveparts.com</a> is rebuilt from these tables: the filter, steering &amp; suspension and shock absorber catalogues, their part pages and the sitemap. ' +
+      var intro = '<div class="card"><p>The Stravik website <a href="https://stravikautomotiveparts.com" target="_blank" rel="noopener">stravikautomotiveparts.com</a> is rebuilt from these tables: the filter, steering &amp; suspension, shock absorber and brake catalogues, their part pages and the sitemap. ' +
         'Published: parts with status Proposed or Active that are set to show on the website, with their description, type, specifications, OE and cross-reference numbers and vehicles. Inactive parts and parts hidden from the website are taken off. Prices, supplier numbers, inquiries and notes are never published.</p>' +
         '<p class="muted small">Every hour the website picks up changes automatically. Press <b>Publish to website</b> (data team) to do it now: it starts within about 10 minutes and takes a minute or two. A publish that would shrink a catalogue by more than 20% stops and changes nothing.</p>' +
         (waiting ? '<div class="notice">' + L.pill(PUBST[waiting.status][0], PUBST[waiting.status][1]) + ' requested ' + esc(L.dt(waiting.requested_at)) + (waiting.requested_by ? ' by ' + esc(waiting.requested_by) : '') + '. This page refreshes by itself.</div>' : '') +
@@ -558,7 +559,7 @@
         { label: 'When', render: function (r) { return '<span class="small">' + esc(L.dt(r.finished_at || r.started_at || r.requested_at)) + '</span>'; } },
         { label: 'Started by', render: function (r) { return esc(r.requested_by || (r.source === 'hourly' ? 'Automatic (hourly)' : r.source === 'button' ? 'Publish button' : r.source)); } },
         { label: 'Status', render: function (r) { var s = PUBST[r.status] || [r.status, '']; return L.pill(s[0], s[1]); } },
-        { label: 'Catalogues', render: function (r) { var sm = r.summary || {}; return '<span class="small">' + esc(['filters', 'steering', 'shock'].filter(function (k) { return sm[k]; }).map(function (k) { return k + ' ' + sm[k]; }).join(', ')) + '</span>'; } },
+        { label: 'Catalogues', render: function (r) { var sm = r.summary || {}; return '<span class="small">' + esc(['filters', 'steering', 'shock', 'brakes'].filter(function (k) { return sm[k]; }).map(function (k) { return k + ' ' + sm[k]; }).join(', ')) + '</span>'; } },
         { label: '', render: function (r) { return r.summary && r.summary.run ? '<a class="small" href="' + esc(r.summary.run) + '" target="_blank" rel="noopener">details</a>' : ''; } }
       ], rows) : L.empty('Nothing published yet', 'The first automatic publish runs within the hour.');
       L.content(intro + list);

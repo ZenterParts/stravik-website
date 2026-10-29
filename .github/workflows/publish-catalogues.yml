@@ -3,6 +3,7 @@
 #   filters.json              <- stravik_filters_catalogue()
 #   steering-suspension.json  <- stravik_ss_catalogue()
 #   shock-absorbers.json      <- stravik_sa_catalogue()
+#   brakes.json               <- stravik_brake_catalogue()
 # - every 10 minutes: publishes only if someone pressed "Publish to website" in the Stravik admin site (/admin)
 # - every hour: publishes whatever changed (safety net)
 # - by hand: Actions > Publish Stravik catalogues > Run workflow
@@ -91,6 +92,7 @@ jobs:
           read_one stravik_filters_catalogue filters.json items Filters filters
           read_one stravik_ss_catalogue steering-suspension.json parts "Steering and suspension" steering
           read_one stravik_sa_catalogue shock-absorbers.json parts "Shock absorbers" shock
+          read_one stravik_brake_catalogue brakes.json parts Brakes brakes
 
       - uses: actions/setup-node@v4
         if: steps.go.outputs.run == 'yes'
@@ -102,7 +104,7 @@ jobs:
         if: steps.go.outputs.run == 'yes'
         run: |
           node tools/build-pages.js
-          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json
+          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json
           if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_OUTPUT"; else echo "pages=yes" >> "$GITHUB_OUTPUT"; fi
 
       - name: Commit and publish
@@ -113,7 +115,7 @@ jobs:
         run: |
           git config user.name "Stravik catalogue publisher"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}"
+          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}, brakes ${{ steps.read.outputs.brakes }}"
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages build will start from the push"
@@ -125,6 +127,6 @@ jobs:
           if [ "$S" = "success" ]; then if [ "${{ steps.build.outputs.pages }}" = "yes" ]; then ST=published; else ST=no_changes; fi; fi
           if [ "${{ steps.go.outputs.reported }}" != "yes" ] && [ "$ST" = "no_changes" ]; then exit 0; fi   # quiet hourly runs are not logged
           jq -n --arg st "$ST" --arg src "${{ steps.tok.outputs.source }}" --arg sha "${{ steps.push.outputs.sha }}" \
-            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" \
-            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
+            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" --arg b "${{ steps.read.outputs.brakes }}" \
+            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, brakes:$b, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
           curl -sS -X POST "$FN" -H "Authorization: Bearer $(cat "$RUNNER_TEMP/tok")" -H 'Content-Type: application/json' -d @"$RUNNER_TEMP/report.json" || true
