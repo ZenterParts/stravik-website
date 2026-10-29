@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
-//   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json) and brakes (brakes.json)
+//   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json), brakes (brakes.json) and batteries (batteries.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
@@ -262,6 +262,54 @@ ${cantFind}`;
   urls.push(url);
 }
 
+// ================= batteries =================
+const BTR = JSON.parse(rd("batteries.json"));
+const { BAT_TYPES, BAT_DWG, BAT_PHOTO } = ctx;
+const BTT = {}; BAT_TYPES.forEach(t => BTT[t[0]] = { code: t[0], one: t[1], many: t[2], icon: t[3], slug: slug(t[2]) });
+const BT = BTR.parts.map(p => ({ pn: p[0], t: p[1], ser: p[2] || "", grp: p[3] || "", box: p[4] || "", ah: p[5], cca: p[6], l: p[7], w: p[8], h: p[9], lay: p[10] || "", hd: p[11] || "", dwg: p[12] || "", org: p[13] || "", sab: p[14] || [],
+  apps: (p[15] || []).map(a => ({ mk: BTR.makes[a[0]], mo: a[1] || "", yr: a[2] || "", sb: a[3] || "", sg: a[4] || "" })) }));
+{ const used = new Set(SS.map(i => i.pn).concat(SA.map(i => i.pn), BR.map(i => i.pn))); const clash = BT.filter(i => used.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Battery numbers also used in another catalogue: " + clash.slice(0, 5).join(", ")); }
+const btDesc = i => (BTT[i.t] ? BTT[i.t].one : "Battery") + " 12V " + i.ah + "Ah " + i.cca + "A (EN)";
+const btLc = t => t.replace(/^Heavy duty/, "heavy duty");   // keep SMF, EFB and AGM in capitals
+const BT_GRP = { "DIN (European) cases": "European (DIN) case", "JIS (Asian) cases": "Asian (JIS) case", "Heavy duty": "heavy duty case" };
+const btOrigin = o => o === "Hungary" ? "EU" : o;
+const btPhoto = i => { const k = BAT_PHOTO.exact[i.pn] || BAT_PHOTO.rep[i.ser + "|" + i.t]; return k ? "/assets/img/batteries/" + k + ".webp" : ""; };
+const btMakes = i => uniq(i.apps.map(a => a.mk));
+const btBySab = new Map(); BT.forEach(i => i.sab.forEach(s => { if (!btBySab.has(s)) btBySab.set(s, []); btBySab.get(s).push(i); }));
+const btCard = x => { const T = BTT[x.t] || { one: "Battery" }, ph = btPhoto(x);
+  return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(x.pn)}/"><span class="bph">${ph ? `<img src="${ph}" alt="" loading="lazy">` : `<span class="ic">${icon("battery")}</span>`}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(T.one)}, ${esc(x.ser)}</span><span class="veh"><b>${esc(x.ah)} Ah · ${esc(x.cca)} A (EN)</b> · case ${esc(x.box)} · made in ${esc(btOrigin(x.org))}</span></a></div>`; };
+const SEG_ORDER = ["Passenger Cars & SUVs", "Light Commercial Vehicles", "Commercial Vehicles", "Tractors & Fork Lifts"];
+for (const i of BT) {
+  const T = BTT[i.t] || { one: "Battery", many: "Batteries", icon: "battery", slug: "" };
+  const url = `${SITE}/part/${i.pn}/`, mk = btMakes(i), ph = btPhoto(i), D = BAT_DWG[i.dwg];
+  const rows = [["Stravik number", i.pn], ["Battery type", T.one], ["Series", i.ser], ["Voltage", "12 V"], ["Capacity", i.ah + " Ah"], ["Cold cranking amps", i.cca + " A (EN)"],
+    ["Case", i.box + (BT_GRP[i.grp] ? ", " + BT_GRP[i.grp] : "")], ["Dimensions (L × W × H)", `${i.l} × ${i.w} × ${i.h} mm`], ["Terminal layout", i.lay], ["Hold-down", i.hd],
+    ["SAB number", i.sab.join(" / ")], ["Case drawing", D ? `${i.dwg} (${D[0]})` : ""], ["Origin", "Made in " + btOrigin(i.org)]].filter(r => r[1]);
+  const alts = uniq(i.sab.flatMap(s => (btBySab.get(s) || []).filter(x => x !== i).map(x => x.pn))).map(pn => BT.find(x => x.pn === pn)).slice(0, 8);
+  const segs = SEG_ORDER.map(sg => ({ sg, apps: i.apps.filter(a => a.sg === sg) })).filter(g => g.apps.length);
+  const nApps = i.apps.length;
+  const title = `Stravik ${i.pn} ${btDesc(i)} | ${i.box} case`.slice(0, 120);
+  const desc = `Stravik ${btLc(btDesc(i))}, ${i.ser}, case ${i.box} (${i.l} × ${i.w} × ${i.h} mm).` + (i.sab.length ? ` SAB ${i.sab.join(" / ")}.` : "") + (mk.length ? ` Fits ${list(mk, 4)}.` : "");
+  const item = { key: i.pn, no: i.pn, cat: "Batteries", desc: btDesc(i).replace(" 12V", "") + ", " + i.box + " case", link: `/part/${i.pn}/`, kind: "bat" };
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/batteries", "Batteries"], [`/#/batteries/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(btLc(btDesc(i)))}, ${esc(i.ser)}</p></div></div>
+<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span>${ph ? `<img class="bphoto" src="${ph}" alt="Stravik ${esc(btLc(T.one))}, ${esc(i.ser)}">` : `<div class="big">${icon("battery")}</div>`}</div>
+<div class="info"><div class="type">Stravik ${esc(btLc(T.one))}</div>
+<dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+${ph && !BAT_PHOTO.exact[i.pn] ? `<p class="sib">The photo shows a battery from the same range; labels differ by size.</p>` : ""}
+<div class="replace"><b>Before you order</b><span>Check the SAB number, case size, terminal layout and hold-down against the old battery, or send us the vehicle and we'll confirm the fit.</span></div>
+${buyBox(item)}
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/#/batteries/${T.slug}">More ${esc(btLc(T.many))}</a></div>
+${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}
+</div></div>
+<section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${nApps} ${nApps === 1 ? "vehicle" : "vehicles"}, ${mk.length} ${mk.length === 1 ? "make" : "makes"} (South African applications, SABAT)</span></h2>
+${nApps ? segs.map((g, k) => `<details class="segd"${k === 0 ? " open" : ""}><summary class="segh">${esc(g.sg)} <span>${g.apps.length}</span></summary><div class="ftable-wrap"><table class="ctable apps"><thead><tr><th>Make</th><th>Model</th><th>Years</th><th>Battery size</th></tr></thead><tbody>${g.apps.map(a => `<tr><td>${esc(a.mk)}</td><td>${esc(a.mo)}</td><td class="yr">${esc(a.yr)}</td><td class="mc">${esc(a.sb)}</td></tr>`).join("")}</tbody></table></div></details>`).join("") : `<p class="sib">This battery fits by SAB size and case. Send us the vehicle and we'll confirm the fit.</p>`}
+</div></section>
+${alts.length ? `<section class="block related"><div class="wrap"><h2>Other Stravik batteries in the same size</h2><p class="pp-note">Batteries with the same SAB number, in other series and origins.</p><div class="fgrid">${alts.map(btCard).join("")}</div></div></section>` : ""}
+${cantFind}`;
+  write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${btDesc(i)} ${i.pn}`, i.pn, T.one, desc, ph || "/assets/og.jpg"), body }));
+  urls.push(url);
+}
+
 // ================= filters =================
 const F = JSON.parse(rd("filters.json"));
 const FT = {}; F.types.forEach(t => FT[t[0]] = { code: t[0], slug: t[1], name: t[2], one: t[3] });
@@ -300,4 +348,4 @@ ${cantFind}`;
 // ================= sitemap and robots =================
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
+console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
