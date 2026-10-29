@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Stravik Admin</title>
+<link rel="icon" href="/assets/icons/stravik-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/assets/icons/stravik-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/assets/icons/stravik-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/icons/stravik-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/assets/icons/stravik-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css?v=1">
+</head>
+<body>
+<!-- sign-in screens -->
+<div id="auth" class="auth" hidden>
+  <div class="auth-card">
+    <img src="/assets/img/logo-wordmark.webp" alt="Stravik" class="auth-logo" width="600" height="62">
+    <section id="login" hidden>
+      <h1>Admin sign in</h1>
+      <p class="muted small">Same staff account as the Lucas staff site.</p>
+      <form id="loginForm">
+        <label>Email<input type="email" id="lEmail" autocomplete="username" required></label>
+        <label>Password<input type="password" id="lPass" autocomplete="current-password" required></label>
+        <button class="btn block" type="submit" id="lBtn">Sign in</button>
+        <button class="link" type="button" id="forgot">Forgot password?</button>
+        <p id="lMsg" class="msg" role="status"></p>
+      </form>
+    </section>
+    <section id="setPass" hidden>
+      <h1 id="setPassTitle">Choose a new password</h1>
+      <p class="muted" id="setPassIntro"></p>
+      <p class="small">Account: <b id="setPassEmail"></b></p>
+      <form id="setPassForm">
+        <label>New password<input type="password" id="np1" minlength="8" autocomplete="new-password" required></label>
+        <label>Repeat it<input type="password" id="np2" minlength="8" autocomplete="new-password" required></label>
+        <button class="btn block" type="submit">Save password</button>
+        <p id="npMsg" class="msg" role="status"></p>
+      </form>
+    </section>
+    <section id="noAccess" hidden>
+      <h1>No admin access</h1>
+      <p>You're signed in as <b id="naEmail"></b>, but this account isn't on the staff list. Ask the data team to add you.</p>
+      <button class="btn ghost block" type="button" id="naOut">Sign out</button>
+    </section>
+  </div>
+</div>
+
+<!-- the application -->
+<div id="app" hidden>
+  <nav class="o-nav" id="nav">
+    <a class="o-home" href="#/" title="Home: all apps" aria-label="Home">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="9.5" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><rect x="16" y="9.5" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><rect x="9.5" y="16" width="5" height="5" rx="1"/><rect x="16" y="16" width="5" height="5" rx="1"/></svg>
+    </a>
+    <a class="o-appname" id="navApp" href="#/"></a>
+    <div class="o-menus" id="navMenus"></div>
+    <div class="o-user" id="navUser">
+      <button type="button" class="o-avatar" id="avatarBtn" aria-haspopup="true"></button>
+      <div class="o-dropdown right" id="userMenu" hidden></div>
+    </div>
+  </nav>
+  <div class="o-cp" id="cp" hidden>
+    <div class="o-cp-left"><div class="o-crumbs" id="cpCrumbs"></div><div class="o-cp-buttons" id="cpButtons"></div></div>
+    <div class="o-cp-right"><div id="cpSearch"></div><div class="o-cp-tools" id="cpTools"></div></div>
+  </div>
+  <main class="o-content" id="content"></main>
+</div>
+
+<!-- dialogs (wizards) -->
+<div id="modal" class="o-modal" hidden>
+  <div class="o-modal-box" role="dialog" aria-modal="true">
+    <header><h2 id="modalTitle"></h2><button type="button" class="close" id="modalClose" aria-label="Close">×</button></header>
+    <div class="o-modal-body" id="modalBody"></div>
+  </div>
+</div>
+<div id="toast" class="toast" role="status"></div>
+<input type="file" id="hiddenFile" accept=".xlsx,.csv" hidden>
+
+<script src="/admin/vendor/supabase-2.57.4.min.js"></script>
+<script src="/admin/core.js?v=1"></script>
+<script src="/admin/m-inquiries.js?v=1"></script>
+<script src="/admin/m-lookup.js?v=1"></script>
+<script src="/admin/m-parts.js?v=1"></script>
+<script src="/admin/m-partno.js?v=1"></script>
+<script src="/admin/m-barcodes.js?v=1"></script>
+<script src="/admin/m-inventory.js?v=1"></script>
+<script>LS.start();</script>
+</body>
+</html>
