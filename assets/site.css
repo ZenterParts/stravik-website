@@ -899,3 +899,52 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .ftable.sa td.fveh{max-width:250px;overflow-wrap:anywhere}
 .fcard .nums .n{display:inline-block}
 @media (max-width:700px){.ftable.sa td.fpn .fadd{position:absolute;left:auto;bottom:auto;right:14px;top:12px;margin:0}.ftable.sa tbody tr{position:relative}.ftable.sa td.fveh{max-width:none}}
+
+/* ---------- battery catalogue ---------- */
+.bbar select{max-width:180px}
+.ftable.bat td.fty span,.ftable.bat td.fbx span,.ftable.bat td.fah span{display:block;font-size:13px;color:var(--muted);font-weight:400}
+.ftable.bat td.fbx,.ftable.bat td.fah{white-space:nowrap}
+.ftable.bat td.fbx b,.ftable.bat td.fah b{font-weight:600}
+.ftable.bat td.fext .borg{display:block;font-size:13px;color:var(--muted);font-weight:400}
+@media (max-width:700px){
+  .ftable.bat td.fbx,.ftable.bat td.fah{grid-column:1/-1;color:var(--muted)}
+  .ftable.bat td.fbx span,.ftable.bat td.fah span{display:inline;margin-left:6px}
+  .ftable.bat td.fext::before{content:"SAB "}
+}
+.borig{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.borig .eu{width:26px;height:26px;flex:none}
+.bcard{grid-template-columns:minmax(0,1fr)}
+.bcard .bph{display:block;aspect-ratio:6/5;border-radius:6px;background:#f2f2f0;overflow:hidden;margin-bottom:10px}
+.bcard .bph img{width:100%;height:100%;object-fit:contain}
+.bcard .bph .ic{width:100%;height:100%;display:grid;place-items:center;background:var(--gold-tint);border-radius:6px}
+.bcard .bph .ic svg{width:64px;height:64px}
+.dwgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.dwc{display:grid;gap:4px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);text-decoration:none;color:var(--ink)}
+.dwc:hover{border-color:var(--gold)}
+.dwc img{width:100%;aspect-ratio:4/3;object-fit:contain;background:#fff;margin-bottom:6px}
+.dwc b{font-family:var(--display);font-size:17px}
+.dwc span{font-size:14px;color:var(--muted)}
+.bguide{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.bguide figure{margin:0;padding:16px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.bguide img{width:100%;height:auto;max-height:230px;object-fit:contain;margin-bottom:12px}
+.bguide figcaption{font-size:15px;color:var(--muted);line-height:1.5}
+.bguide figcaption b{display:block;color:var(--ink);font-family:var(--display);font-size:18px}
+@media (max-width:760px){.bguide{grid-template-columns:1fr}}
+.dwsel{display:flex;align-items:center;gap:16px;padding:12px 14px;border:1px solid var(--gold);border-radius:8px;background:var(--gold-tint);margin-bottom:14px;flex-wrap:wrap}
+.dwsel img{width:96px;height:72px;object-fit:contain;background:#fff;border-radius:4px}
+.dwsel div{flex:1;min-width:200px;display:grid;gap:2px}
+.dwsel span{font-size:14px;color:var(--muted)}
+.dwsel a{font-size:14px;font-weight:600;color:var(--gold-deep)}
+/* battery part page */
+.bphoto{width:100%;height:100%;object-fit:contain;background:#fff}
+.dwfig{margin:18px 0 0;padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.dwfig img{width:100%;height:auto}
+.dwfig figcaption{font-size:14px;color:var(--muted);margin-top:8px}
+.segh{font-family:var(--display);font-size:20px;margin:22px 0 10px}
+.segd{margin-top:10px;border-top:1px solid var(--line)}
+.segd summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:12px 0;margin:0}
+.segd summary::-webkit-details-marker{display:none}
+.segd summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--gold-deep);border-bottom:2px solid var(--gold-deep);transform:rotate(-45deg);transition:transform .15s}
+.segd[open] summary::before{transform:rotate(45deg)}
+.segd summary span{font-family:var(--body);font-size:14px;color:var(--muted);font-weight:500}
+.segd .ftable-wrap{margin-bottom:14px}
