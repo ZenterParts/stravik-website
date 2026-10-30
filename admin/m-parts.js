@@ -260,7 +260,7 @@
     $('aSave').onclick = async function () {
       var pn = L.pnNorm($('aPn').value), cc = L.cat($('aRange').value), d = $('aDesc').value.trim();
       if (!pn || !d) return L.toast('Part number and description are required');
-      if (!/^(SV[A-Z0-9-]{3,}|SBGS\d{4})$/.test(pn)) return L.toast('A Stravik part number starts with SV (letters, digits and hyphens only), or SBGS + 4 digits for gas springs');
+      if (!/^(SV[A-Z0-9-]{3,}|SBGSP\d{4})$/.test(pn)) return L.toast('A Stravik part number starts with SV (letters, digits and hyphens only), or SBGSP + 4 digits for gas springs');
       try {
         var ex = L.must(await sb.from('stravik_parts').select('sv_pn').eq('pn_clean', L.clean(pn)).maybeSingle());
         if (ex) { L.toast(ex.sv_pn + ' already exists'); L.closeModal(); return L.openPart(ex.sv_pn); }
@@ -318,7 +318,7 @@
       rows.forEach(function (r) {
         var ex = existing[r.sv_pn], sub = r.cat ? r.cat.subcategory_key : ex ? ex.subcategory : null;
         if (seen[r.sv_pn]) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' appears twice (also row ' + seen[r.sv_pn] + ')'); seen[r.sv_pn] = r.line;
-        if (!ex && !/^(SV[A-Z0-9-]{3,}|SBGS\d{4})$/.test(r.sv_pn)) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is not a Stravik part number (it must start with SV, or SBGS for gas springs)');
+        if (!ex && !/^(SV[A-Z0-9-]{3,}|SBGSP\d{4})$/.test(r.sv_pn)) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is not a Stravik part number (it must start with SV, or SBGSP for gas springs)');
         if (r.rangeText && !r.cat) bad.push('Row ' + r.line + ': range "' + r.rangeText + '" is not one of ' + L.CATS.map(function (c) { return c.name; }).join(', '));
         else if (!ex && !r.cat) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is new, so it needs a range');
         else if (!ex && !r.short_desc) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is new, so it needs a description');

@@ -1456,7 +1456,7 @@ function gsBandHtml(){
     <div><div class="kicker">Catalogue</div><h2>Gas spring catalogue</h2><p id="gov-lede">Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.</p>
       <div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/gas-springs">Open the catalogue</a></div></div>
     <div class="gsband-r"><img class="gshero" src="/assets/img/gas-springs-hero.svg" alt="" aria-hidden="true">
-    <form id="govq" role="search"><label for="govi">Search the gas spring catalogue</label><div class="field"><input id="govi" type="search" autocomplete="off" placeholder="Stravik, OE or cross-reference number, or vehicle"><button type="submit">Search</button></div><small>For example SBGS0002, 51233400352, SG402055 or Golf</small></form></div>
+    <form id="govq" role="search"><label for="govi">Search the gas spring catalogue</label><div class="field"><input id="govi" type="search" autocomplete="off" placeholder="Stravik, OE or cross-reference number, or vehicle"><button type="submit">Search</button></div><small>For example SBGSP0002, 51233400352, SG402055 or Golf</small></form></div>
   </div></section>`;
 }
 function gsOverview(){
@@ -1490,7 +1490,7 @@ function gsPage(slugT,params){
       <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the gas spring catalogue</span>
         <input id="gq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik, OE or ref. no., or vehicle":"Search Stravik, OE or cross-reference number, or vehicle"}" value="${esc(q)}">
         <button type="button" class="fs-x" id="gqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
-      <span class="fs-hint">For example SBGS0002, 51233400352, SG402055, Golf boot</span></div>
+      <span class="fs-hint">For example SBGSP0002, 51233400352, SG402055, Golf boot</span></div>
     <div class="fbar sabar bbar"><div class="fbar-l"><label class="sr" for="gmk">Vehicle make</label><select id="gmk"><option value="">All makes</option></select>
       <label class="sr" for="gmo">Model</label><select id="gmo" disabled><option value="">All models</option></select>
       <label class="sr" for="gyr">Year</label><select id="gyr"><option value="">Any year</option>${YEARS.map(y=>`<option${y===yr?" selected":""}>${y}</option>`).join("")}</select>
