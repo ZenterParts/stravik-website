@@ -131,3 +131,30 @@ const BAT_TYPES=[["SMF","SMF battery","SMF batteries","battery"],["EFB","EFB bat
 const BAT_DWG={"D01":["L1B case",[210,175,175]],"D02":["L2B case",[242,175,175]],"D03":["L2 case",[242,175,190]],"D04":["L3B case",[276,175,175]],"D05":["L3 case",[276,175,190]],"D06":["L4 case",[315,175,190]],"D07":["L5B case",[352,175,175]],"D08":["L5 case",[352,175,190]],"D09":["L6 case",[394,175,190]],"D10":["A case",[512,188,223]],"D11":["B case",[514,223,223]],"D12":["C case",[518,274,240]],"D13":["L5 case",[350,173,189]],"D14":["D6 case",[517,275,236]]};
 // battery photos in /assets/img/batteries/: exact photo of a part number, else a representative photo of its series and type
 const BAT_PHOTO={exact:{"SVGHK006":"gold_hd_225_tr","SVGHK007":"gold_hd_225_tr","SVGHK012":"gold_hd_225_tr","SVGHK013":"gold_hd_225_tr","SVGHT001":"gold_hd_150_tn","SVGJK001":"gold_smf_90_tr_jis","SVPDH013":"plat_smf_67_eu","SVPDK003":"plat_smf_76_tr","SVPDK004":"plat_smf_76_tr","SVGDK012":"gold_smf_80_tr","SVGDK013":"gold_smf_80_tr","SVEDH003":"efb_75_eu","SVEDK003":"efb_70_tr","SVEDK004":"efb_70_tr","SVEDT003":"efb_78_tn","SVEHK003":"efb_hd_225_tr","SVEHK004":"efb_hd_225_tr","SVEHK007":"efb_hd_225_tr","SVEHK008":"efb_hd_225_tr","SVEJH001":"efb_60_eu_jis","SVGDT001":"gold_smf_45_tn","SVGDT002":"gold_smf_45_tn"},rep:{"Gold Series|SMF":"gold_smf_80_tr","Gold Series|HDB":"gold_hd_225_tr","Platinum Series|SMF":"plat_smf_76_tr","EFB-II Start-Stop|EFB":"efb_75_eu","EFB Start-Stop|EFB":"efb_78_tn","EFB-II Start-Stop|HDB":"efb_hd_225_tr"}};
+// gas spring catalogue (gas-springs.json): part type code, one, many, slug
+const GS_TYPES=[["GBT","Boot and tailgate gas spring","Boot and tailgate gas springs","boot-and-tailgate"],["GBN","Bonnet gas spring","Bonnet gas springs","bonnet"],["GRW","Rear window gas spring","Rear window gas springs","rear-window"],["GOT","Other gas spring","Other gas springs","other"]];
+// draws a gas spring as SVG markup, to scale: o = {len, stroke, rod, body (mm), scale (px per mm), tk (thickness factor), cy, pad, dims, id}
+function GS_SPRING(o){
+  const id="g"+(o.id||Math.random().toString(36).slice(2,8)),s=o.scale,L=(o.len||400)*s,S=Math.min((o.stroke||(o.len||400)*.4)*s,L*.7),tk=o.tk||1.15;
+  const bd=Math.max(parseFloat(o.body)||18,8)*s*tk,rd=Math.max(parseFloat(o.rod)||8,4)*s*tk,fit=Math.max(16*s,o.tk?7:10),pad=o.pad||0,cy=o.cy||bd/2+6;
+  const x0=pad,bodyL=L-S-fit*2,x1=x0+fit,x2=x1+bodyL,x3=x2+S,x4=x3+fit,fr=fit*.42;
+  let g=`<defs><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4350"/><stop offset=".18" stop-color="#5d6674"/><stop offset=".32" stop-color="#20252d"/><stop offset=".75" stop-color="#0d1015"/><stop offset="1" stop-color="#2a3039"/></linearGradient>`+
+    `<linearGradient id="${id}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa3ad"/><stop offset=".25" stop-color="#ffffff"/><stop offset=".55" stop-color="#b9c0c8"/><stop offset="1" stop-color="#6b737d"/></linearGradient>`+
+    `<linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9cfd6"/><stop offset=".4" stop-color="#f2f4f6"/><stop offset="1" stop-color="#7c848e"/></linearGradient>`+
+    `<linearGradient id="${id}z" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9b17a"/><stop offset=".5" stop-color="#A97C42"/><stop offset="1" stop-color="#7a5626"/></linearGradient></defs>`;
+  g+=`<circle cx="${x0+fr+1}" cy="${cy}" r="${fr}" fill="url(#${id}f)" stroke="#6b737d" stroke-width=".8"/><circle cx="${x0+fr+1}" cy="${cy}" r="${fr*.42}" fill="#3b4350"/>`;
+  g+=`<rect x="${x0+fr}" y="${cy-rd*.45}" width="${x1-x0-fr}" height="${rd*.9}" fill="url(#${id}f)"/>`;
+  g+=`<rect x="${x1}" y="${cy-bd/2}" width="${bodyL}" height="${bd}" rx="${bd*.18}" fill="url(#${id}b)"/>`;
+  g+=`<rect x="${x1+bodyL*.08}" y="${cy-bd/2}" width="${Math.max(bodyL*.05,3)}" height="${bd}" fill="url(#${id}z)" opacity=".95"/>`;
+  g+=`<rect x="${x2-2}" y="${cy-bd*.42}" width="${4+bd*.12}" height="${bd*.84}" rx="2" fill="#11151b"/>`;
+  g+=`<rect x="${x2}" y="${cy-rd/2}" width="${S}" height="${rd}" fill="url(#${id}r)"/>`;
+  g+=`<rect x="${x3}" y="${cy-rd*.45}" width="${fit-fr}" height="${rd*.9}" fill="url(#${id}f)"/>`;
+  g+=`<circle cx="${x4-fr-1}" cy="${cy}" r="${fr}" fill="url(#${id}f)" stroke="#6b737d" stroke-width=".8"/><circle cx="${x4-fr-1}" cy="${cy}" r="${fr*.42}" fill="#3b4350"/>`;
+  if(o.dims){const yA=cy+bd/2+26,yB=cy-bd/2-18,t=v=>String(v).replace(/[&<>"]/g,""),
+    ar=(xa,xb,y,lab,c)=>`<g stroke="${c}" fill="${c}"><line x1="${xa}" y1="${y}" x2="${xb}" y2="${y}" stroke-width="1.6"/><path d="M${xa} ${y}l8 -4v8z"/><path d="M${xb} ${y}l-8 -4v8z"/></g><text x="${(xa+xb)/2}" y="${y-7}" text-anchor="middle" font-family="Saira Semi Condensed,Arial" font-weight="700" font-size="17" fill="${c}">${lab}</text>`;
+    g+=`<g stroke="#b9b2a5" stroke-dasharray="3 3"><line x1="${x0+fr+1}" y1="${cy}" x2="${x0+fr+1}" y2="${yA+26}"/><line x1="${x4-fr-1}" y1="${cy}" x2="${x4-fr-1}" y2="${yA+26}"/><line x1="${x2}" y1="${cy-rd/2}" x2="${x2}" y2="${yB-6}"/><line x1="${x3}" y1="${cy-rd/2}" x2="${x3}" y2="${yB-6}"/></g>`;
+    g+=ar(x0+fr+1,x4-fr-1,yA+20,"A · "+(o.len?o.len+" mm":"extended length"),"#0B203D")+ar(x2,x3,yB,"B · "+(o.stroke?o.stroke+" mm":"stroke"),"#8A6326");
+    g+=`<text x="${x1+bodyL*.55}" y="${cy+5}" text-anchor="middle" font-family="Instrument Sans,Arial" font-weight="600" font-size="13" fill="#e8ebf0">${o.body?"Ø "+t(o.body)+" mm":"body Ø"}</text>`;
+    g+=`<text x="${x2+S/2}" y="${cy+rd/2+16}" text-anchor="middle" font-family="Instrument Sans,Arial" font-weight="600" font-size="13" fill="#5b6475">${o.rod?"rod Ø "+t(o.rod)+" mm":"rod Ø"}</text>`;}
+  return {svg:g,w:x4+pad,h:o.dims?cy+bd/2+60:cy+bd/2+6};
+}

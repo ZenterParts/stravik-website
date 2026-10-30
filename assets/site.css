@@ -846,7 +846,7 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 @media (max-width:900px){.intro-grid{grid-template-columns:1fr;gap:28px}}
 .fams5{grid-template-columns:repeat(6,minmax(0,1fr))}
 .fams5 .fam:nth-child(-n+3){grid-column:span 2}
-.fams5 .fam:nth-child(n+4){grid-column:span 3}
+.fams5 .fam:nth-child(n+4){grid-column:span 2}
 .fams5 .fam-top{padding:0;gap:0}
 .fam-pic{position:relative;height:210px;background:var(--gold-tint);display:grid;place-items:center;padding:18px}
 .fam-pic img{max-height:170px;max-width:88%;width:auto;height:auto;object-fit:contain;filter:drop-shadow(0 16px 18px rgba(11,32,61,.22))}
@@ -954,3 +954,23 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .bfit{position:absolute;left:8px;top:8px;z-index:1;font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--gold-deep);color:#fff}
 .bfit.alt{background:#5b6475}
 .vsel{border-color:var(--line);background:var(--paper)}
+
+/* ---------- gas spring catalogue ---------- */
+.gsart{display:block;background:linear-gradient(180deg,#fbfaf8,#f1eee8);border-radius:6px;padding:10px 8px;margin-bottom:10px}
+.gsart svg{width:100%;height:46px;display:block}
+.gsdim{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);margin:0 0 14px}
+.gsdim-l{font-family:var(--display);font-weight:700;font-size:16px;align-self:center;margin-right:4px}
+.gsdim label{display:grid;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
+.gsdim input,.gsdim select{width:130px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:15px;background:var(--card);color:var(--ink)}
+.gsdim input:focus,.gsdim select:focus{border-color:var(--gold);outline:none}
+@media (max-width:600px){.gsdim input,.gsdim select{width:100%}.gsdim label{flex:1 1 40%}}
+.gsband .wrap{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
+.gsband-r{display:grid;gap:14px}
+.gshero{width:100%;max-width:520px;height:auto;justify-self:center;filter:drop-shadow(0 18px 22px rgba(0,0,0,.4))}
+.gsguide{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:center}
+.gsdraw{background:linear-gradient(180deg,#fbfaf8,#f1eee8);border-radius:10px;padding:16px}
+.gsdraw svg{width:100%;height:auto;display:block}
+@media (max-width:860px){.gsguide{grid-template-columns:1fr}}
+.gsfig{background:linear-gradient(180deg,#fbfaf8,#f1eee8);border-radius:10px;padding:18px 12px;width:100%}
+.gsfig svg{width:100%;height:auto;display:block}
+@media (max-width:900px){.gsband .wrap{grid-template-columns:1fr}}
