@@ -948,3 +948,9 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .segd[open] summary::before{transform:rotate(45deg)}
 .segd summary span{font-family:var(--body);font-size:14px;color:var(--muted);font-weight:500}
 .segd .ftable-wrap{margin-bottom:14px}
+.ftable.bat tr.altrow td{background:#fbfaf7}
+.altfit{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.bcard .bph{position:relative}
+.bfit{position:absolute;left:8px;top:8px;z-index:1;font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--gold-deep);color:#fff}
+.bfit.alt{background:#5b6475}
+.vsel{border-color:var(--line);background:var(--paper)}

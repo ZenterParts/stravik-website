@@ -93,7 +93,7 @@ function vehicleIndex(){
     fl.items.forEach(i=>(i.mk||[]).forEach(mk=>{(i.mo||"").split(/[;,]/).map(x=>x.trim()).filter(Boolean).forEach(mo=>add(mk,mo));if(!i.mo)add(mk);}));
     sa.items.forEach(i=>i.apps.forEach(a=>{const m=sa.makes[a.mk];if(m)add(m.label,ssCase(a.mo).trim());}));
     br.items.forEach(i=>i.apps.forEach(a=>{const m=br.makes[a.mk];if(m&&m.veh)add(m.label,a.mo.trim());}));
-    bt.items.forEach(i=>i.apps.forEach(a=>{const m=bt.makes[a.mk];if(m)add(m.label,a.mo.trim());}));
+    (bt.vehicles||[]).forEach(v=>{const m=bt.makes[v[0]];if(m)add(m.label,String(v[1]||"").trim());});
     const list=[...makes.values()].sort((a,b)=>a.label.localeCompare(b.label));
     return {ss,fl,sa,br,bt,makes:list};
   }).catch(e=>{VIX=null;throw e;}));
@@ -106,7 +106,7 @@ function vehicleMatch(ix,mk,mo,yr){
   const fl=ix.fl.items.filter(i=>(i.mk||[]).some(x=>mkHit(mk,x))&&(!m||lc(i.mo).includes(m))&&yearIn(i.y,y));
   const sa=ix.sa.items.filter(i=>i.apps.some(a=>{const M=ix.sa.makes[a.mk];return M&&mkHit(mk,M.label)&&(!m||lc(a.mo+" "+a.mc).includes(m))&&yearIn(a.yr,y);}));
   const br=ix.br.items.filter(i=>i.apps.some(a=>{const M=ix.br.makes[a.mk];return M&&M.veh&&mkHit(mk,M.label)&&(!m||lc(a.mo).includes(m))&&yearIn(a.yr,y);}));
-  const bt=ix.bt.items.filter(i=>i.apps.some(a=>{const M=ix.bt.makes[a.mk];return M&&mkHit(mk,M.label)&&batAppOk(a,{mk:-1,mo:"",mq:m,yr:y,sg:""});}));
+  const bt=ix.bt.items.filter(i=>i.apps.some(a=>{const M=ix.bt.makes[a.mk];return a.rec&&M&&mkHit(mk,M.label)&&batAppOk(a,{mk:-1,mo:"",mq:m,yr:y,sg:""});}));
   return {ss,fl,sa,br,bt};
 }
 
@@ -1203,8 +1203,9 @@ function brResults(d,list,q,max,v){
 
 // ---------- battery catalogue ----------
 // Data: batteries.json, published from Supabase (tables stravik_*, function stravik_battery_catalogue()).
-// parts: [sv_pn, type, series, case group, case, Ah, CCA (EN), length, width, height, layout, hold-down, drawing, origin, [SAB],
-//         [[make index, model, years, "SAB 646 (alt. 640)", vehicle segment]]]
+// parts: [sv_pn, type, series, case group, case, Ah, CCA (EN), length, width, height, layout, hold-down, drawing, origin, [SAB]]
+// vehicles: [make index, model, years, "SAB 646 (alt. 640)", vehicle segment, [recommended part indexes], [alternative-size part indexes]]
+// A battery fits a vehicle when its SAB number is the vehicle's recommended size, or its alternative size.
 const BTI={};BAT_TYPES.forEach(t=>BTI[t[0]]={code:t[0],one:t[1],many:t[2],icon:t[3],slug:slug(t[2])});
 const BAT_SEGS=[["Passenger Cars & SUVs","Cars & SUVs"],["Light Commercial Vehicles","Light commercial"],["Commercial Vehicles","Commercial"],["Tractors & Fork Lifts","Tractors & fork lifts"]];
 const BAT_GROUPS=[["DIN (European) cases","European (DIN) case"],["JIS (Asian) cases","Asian (JIS) case"],["Heavy duty","Heavy duty case"]];
@@ -1217,17 +1218,20 @@ function loadBAT(){
   return BTP||(BTP=fetch("/batteries.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(raw=>{
     const d={at:raw.at,makes:raw.makes.map(m=>({name:m,label:m}))};
     d.items=raw.parts.map((p,ord)=>{
-      const it={pn:p[0],t:p[1],ser:p[2]||"",grp:p[3]||"",box:p[4]||"",ah:p[5],cca:p[6],l:p[7],w:p[8],h:p[9],lay:p[10]||"",hd:p[11]||"",dwg:p[12]||"",org:p[13]||"",sab:p[14]||[],ord,
-        apps:(p[15]||[]).map(a=>({mk:a[0],mo:a[1]||"",yr:a[2]||"",sb:a[3]||"",sg:a[4]||""}))};
-      it.mks=[...new Set(it.apps.map(a=>a.mk))];
+      return {pn:p[0],t:p[1],ser:p[2]||"",grp:p[3]||"",box:p[4]||"",ah:p[5],cca:p[6],l:p[7],w:p[8],h:p[9],lay:p[10]||"",hd:p[11]||"",dwg:p[12]||"",org:p[13]||"",sab:p[14]||[],ord,apps:[]};});
+    (raw.vehicles||[]).forEach(v=>{const base={mk:v[0],mo:v[1]||"",yr:v[2]||"",sb:v[3]||"",sg:v[4]||""};
+      (v[5]||[]).forEach(ix=>{if(d.items[ix])d.items[ix].apps.push(Object.assign({rec:true},base));});
+      (v[6]||[]).forEach(ix=>{if(d.items[ix])d.items[ix].apps.push(Object.assign({rec:false},base));});});
+    d.items.forEach(it=>{
+      it.mks=[...new Set(it.apps.filter(a=>a.rec).map(a=>a.mk))];
       it.keys=[fclean(it.pn)].concat(it.sab.map(fclean));
       const T=BTI[it.t]||{one:"",many:""};
-      it.text=[T.one,T.many,it.ser,it.grp,it.box,"case "+it.box,it.ah+"ah",it.cca+"a",batOrigin(it.org),it.org].concat(it.mks.map(i=>d.makes[i].name),it.apps.map(a=>a.mo+" "+a.yr)).join(" ").toLowerCase();
-      return it;});
+      it.text=[T.one,T.many,it.ser,it.grp,it.box,"case "+it.box,it.ah+"ah",it.cca+"a",batOrigin(it.org),it.org].concat(it.mks.map(i=>d.makes[i].name),it.apps.filter(a=>a.rec).map(a=>a.mo+" "+a.yr)).join(" ").toLowerCase();});
     d.byPn={};d.items.forEach(i=>d.byPn[i.pn]=i);
     d.count={};d.items.forEach(i=>d.count[i.t]=(d.count[i.t]||0)+1);
     d.mkCount=d.makes.map((m,ix)=>d.items.filter(i=>i.mks.includes(ix)).length);
     d.series=[...new Set(d.items.map(i=>i.ser))].filter(Boolean);
+    d.vehicles=raw.vehicles||[];
     return d;
   }).catch(e=>{BTP=null;throw e;}));
 }
@@ -1238,16 +1242,17 @@ const batmatch=samatch;
 const batAppOk=(a,v)=>(v.mk<0||a.mk===v.mk)&&(!v.mo||a.mo===v.mo)&&(!v.mq||lc(a.mo).includes(v.mq))&&(!v.sg||a.sg===v.sg)&&yearIn(String(a.yr).replace(/>$/,"–").replace(/^(\d{4})-(\d{2})$/,(m,a1,b)=>a1+"–"+(+b<+a1.slice(2)?"20":a1.slice(0,2))+b),v.yr);
 const batVehOn=v=>v.mk>=0||!!v.mo||!!v.mq||!!v.yr||!!v.sg;
 function batFits(d,i,v,max){
-  const apps=batVehOn(v)?i.apps.filter(a=>batAppOk(a,v)):i.apps;const seen=new Set(),out=[];
-  apps.forEach(a=>{const t=`<b>${esc(d.makes[a.mk].label)}</b> ${esc(a.mo)}${a.yr?` <span class="yr">${esc(a.yr)}</span>`:""}`;if(!seen.has(t)){seen.add(t);out.push(t);}});
-  return out.length?out.slice(0,max).map(t=>`<span class="fl">${t}</span>`).join("")+(out.length>max?`<span class="n">+${out.length-max} more</span>`:""):`<span class="n">Fits by SAB size and case</span>`;
+  const on=batVehOn(v),apps=on?i.apps.filter(a=>batAppOk(a,v)).sort((a,b)=>b.rec-a.rec):i.apps.filter(a=>a.rec);const seen=new Set(),out=[];
+  apps.forEach(a=>{const t=`<b>${esc(d.makes[a.mk].label)}</b> ${esc(a.mo)}${a.yr?` <span class="yr">${esc(a.yr)}</span>`:""}${on&&!a.rec?` <span class="altfit">alternative size</span>`:""}`;if(!seen.has(t)){seen.add(t);out.push(t);}});
+  return out.length?out.slice(0,max).map(t=>`<span class="fl">${t}</span>`).join("")+(out.length>max?`<span class="n">+${out.length-max} more</span>`:""):`<span class="n">No vehicles listed for SAB ${esc(i.sab.join(" / "))}</span>`;
 }
 function batCartBtn(i,cls){const on=Cart.has(i.pn);
   return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(batItem(i)))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button>`;}
 const batSab=(i,q)=>{const c=fclean(q);return i.sab.map(s=>c.length>=3&&fclean(s)===c?`<mark>${esc(s)}</mark>`:esc(s)).join(" / ");};
 function batrow(d,i,q,v){
   const T=BTI[i.t]||{one:""};
-  return `<tr data-href="/part/${esc(i.pn)}/"><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a>${batCartBtn(i,"inline")}</td>`+
+  const alt=batVehOn(v)&&!i.apps.some(a=>a.rec&&batAppOk(a,v));
+  return `<tr data-href="/part/${esc(i.pn)}/"${alt?' class="altrow"':""}><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a>${alt?`<span class="satag">Alternative size</span>`:batVehOn(v)?`<span class="satag new">Recommended</span>`:""}${batCartBtn(i,"inline")}</td>`+
     `<td class="fty"><b>${esc(T.one)}</b><span>${esc(i.ser)}</span></td>`+
     `<td class="fbx"><b>${esc(i.box)}</b><span>${esc(i.l)} × ${esc(i.w)} × ${esc(i.h)} mm</span></td>`+
     `<td class="fah"><b>${esc(i.ah)} Ah</b><span>${esc(i.cca)} A (EN)</span></td>`+
@@ -1255,8 +1260,8 @@ function batrow(d,i,q,v){
     `<td class="fveh">${batFits(d,i,v,3)}</td></tr>`;
 }
 function batcard(d,i,q,v){
-  const T=BTI[i.t]||{one:""},ph=batPhoto(i);
-  return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(i.pn)}/"><span class="bph">${ph?`<img src="${ph}" alt="" loading="lazy">`:`<span class="ic">${icon("battery")}</span>`}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(T.one)}, ${esc(i.ser)}</span>`+
+  const T=BTI[i.t]||{one:""},ph=batPhoto(i),on=batVehOn(v),alt=on&&!i.apps.some(a=>a.rec&&batAppOk(a,v));
+  return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(i.pn)}/"><span class="bph">${on?`<span class="bfit${alt?" alt":""}">${alt?"Alternative size":"Recommended"}</span>`:""}${ph?`<img src="${ph}" alt="" loading="lazy">`:`<span class="ic">${icon("battery")}</span>`}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(T.one)}, ${esc(i.ser)}</span>`+
     `<span class="veh"><b>${esc(i.ah)} Ah · ${esc(i.cca)} A (EN)</b> · case ${esc(i.box)} · ${esc(i.l)}×${esc(i.w)}×${esc(i.h)} mm</span>`+
     `<span class="veh"><b>SAB</b> ${batSab(i,q)||"–"} · ${esc(batOrigin(i.org))}</span>`+
     `<span class="veh sa-fits"><b>Fits</b> ${batFits(d,i,v,2)}</span></a>${batCartBtn(i)}</div>`;
@@ -1310,7 +1315,7 @@ function batPage(slugT,params){
       <label class="sr" for="tor">Origin</label><select id="tor"><option value="">All origins</option>${[["Hungary","EU"],["Turkey","Turkey"],["Tunisia","Tunisia"]].map(s=>`<option value="${s[0]}"${s[0]===org?" selected":""}>Made in ${s[1]}</option>`).join("")}</select>
       <p class="fcount" id="tcount" aria-live="polite"></p></div>
       <div class="vtoggle" role="group" aria-label="Show batteries as"><button type="button" data-v="list" aria-pressed="${view==="list"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2 3.5h12M2 8h12M2 12.5h12"/></svg>List</button><button type="button" data-v="cards" aria-pressed="${view==="cards"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Cards</button></div></div>
-    <div id="tdw"></div>
+    <div id="tveh"></div><div id="tdw"></div>
     <div id="tlist"><p class="loading">Loading the catalogue…</p></div></div></div>`;
   loadBAT().then(d=>{
     const inp=app.querySelector("#tq"),qx=app.querySelector("#tqx"),tmk=app.querySelector("#tmk"),tmo=app.querySelector("#tmo"),tyr=app.querySelector("#tyr"),tsg=app.querySelector("#tsg"),tse=app.querySelector("#tse"),tgr=app.querySelector("#tgr"),tor=app.querySelector("#tor"),list=app.querySelector("#tlist");
@@ -1337,9 +1342,13 @@ function batPage(slugT,params){
     const draw=()=>{
       const v=veh(),c=fclean(q);
       let res=d.items.filter(i=>(!code||i.t===code)&&(!ser||i.ser===ser)&&(!grp||i.grp===grp)&&(!org||i.org===org)&&(!dwg||i.dwg===dwg)&&(!batVehOn(v)||i.apps.some(a=>batAppOk(a,v)))&&batmatch(i,q));
+      if(batVehOn(v)&&!sk)res=res.slice().sort((a,b)=>(b.apps.some(x=>x.rec&&batAppOk(x,v))-a.apps.some(x=>x.rec&&batAppOk(x,v)))||a.ord-b.ord);
       if(sk){const f=SORT[sk];res=res.slice().sort((a,b)=>{const x=f(a),y=f(b);return (x<y?-1:x>y?1:a.ord-b.ord)*sd;});}
-      else if(c.length>=3)res=res.slice().sort((a,b)=>(b.keys.some(k=>k===c)-a.keys.some(k=>k===c))||a.ord-b.ord);
+      else if(c.length>=3&&!batVehOn(v))res=res.slice().sort((a,b)=>(b.keys.some(k=>k===c)-a.keys.some(k=>k===c))||a.ord-b.ord);
       app.querySelector("#tcount").textContent=`${res.length} ${res.length===1?"battery":"batteries"}`;
+      const vs=mkIx>=0&&mo?[...new Set(d.items.flatMap(i=>i.apps.filter(a=>a.mk===mkIx&&a.mo===mo&&(!yr||batAppOk(a,v))).map(a=>a.sb)))]:[];
+      const nRec=res.filter(i=>i.apps.some(a=>a.rec&&batAppOk(a,v))).length;
+      app.querySelector("#tveh").innerHTML=vs.length?`<div class="dwsel vsel"><div><b>${esc(d.makes[mkIx].label)} ${esc(mo)}${yr?" "+yr:""}</b><span>Battery size ${esc(vs.join("; "))}. ${nRec} recommended ${nRec===1?"battery":"batteries"}${res.length>nRec?`, ${res.length-nRec} in the alternative size`:""}.</span></div></div>`:"";
       const page=res.slice(0,shown);
       list.innerHTML=res.length?(view==="list"
         ?`<div class="ftable-wrap"><table class="ftable sa bat"><thead><tr>${th("s","Stravik no.")}${th("t","Type and series")}${th("b","Case and size")}${th("a","Ah and CCA")}${th("x","SAB and origin")}${th("f","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>batrow(d,i,q,v)).join("")}</tbody></table></div>`
