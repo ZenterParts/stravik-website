@@ -87,15 +87,16 @@ const YEARS=(()=>{const a=[],y=new Date().getFullYear()+1;for(let i=y;i>=1980;i-
 // ---------- vehicle index (built from both catalogues) ----------
 let VIX=null;
 function vehicleIndex(){
-  return VIX||(VIX=Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT()]).then(([ss,fl,sa,br,bt])=>{
+  return VIX||(VIX=Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS()]).then(([ss,fl,sa,br,bt,gs])=>{
     const makes=new Map();const add=(label,model)=>{const k=label.toUpperCase();if(!makes.has(k))makes.set(k,{label,models:new Set()});if(model)makes.get(k).models.add(model);};
     ss.items.forEach(i=>i.apps.forEach(a=>{const m=ss.makes[a.mk];if(m&&!/other makes/i.test(m.label))add(m.label,ssCase(a.veh).replace(/^\s+|\s+$/g,""));}));
     fl.items.forEach(i=>(i.mk||[]).forEach(mk=>{(i.mo||"").split(/[;,]/).map(x=>x.trim()).filter(Boolean).forEach(mo=>add(mk,mo));if(!i.mo)add(mk);}));
     sa.items.forEach(i=>i.apps.forEach(a=>{const m=sa.makes[a.mk];if(m)add(m.label,ssCase(a.mo).trim());}));
     br.items.forEach(i=>i.apps.forEach(a=>{const m=br.makes[a.mk];if(m&&m.veh)add(m.label,a.mo.trim());}));
     (bt.vehicles||[]).forEach(v=>{const m=bt.makes[v[0]];if(m)add(m.label,String(v[1]||"").trim());});
+    gs.items.forEach(i=>i.apps.forEach(a=>{const m=gs.makes[a.mk];if(m)add(m.label,ssCase(a.mo).trim());}));
     const list=[...makes.values()].sort((a,b)=>a.label.localeCompare(b.label));
-    return {ss,fl,sa,br,bt,makes:list};
+    return {ss,fl,sa,br,bt,gs,makes:list};
   }).catch(e=>{VIX=null;throw e;}));
 }
 // a make label matches a catalogue make if equal, or one is part of a "A / B" group label
@@ -107,27 +108,29 @@ function vehicleMatch(ix,mk,mo,yr){
   const sa=ix.sa.items.filter(i=>i.apps.some(a=>{const M=ix.sa.makes[a.mk];return M&&mkHit(mk,M.label)&&(!m||lc(a.mo+" "+a.mc).includes(m))&&yearIn(a.yr,y);}));
   const br=ix.br.items.filter(i=>i.apps.some(a=>{const M=ix.br.makes[a.mk];return M&&M.veh&&mkHit(mk,M.label)&&(!m||lc(a.mo).includes(m))&&yearIn(a.yr,y);}));
   const bt=ix.bt.items.filter(i=>i.apps.some(a=>{const M=ix.bt.makes[a.mk];return a.rec&&M&&mkHit(mk,M.label)&&batAppOk(a,{mk:-1,mo:"",mq:m,yr:y,sg:""});}));
-  return {ss,fl,sa,br,bt};
+  const gs=ix.gs.items.filter(i=>i.apps.some(a=>{const M=ix.gs.makes[a.mk];return M&&mkHit(mk,M.label)&&(!m||lc(a.mo).includes(m))&&yearIn(a.yr,y);}));
+  return {ss,fl,sa,br,bt,gs};
 }
 
 // ---------- universal number search ----------
 function numScore(c,vals){let best=0,hit="";vals.forEach(v=>{const k=fclean(v);if(!k)return;const s=k===c?3:k.startsWith(c)?2:(c.length>=4&&k.includes(c))?1:0;if(s>best){best=s;hit=v;}});return [best,hit];}
 function searchAll(q){
-  return Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT()]).then(([ss,fl,sa,br,bt])=>{
-    const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[],B=[],T=[];
+  return Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS()]).then(([ss,fl,sa,br,bt,gs])=>{
+    const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[],B=[],T=[],G=[];
     if(num){
       ss.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["CTR number",[i.ctr]],["Old CTR number",i.old],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])S.push({i,score:b[0],on:b[2]+" "+b[1]});});
       fl.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE / cross-reference",i.n||[]]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])F.push({i,score:b[0],on:b[2]+" "+b[1]});});
       sa.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["External number",[i.k]],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])A.push({i,score:b[0],on:b[2]+" "+b[1]});});
       br.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["External number",[i.k]],["OE number",i.oe],["WVA number",i.wva]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])B.push({i,score:b[0],on:b[2]+" "+b[1]});});
       bt.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["SAB number",i.sab]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0]>=2)T.push({i,score:b[0],on:b[2]+" "+b[1]});});
-      if(S.length||F.length||A.length||B.length||T.length)mode="number";
+      gs.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe],["Cross-reference",i.xr]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])G.push({i,score:b[0],on:b[2]+" "+b[1]});});
+      if(S.length||F.length||A.length||B.length||T.length||G.length)mode="number";
     }
-    if(mode==="text"){S=ss.items.filter(i=>ssmatch(i,q)).map(i=>({i,score:0}));F=fl.items.filter(i=>fmatch(i,q)).map(i=>({i,score:0}));A=sa.items.filter(i=>samatch(i,q)).map(i=>({i,score:0}));B=br.items.filter(i=>brmatch(i,q)).map(i=>({i,score:0}));T=bt.items.filter(i=>batmatch(i,q)).map(i=>({i,score:0}));}
-    S.sort((a,b)=>b.score-a.score);F.sort((a,b)=>b.score-a.score);A.sort((a,b)=>b.score-a.score);B.sort((a,b)=>b.score-a.score);T.sort((a,b)=>b.score-a.score);
+    if(mode==="text"){S=ss.items.filter(i=>ssmatch(i,q)).map(i=>({i,score:0}));F=fl.items.filter(i=>fmatch(i,q)).map(i=>({i,score:0}));A=sa.items.filter(i=>samatch(i,q)).map(i=>({i,score:0}));B=br.items.filter(i=>brmatch(i,q)).map(i=>({i,score:0}));T=bt.items.filter(i=>batmatch(i,q)).map(i=>({i,score:0}));G=gs.items.filter(i=>gsmatch(i,q)).map(i=>({i,score:0}));}
+    S.sort((a,b)=>b.score-a.score);F.sort((a,b)=>b.score-a.score);A.sort((a,b)=>b.score-a.score);B.sort((a,b)=>b.score-a.score);T.sort((a,b)=>b.score-a.score);G.sort((a,b)=>b.score-a.score);
     const words=lc(q).split(/\s+/).filter(w=>w.length>2);
     const P=words.length?ALL.filter(p=>words.every(w=>lc(p.name+" "+p.type.name+" "+p.cat.name+" "+p.desc).includes(w))):[];
-    return {ss,fl,sa,br,bt,S,F,A,B,T,P,mode};
+    return {ss,fl,sa,br,bt,gs,S,F,A,B,T,G,P,mode};
   });
 }
 
@@ -186,6 +189,7 @@ const FAMILIES=[
   {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/ss-box.webp",href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
   {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
+  {id:"gs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs-hero.svg",href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
   {id:"bat",name:"Batteries",icon:"battery",img:"/assets/img/batteries/efb_75_eu.webp",href:"#/products/batteries",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"#/batteries",catText:"Search the catalogue"}];
 const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
 function home(){
@@ -236,19 +240,19 @@ function findPage(params){
   if(byVeh){
     const mk=params.get("mk"),mo=params.get("mo")||"",yr=params.get("yr")||"";const label=[mk,mo,yr].filter(Boolean).join(" ");
     document.title=`${label} parts | Stravik`;
-    vehicleIndex().then(ix=>{const r=vehicleMatch(ix,mk,mo,yr),n=r.ss.length+r.fl.length+r.sa.length+r.br.length+r.bt.length;
+    vehicleIndex().then(ix=>{const r=vehicleMatch(ix,mk,mo,yr),n=r.ss.length+r.fl.length+r.sa.length+r.br.length+r.bt.length+r.gs.length;
       const sv={mk:ix.sa.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",yr:parseInt(yr,10)||0};
       const bv={mk:ix.br.makes.findIndex(M=>M.veh&&mkHit(mk,M.label)),mo:"",mq:lc(mo).replace(/\s+/g," ").trim(),yr:parseInt(yr,10)||0};
       box.innerHTML=`<p class="rsum"><b>${n.toLocaleString("en-US")}</b> ${n===1?"part fits":"parts fit"} <b>${esc(label)}</b></p>`+
-        (n?brResults(ix.br,r.br.map(i=>({i})),"",100,bv)+batResults(ix.bt,r.bt.map(i=>({i})),"",100,{mk:ix.bt.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",mq:bv.mq,yr:bv.yr,sg:""})+ssResults(ix.ss,r.ss.map(i=>({i})),"",100)+saResults(ix.sa,r.sa.map(i=>({i})),"",100,sv)+flResults(ix.fl,r.fl.map(i=>({i})),"",100):`<div class="noresults"><p>No parts listed for this vehicle yet. Check the spelling of the model, or try without the year.</p></div>`)+cantFind("",label);
+        (n?brResults(ix.br,r.br.map(i=>({i})),"",100,bv)+batResults(ix.bt,r.bt.map(i=>({i})),"",100,{mk:ix.bt.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",mq:bv.mq,yr:bv.yr,sg:""})+ssResults(ix.ss,r.ss.map(i=>({i})),"",100)+saResults(ix.sa,r.sa.map(i=>({i})),"",100,sv)+gsResults(ix.gs,r.gs.map(i=>({i})),"",100,{mk:ix.gs.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",yr:parseInt(yr,10)||0})+flResults(ix.fl,r.fl.map(i=>({i})),"",100):`<div class="noresults"><p>No parts listed for this vehicle yet. Check the spelling of the model, or try without the year.</p></div>`)+cantFind("",label);
     }).catch(fail);
     return;
   }
   if(!q)return;
   document.title=`${q} | Find a part | Stravik`;
-  searchAll(q).then(r=>{const n=r.S.length+r.F.length+r.A.length+r.B.length+r.T.length;
+  searchAll(q).then(r=>{const n=r.S.length+r.F.length+r.A.length+r.B.length+r.T.length+r.G.length;
     box.innerHTML=`<p class="rsum"><b>${n.toLocaleString("en-US")}</b> ${n===1?"part matches":"parts match"} <b>“${esc(q)}”</b>${r.mode==="number"?" by number":""}</p>`+
-      brResults(r.br,r.B,q,50)+batResults(r.bt,r.T,q,50)+ssResults(r.ss,r.S,q,50)+saResults(r.sa,r.A,q,50)+flResults(r.fl,r.F,q,50)+
+      brResults(r.br,r.B,q,50)+batResults(r.bt,r.T,q,50)+ssResults(r.ss,r.S,q,50)+saResults(r.sa,r.A,q,50)+gsResults(r.gs,r.G,q,50)+flResults(r.fl,r.F,q,50)+
       (r.P.length?`<div class="rgroup"><h2>Product lines <span>${r.P.length}</span></h2><div class="grid">${r.P.slice(0,8).map(card).join("")}</div></div>`:"")+
       (!n&&!r.P.length?`<div class="noresults"><p>Nothing matches “${esc(q)}”. Check the number, try fewer words, or search by vehicle.</p></div>`:"")+cantFind(q,"");
   }).catch(fail);
@@ -273,6 +277,7 @@ function requestPage(params){
 
 // ---------- New to range (edit NEWS to add entries, newest first) ----------
 const NEWS=[
+  {when:"2026",title:"Stravik gas springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, searchable by Stravik, OE or cross-reference number, by vehicle, or by length, stroke and force.",href:"#/gas-springs",cta:"Search the catalogue",img:"/assets/img/gas-springs-hero.svg"},
   {when:"2026",title:"Stravik batteries",text:"SMF, EFB, AGM and heavy duty starter batteries, searchable by Stravik or SAB number, case, capacity or vehicle, with case drawings.",href:"#/batteries",cta:"Search the catalogue",img:"/assets/img/batteries/gold_smf_80_tr.webp"},
   {when:"2026",title:"Brake catalogue",text:"Brake pads, discs, shoes and commercial vehicle pads, each with its Stravik number, external number, OE numbers, size and the vehicles it fits.",href:"#/brakes",cta:"Search the catalogue",img:"/assets/img/braking-box.webp"},
   {when:"2026",title:"Steering and suspension catalogue",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references and the vehicles it fits.",href:"#/steering",cta:"Search the catalogue",img:"/assets/img/ss-box.webp",count:"ss"},
@@ -350,7 +355,7 @@ function about(){
       <div><h3>What we offer</h3><p>Our range offers extensive vehicle coverage, giving workshops, distributors and retailers one reliable source for the parts they need.</p></div>
       <div><h3>Serving markets worldwide</h3><p>We supply customers across a wide range of markets in over 60 countries. Whatever the region, we understand the vehicles on its roads and the parts its customers need, so you get a range that fits your market.</p></div>
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
-        <p class="links"><a href="#/brakes">Brake catalogue</a><a href="#/batteries">Battery catalogue</a><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
+        <p class="links"><a href="#/brakes">Brake catalogue</a><a href="#/batteries">Battery catalogue</a><a href="#/gas-springs">Gas spring catalogue</a><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
     </div>
   </div></section>
   <section class="block paper"><div class="wrap">
@@ -358,7 +363,7 @@ function about(){
   </div></section>`;
 }
 
-const prodTabs=cur=>[["","All products"],["braking-system","Braking System"],["steering-suspension","Steering &amp; Suspension"],["shock-absorbers","Shock Absorbers"],["filters","Filters"],["batteries","Batteries"]].map(t=>`<a role="listitem" href="#/products${t[0]?"/"+t[0]:""}" aria-current="${(cur||"")===t[0]}">${t[1]}</a>`).join("");
+const prodTabs=cur=>[["","All products"],["braking-system","Braking System"],["steering-suspension","Steering &amp; Suspension"],["shock-absorbers","Shock Absorbers"],["filters","Filters"],["gas-springs","Gas Springs"],["batteries","Batteries"]].map(t=>`<a role="listitem" href="#/products${t[0]?"/"+t[0]:""}" aria-current="${(cur||"")===t[0]}">${t[1]}</a>`).join("");
 function filtersOverview(){
   app.innerHTML=`<div class="pagehead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Filters</span></div>
@@ -411,6 +416,7 @@ function productsHome(){
       ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",""],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
       ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`)}
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
+      ${pc("/assets/img/gas-springs-hero.svg","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`)}
       ${pc("/assets/img/batteries/efb_75_eu.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",""],`<a class="btn gold" href="#/batteries">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`)}
     </div>
   </div></section>
@@ -427,6 +433,7 @@ function products(catId,typeId,q){
   if(catId==="steering-suspension"){ssOverview();return;}
   if(catId==="shock-absorbers"){saOverview();return;}
   if(catId==="batteries"){batOverview();return;}
+  if(catId==="gas-springs"){gsOverview();return;}
   const cat=CATALOG.find(c=>c.id===catId);
   const cats=cat?[cat]:CATALOG;
   app.innerHTML=`
@@ -445,8 +452,9 @@ function products(catId,typeId,q){
       </div>
       <nav aria-label="Part types">${cats.map(c=>`<h4>${esc(c.name)}</h4>${c.types.map(t=>`<a href="#/products/${c.id}/${t.id}">${esc(t.name)}</a>`).join("")}<div style="height:18px"></div>`).join("")}</nav>
     </aside>
-    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/batteries"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
+    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/batteries"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
   </div>`;
+  if(!cat)loadGS().then(d=>{const e=app.querySelector("#cc-gs");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" gas springs with OE numbers and vehicles";}).catch(()=>{});
   if(!cat)loadBAT().then(d=>{const e=app.querySelector("#cc-bt");if(e)e.textContent=d.items.length+" batteries with SAB numbers and vehicles";}).catch(()=>{});
   if(!cat)loadBR().then(d=>{const e=app.querySelector("#cc-br");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" pads, discs and shoes with OE numbers";}).catch(()=>{});
   if(!cat){loadSS().then(d=>{const e=app.querySelector("#cc-ss");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" parts with CTR and OE numbers";}).catch(()=>{});
@@ -1387,6 +1395,179 @@ function batResults(d,list,q,max,v){
   ${list.length>max?`<p class="rmore"><a class="btn line" href="#/batteries?q=${encodeURIComponent(q)}">See all ${list.length} in the battery catalogue</a></p>`:""}</div>`;
 }
 
+// ---------- gas spring catalogue ----------
+// Data: gas-springs.json, published from Supabase (tables stravik_*, function stravik_gas_spring_catalogue()).
+// parts: [sv_pn, type, extended length, stroke, force N, rod Ø, body Ø, position, [oe], [cross-references], [[make index, model, years, position, detail]]]
+const GSI={};GS_TYPES.forEach(t=>GSI[t[0]]={code:t[0],one:t[1],many:t[2],slug:t[3],short:t[2].replace(/ gas springs$/,"")});
+let GSP=null;
+function loadGS(){
+  return GSP||(GSP=fetch("/gas-springs.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(raw=>{
+    const d={at:raw.at,makes:raw.makes.map(m=>({name:m,label:m}))};
+    d.items=raw.parts.map((p,ord)=>{
+      const it={pn:p[0],t:p[1],len:p[2],stroke:p[3],force:p[4],rod:p[5]||"",body:p[6]||"",pos:p[7]||"",oe:p[8]||[],xr:p[9]||[],ord,
+        apps:(p[10]||[]).map(a=>({mk:a[0],mo:a[1]||"",yr:a[2]||"",pos:a[3]||"",ds:a[4]||""}))};
+      it.mks=[...new Set(it.apps.map(a=>a.mk))];
+      it.nums=it.oe.concat(it.xr);
+      it.keys=[fclean(it.pn)].concat(it.nums.map(fclean));
+      const T=GSI[it.t]||{one:""};
+      it.text=[T.one,it.pos,"gas spring","gas strut"].concat(it.mks.map(i=>d.makes[i].name),it.apps.map(a=>a.mo+" "+a.yr+" "+a.pos)).join(" ").toLowerCase();
+      return it;});
+    d.byPn={};d.items.forEach(i=>d.byPn[i.pn]=i);
+    d.count={};d.items.forEach(i=>d.count[i.t]=(d.count[i.t]||0)+1);
+    d.mkCount=d.makes.map((m,ix)=>d.items.filter(i=>i.mks.includes(ix)).length);
+    return d;
+  }).catch(e=>{GSP=null;throw e;}));
+}
+const gsDesc=i=>(GSI[i.t]?GSI[i.t].one:"Gas spring")+(i.len?", "+i.len+" mm":"");
+const gsItem=i=>({key:i.pn,no:i.pn,cat:"Gas Springs",desc:gsDesc(i)+(i.force?", "+i.force+" N":""),link:"/part/"+i.pn+"/",kind:"gs"});
+const gsmatch=samatch;
+const gsAppOk=saAppOk,gsVehOn=saVehOn;
+const gsArt=(i,w,h)=>{const o=GS_SPRING({len:i.len,stroke:i.stroke,rod:i.rod,body:i.body,scale:w/1000,tk:3.6,cy:h/2,id:"c"+i.ord});return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMid meet" aria-hidden="true">${o.svg}</svg>`;};
+function gsNums(i,q,max){
+  const c=fclean(q),hit=c.length>=3?i.nums.filter(n=>fclean(n).includes(c)):[],nums=hit.concat(i.oe.filter(n=>!hit.includes(n))),shown=nums.slice(0,max),more=i.nums.length-shown.length;
+  return shown.length?shown.map(n=>`<span class="n">${hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)}</span>`).join("")+(more>0?`<span class="n nmore">+${more} more</span>`:""):"";
+}
+function gsFits(d,i,v,max){
+  const apps=gsVehOn(v)?i.apps.filter(a=>gsAppOk(a,v)):i.apps;const seen=new Set(),out=[];
+  apps.forEach(a=>{const t=`<b>${esc(d.makes[a.mk].label)}</b> ${esc(ssCase(a.mo))}${a.yr?` <span class="yr">${esc(a.yr)}</span>`:""}`;if(!seen.has(t)){seen.add(t);out.push(t);}});
+  return out.length?out.slice(0,max).map(t=>`<span class="fl">${t}</span>`).join("")+(out.length>max?`<span class="n">+${out.length-max} more</span>`:""):`<span class="n">Vehicle details to follow</span>`;
+}
+function gsCartBtn(i,cls){const on=Cart.has(i.pn);
+  return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(gsItem(i)))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button>`;}
+const gsSize=i=>[i.len?i.len+" mm":"",i.stroke?i.stroke+" mm stroke":""].filter(Boolean).join(" · ");
+function gsrow(d,i,q,v){
+  const T=GSI[i.t]||{short:""};
+  return `<tr data-href="/part/${esc(i.pn)}/"><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a>${gsCartBtn(i,"inline")}</td>`+
+    `<td class="fty"><b>${esc(T.short)}</b><span>${esc(i.pos)}</span></td>`+
+    `<td class="fbx"><b>${esc(i.len||"–")} mm</b><span>${esc(i.stroke||"–")} mm stroke</span></td>`+
+    `<td class="fah"><b>${i.force?esc(i.force)+" N":"–"}</b><span>Ø ${esc(i.rod||"–")} / ${esc(i.body||"–")} mm</span></td>`+
+    `<td class="fnum">${gsNums(i,q,3)||"–"}</td>`+
+    `<td class="fveh">${gsFits(d,i,v,3)}</td></tr>`;
+}
+function gscard(d,i,q,v){
+  const T=GSI[i.t]||{one:""},nums=gsNums(i,q,3);
+  return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(i.pn)}/"><span class="gsart">${gsArt(i,300,46)}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(T.one)}${i.pos?", "+esc(i.pos.toLowerCase()):""}</span>`+
+    `<span class="veh"><b>${esc(gsSize(i))}</b>${i.force?` · ${esc(i.force)} N`:""} · Ø ${esc(i.rod||"–")} / ${esc(i.body||"–")} mm</span>`+
+    (nums?`<span class="nums"><b>OE / ref.</b> ${nums}</span>`:"")+
+    `<span class="veh sa-fits"><b>Fits</b> ${gsFits(d,i,v,2)}</span></a>${gsCartBtn(i)}</div>`;
+}
+function gsBandHtml(){
+  return `<section class="fband gsband"><div class="wrap">
+    <div><div class="kicker">Catalogue</div><h2>Gas spring catalogue</h2><p id="gov-lede">Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.</p>
+      <div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/gas-springs">Open the catalogue</a></div></div>
+    <div class="gsband-r"><img class="gshero" src="/assets/img/gas-springs-hero.svg" alt="" aria-hidden="true">
+    <form id="govq" role="search"><label for="govi">Search the gas spring catalogue</label><div class="field"><input id="govi" type="search" autocomplete="off" placeholder="Stravik, OE or cross-reference number, or vehicle"><button type="submit">Search</button></div><small>For example SBGS0002, 51233400352, SG402055 or Golf</small></form></div>
+  </div></section>`;
+}
+function gsOverview(){
+  app.innerHTML=`<div class="pagehead"><div class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Gas Springs</span></div>
+    <h1>Gas Springs</h1><p>Stravik gas springs hold boots, tailgates, bonnets and rear windows open, matched to OE length, stroke and force.</p>
+    <div class="tabs" role="list">${prodTabs("gas-springs")}</div></div></div>
+  ${gsBandHtml()}
+  <section class="block"><div class="wrap" id="gov-body"><p class="loading">Loading the catalogue…</p></div></section>`;
+  app.querySelector("#govq").addEventListener("submit",e=>{e.preventDefault();const q=app.querySelector("#govi").value.trim();location.hash="#/gas-springs"+(q?"?q="+encodeURIComponent(q):"");});
+  loadGS().then(d=>{
+    app.querySelector("#gov-lede").textContent=`All ${d.items.length.toLocaleString("en-US")} Stravik gas springs with their OE and cross-reference numbers, length, stroke, force and the vehicles they fit.`;
+    const g=GS_SPRING({len:480,stroke:190,rod:"8",body:"18",scale:1,cy:62,pad:20,dims:true,id:"ovg"});
+    app.querySelector("#gov-body").innerHTML=`<div class="group"><h2>Fitting positions<span>${d.items.length.toLocaleString("en-US")} gas springs</span></h2><div class="grid">${GS_TYPES.filter(t=>d.count[t[0]]).map(t=>{const T=GSI[t[0]];return `<a class="card" href="#/gas-springs/${T.slug}"><span class="ic">${icon("sa_gas")}</span><h3>${esc(T.many)}</h3><p>${d.count[t[0]].toLocaleString("en-US")} in the catalogue</p></a>`;}).join("")}</div></div>`+
+      `<div class="group"><h2>Find by vehicle make<span>${d.makes.length} makes</span></h2><div class="mkgrid">${d.makes.map((m,ix)=>({m,ix})).sort((a,b)=>a.m.label.localeCompare(b.m.label)).map(({m,ix})=>`<a class="mk" href="#/gas-springs?make=${encodeURIComponent(m.name)}">${esc(m.label)}<span>${d.mkCount[ix]}</span></a>`).join("")}</div></div>`+
+      `<div class="group" style="margin-bottom:0"><h2>Measuring guide</h2><div class="gsguide"><div class="gsdraw"><svg viewBox="0 0 ${g.w} ${g.h+10}" role="img" aria-label="Gas spring dimensions: A extended length, B stroke, rod and body diameter">${g.svg}</svg></div>
+        <div><p>If the old gas spring has no readable number, match it by its dimensions:</p><ul class="checks"><li><b>A, extended length:</b> centre to centre of the end fittings, fully extended</li><li><b>B, stroke:</b> how far the rod travels</li><li><b>Force:</b> printed on the body, in newtons (N)</li><li><b>Rod and body Ø:</b> diameter of the rod and of the cylinder</li></ul>
+        <p style="margin-top:12px">Replace gas springs in pairs and check the end fittings match. Search by size in the <a href="#/gas-springs">catalogue</a>.</p></div></div></div>`;
+  }).catch(err=>{app.querySelector("#gov-body").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
+}
+function gsPage(slugT,params){
+  let q=params.get("q")||"",mkName=params.get("make")||"",mo=params.get("model")||"",yr=parseInt(params.get("year"),10)||0,len=+params.get("len")||0,stk=+params.get("stroke")||0,frc=+params.get("force")||0,tol=+params.get("tol")||10,view="list",sk="",sd=1;
+  try{if(localStorage.getItem("stravik-fview")==="cards")view="cards";}catch(e){}
+  const STEP=()=>view==="list"?100:48;let shown=STEP();
+  const T0=GS_TYPES.find(t=>t[3]===slugT);let code=T0?T0[0]:"";
+  const small=matchMedia("(max-width:600px)").matches;
+  app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/gas-springs">Gas Springs</a><span>/</span><span>Catalogue</span></div><h1>Gas spring catalogue</h1>
+    <p>Search by Stravik, OE or cross-reference number, pick the vehicle, or match the old gas spring by length, stroke and force.</p></div></div>
+    <div class="wrap catalog"><aside class="side fside"><nav aria-label="Fitting positions" class="ftypes-nav" id="gnav"></nav></aside>
+    <div><div class="fsearch" role="search">
+      <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the gas spring catalogue</span>
+        <input id="gq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik, OE or ref. no., or vehicle":"Search Stravik, OE or cross-reference number, or vehicle"}" value="${esc(q)}">
+        <button type="button" class="fs-x" id="gqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
+      <span class="fs-hint">For example SBGS0002, 51233400352, SG402055, Golf boot</span></div>
+    <div class="fbar sabar bbar"><div class="fbar-l"><label class="sr" for="gmk">Vehicle make</label><select id="gmk"><option value="">All makes</option></select>
+      <label class="sr" for="gmo">Model</label><select id="gmo" disabled><option value="">All models</option></select>
+      <label class="sr" for="gyr">Year</label><select id="gyr"><option value="">Any year</option>${YEARS.map(y=>`<option${y===yr?" selected":""}>${y}</option>`).join("")}</select>
+      <label class="sr" for="gty">Fitting position</label><select id="gty"><option value="">All positions</option></select></div></div>
+    <div class="gsdim" role="group" aria-label="Match by size"><span class="gsdim-l">Match by size</span>
+      <label>Length (mm)<input id="glen" type="number" inputmode="numeric" min="50" max="1500" value="${len||""}" placeholder="e.g. 373"></label>
+      <label>Stroke (mm)<input id="gstk" type="number" inputmode="numeric" min="10" max="800" value="${stk||""}" placeholder="e.g. 147"></label>
+      <label>Force (N)<input id="gfrc" type="number" inputmode="numeric" min="10" max="3000" value="${frc||""}" placeholder="e.g. 350"></label>
+      <label>Tolerance<select id="gtol">${[5,10,20].map(t=>`<option value="${t}"${t===tol?" selected":""}>± ${t} mm / ${t}%</option>`).join("")}</select></label></div>
+    <div class="fbar"><p class="fcount" id="gcount" aria-live="polite"></p>
+      <div class="vtoggle" role="group" aria-label="Show gas springs as"><button type="button" data-v="list" aria-pressed="${view==="list"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2 3.5h12M2 8h12M2 12.5h12"/></svg>List</button><button type="button" data-v="cards" aria-pressed="${view==="cards"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Cards</button></div></div>
+    <div id="glist"><p class="loading">Loading the catalogue…</p></div></div></div>`;
+  loadGS().then(d=>{
+    const inp=app.querySelector("#gq"),qx=app.querySelector("#gqx"),gmk=app.querySelector("#gmk"),gmo=app.querySelector("#gmo"),gyr=app.querySelector("#gyr"),gty=app.querySelector("#gty"),list=app.querySelector("#glist");
+    const glen=app.querySelector("#glen"),gstk=app.querySelector("#gstk"),gfrc=app.querySelector("#gfrc"),gtol=app.querySelector("#gtol");
+    let mkIx=d.makes.findIndex(m=>m.name===mkName);
+    const veh=()=>({mk:mkIx,mo,yr});
+    gmk.innerHTML=`<option value="">All makes</option>`+d.makes.map((m,ix)=>({m,ix})).sort((a,b)=>a.m.label.localeCompare(b.m.label)).map(({m,ix})=>`<option value="${ix}"${ix===mkIx?" selected":""}>${esc(m.label)}</option>`).join("");
+    gty.innerHTML=`<option value="">All positions</option>`+GS_TYPES.filter(t=>d.count[t[0]]).map(t=>`<option value="${t[0]}"${t[0]===code?" selected":""}>${esc(GSI[t[0]].short)}</option>`).join("");
+    const models=()=>{if(mkIx<0){gmo.innerHTML=`<option value="">All models</option>`;gmo.disabled=true;mo="";return;}
+      const ms=[...new Set(d.items.flatMap(i=>i.apps.filter(a=>a.mk===mkIx).map(a=>a.mo)))].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+      if(mo&&!ms.includes(mo))mo="";
+      gmo.innerHTML=`<option value="">All models</option>`+ms.map(m=>`<option value="${esc(m)}"${m===mo?" selected":""}>${esc(ssCase(m))}</option>`).join("");gmo.disabled=false;};
+    const nav=()=>{app.querySelector("#gnav").innerHTML=`<h4>Fitting positions</h4><a href="#/gas-springs" aria-current="${!code}">All gas springs<span>${d.items.length.toLocaleString("en-US")}</span></a>`+
+      GS_TYPES.filter(t=>d.count[t[0]]).map(t=>`<a href="#/gas-springs/${t[3]}" aria-current="${t[0]===code}">${esc(GSI[t[0]].short)}<span>${d.count[t[0]].toLocaleString("en-US")}</span></a>`).join("");};
+    const head=()=>{const T=GSI[code];app.querySelector(".pagehead h1").textContent=T?T.many:"Gas spring catalogue";
+      app.querySelector(".crumbs").innerHTML=`<a href="#/">Home</a><span>/</span><a href="#/products/gas-springs">Gas Springs</a><span>/</span>`+(T?`<a href="#/gas-springs">Catalogue</a><span>/</span><span>${esc(T.many)}</span>`:`<span>Catalogue</span>`);
+      document.title=(T?T.many:"Gas spring catalogue")+" | Stravik";};
+    const showX=()=>{qx.hidden=!inp.value;};
+    const sync=()=>{const p=new URLSearchParams();if(q)p.set("q",q);if(mkIx>=0)p.set("make",d.makes[mkIx].name);if(mo)p.set("model",mo);if(yr)p.set("year",yr);if(len)p.set("len",len);if(stk)p.set("stroke",stk);if(frc)p.set("force",frc);if((len||stk||frc)&&tol!==10)p.set("tol",tol);history.replaceState(null,"","#/gas-springs"+(code?"/"+GSI[code].slug:"")+(p.toString()?"?"+p:""));};
+    const sizeOk=i=>(!len||(i.len&&Math.abs(i.len-len)<=tol))&&(!stk||(i.stroke&&Math.abs(i.stroke-stk)<=tol))&&(!frc||(i.force&&Math.abs(i.force-frc)<=frc*tol/100));
+    const SORT={s:i=>i.pn,t:i=>GS_TYPES.findIndex(t=>t[0]===i.t)+" "+i.pos,l:i=>i.len||0,f:i=>i.force||0,v:i=>-i.apps.length};
+    const th=(k,l)=>`<th><button type="button" class="sort" data-sort="${k}" data-dir="${sk===k?(sd>0?"asc":"desc"):""}">${l}</button></th>`;
+    const draw=()=>{
+      const v=veh(),c=fclean(q);
+      let res=d.items.filter(i=>(!code||i.t===code)&&(!gsVehOn(v)||i.apps.some(a=>gsAppOk(a,v)))&&sizeOk(i)&&gsmatch(i,q));
+      if(sk){const f=SORT[sk];res=res.slice().sort((a,b)=>{const x=f(a),y=f(b);return (x<y?-1:x>y?1:a.ord-b.ord)*sd;});}
+      else if(len||stk||frc)res=res.slice().sort((a,b)=>(Math.abs((a.len||0)-len)+Math.abs((a.stroke||0)-stk))-(Math.abs((b.len||0)-len)+Math.abs((b.stroke||0)-stk))||a.ord-b.ord);
+      else if(c.length>=3)res=res.slice().sort((a,b)=>(b.keys.some(k=>k===c)-a.keys.some(k=>k===c))||a.ord-b.ord);
+      app.querySelector("#gcount").textContent=`${res.length.toLocaleString("en-US")} ${res.length===1?"gas spring":"gas springs"}`;
+      const page=res.slice(0,shown);
+      list.innerHTML=res.length?(view==="list"
+        ?`<div class="ftable-wrap"><table class="ftable sa bat gs"><thead><tr>${th("s","Stravik no.")}${th("t","Position")}${th("l","Length and stroke")}${th("f","Force and Ø")}<th>OE / ref. numbers</th>${th("v","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>gsrow(d,i,q,v)).join("")}</tbody></table></div>`
+        :`<div class="fgrid">${page.map(i=>gscard(d,i,q,v)).join("")}</div>`)+
+        (res.length>shown?`<div class="more"><button type="button" class="btn line" id="gmore">Show more (${(res.length-shown).toLocaleString("en-US")} left)</button></div>`:""):
+        `<div class="noresults"><p>No gas springs match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}${mo?" "+esc(ssCase(mo)):""}${yr?" "+yr:""}`:(yr?` for ${yr}`:"")}${len||stk||frc?" at this size":""}.</p><p style="margin-top:8px">Check the number, widen the tolerance, or send us the vehicle and we'll find it.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="gclear">Clear all filters</button><a class="btn gold" href="#/request${q?"?q="+encodeURIComponent(q):""}">Ask us</a></p></div>`;
+      const more=list.querySelector("#gmore");if(more)more.onclick=()=>{shown+=STEP();draw();};
+      const clr=list.querySelector("#gclear");if(clr)clr.onclick=()=>{q="";mkIx=-1;mo="";yr=0;len=0;stk=0;frc=0;code="";inp.value="";gmk.value="";gyr.value="";gty.value="";glen.value="";gstk.value="";gfrc.value="";models();showX();nav();head();sync();draw();inp.focus();};
+    };
+    models();nav();head();
+    qx.addEventListener("click",()=>{inp.value="";q="";showX();shown=STEP();sync();draw();inp.focus();});
+    inp.addEventListener("keydown",e=>{if(e.key==="Escape"&&inp.value){e.preventDefault();qx.click();}});
+    let t;inp.addEventListener("input",()=>{showX();clearTimeout(t);t=setTimeout(()=>{q=inp.value.trim();shown=STEP();sync();draw();},180);});
+    let t2;[glen,gstk,gfrc].forEach(el=>el.addEventListener("input",()=>{clearTimeout(t2);t2=setTimeout(()=>{len=+glen.value||0;stk=+gstk.value||0;frc=+gfrc.value||0;shown=STEP();sync();draw();},200);}));
+    gtol.addEventListener("change",()=>{tol=+gtol.value||10;shown=STEP();sync();draw();});
+    gmk.addEventListener("change",()=>{mkIx=gmk.value===""?-1:+gmk.value;mo="";models();shown=STEP();sync();draw();});
+    gmo.addEventListener("change",()=>{mo=gmo.value;shown=STEP();sync();draw();});
+    gyr.addEventListener("change",()=>{yr=parseInt(gyr.value,10)||0;shown=STEP();sync();draw();});
+    gty.addEventListener("change",()=>{code=gty.value;shown=STEP();nav();head();sync();draw();});
+    app.querySelector("#gnav").addEventListener("click",e=>{const a=e.target.closest("a");if(!a)return;e.preventDefault();const s=a.getAttribute("href").split("/")[2]||"";const T=GS_TYPES.find(x=>x[3]===s);code=T?T[0]:"";gty.value=code;shown=STEP();nav();head();sync();draw();});
+    app.querySelectorAll(".vtoggle button").forEach(b=>b.addEventListener("click",()=>{
+      if(view===b.dataset.v)return;view=b.dataset.v;shown=STEP();
+      try{localStorage.setItem("stravik-fview",view);}catch(e){}
+      app.querySelectorAll(".vtoggle button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===view));draw();}));
+    list.addEventListener("click",e=>{
+      const s=e.target.closest("button.sort");if(s){const k=s.dataset.sort;if(sk===k)sd=-sd;else{sk=k;sd=1;}draw();return;}
+      if(e.target.closest("a,button,input"))return;const tr=e.target.closest("tr[data-href]");if(tr)location.href=tr.dataset.href;});
+    draw();
+  }).catch(err=>{app.querySelector("#glist").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
+}
+function gsResults(d,list,q,max,v){
+  if(!list.length)return "";const shown=list.slice(0,max);v=v||{mk:-1,mo:"",yr:0};
+  return `<div class="rgroup"><h2>Gas springs <span>${list.length.toLocaleString("en-US")} ${list.length===1?"gas spring":"gas springs"}</span></h2>
+  <div class="ftable-wrap"><table class="ftable sa bat gs"><thead><tr><th>Stravik no.</th><th>Position</th><th>Length and stroke</th><th>Force and Ø</th><th>OE / ref. numbers</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>gsrow(d,x.i,q,v)).join("")}</tbody></table></div>
+  ${list.length>max?`<p class="rmore"><a class="btn line" href="#/gas-springs?q=${encodeURIComponent(q)}">See all ${list.length.toLocaleString("en-US")} in the gas spring catalogue</a></p>`:""}</div>`;
+}
+
 // old steering & suspension product pages now live in the catalogue
 const OLD_SS={"ball-joints":"ball-joints","tie-rod-ends":"tie-rod-ends","control-arms":"control-arms","wishbone-arms":"control-arms","trailing-arms":"control-arms","sway-bar-links":"stabiliser-links","anti-roll-bar-drop-links":"stabiliser-links","stabilizer-bar":"stabiliser-links","bushings":"bushes","sway-bar-bushings":"bushes","subframe-bushings":"bushes","engine-cradle-bushings":"bushes","strut-mount-top-mount":"strut-mounts","strut-bearing-mount":"strut-mounts","track-rod-drag-link":"drag-links","steering-rack":"rack-ends","steering-gear-box":"other-steering-parts","struts":"","springs":"","coilover-assembly":"","spring-seat":"","air-suspension-valve":"","bump-stop-jounce-bumper":"","steering-column":"","steering-shaft-intermediate-shaft":"inner-shafts","steering-pump":"","power-steering-reservoir":"","power-steering-hose":"","electronic-power-steering-eps-motor":"","radius-rods":"","panhard-rod":"","lateral-links":"","camber-kit":""};
 
@@ -1413,15 +1594,16 @@ function route(){
   else if(parts[0]==="shock-absorbers"){key="shocks";saPage(parts[1],params);}
   else if(parts[0]==="brakes"){key="brakes";brPage(parts[1],params);}
   else if(parts[0]==="batteries"){key="batteries";batPage(parts[1],params);}
+  else if(parts[0]==="gas-springs"){key="gassprings";gsPage(parts[1],params);}
   else if(parts[0]==="part"&&parts[1]){location.replace(partUrl(decodeURIComponent(parts[1])));return;}
   else notFound();
   document.querySelectorAll("nav.main a").forEach(a=>{if(a.dataset.nav===key)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
-  const inProducts=key==="products"||key==="filters"||key==="steering"||key==="shocks"||key==="brakes"||key==="batteries";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
+  const inProducts=key==="products"||key==="filters"||key==="steering"||key==="shocks"||key==="brakes"||key==="batteries"||key==="gassprings";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
   ddSet(false);cartPaint();
   nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");
   if(!(parts[0]==="products"&&parts[2]))window.scrollTo(0,0);
-  const titles={home:"Stravik | Auto Parts: find a part by number or vehicle",find:"Find a part | Stravik",new:"New to range | Stravik",where:"Where to buy | Stravik",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",steering:"Steering & suspension catalogue | Stravik",shocks:"Shock absorber catalogue | Stravik",brakes:"Brake catalogue | Stravik",batteries:"Battery catalogue | Stravik",cart:"Your cart | Stravik"};
-  if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="products"&&parts[1]==="shock-absorbers")document.title="Shock Absorbers | Stravik";else if(parts[0]==="products"&&parts[1]==="braking-system"&&!parts[2])document.title="Braking System | Stravik";else if(parts[0]==="products"&&parts[1]==="batteries")document.title="Batteries | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(!["filter","steering","shock-absorbers","brakes","batteries","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key];
+  const titles={home:"Stravik | Auto Parts: find a part by number or vehicle",find:"Find a part | Stravik",new:"New to range | Stravik",where:"Where to buy | Stravik",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",steering:"Steering & suspension catalogue | Stravik",shocks:"Shock absorber catalogue | Stravik",brakes:"Brake catalogue | Stravik",batteries:"Battery catalogue | Stravik",gassprings:"Gas spring catalogue | Stravik",cart:"Your cart | Stravik"};
+  if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="products"&&parts[1]==="shock-absorbers")document.title="Shock Absorbers | Stravik";else if(parts[0]==="products"&&parts[1]==="braking-system"&&!parts[2])document.title="Braking System | Stravik";else if(parts[0]==="products"&&parts[1]==="batteries")document.title="Batteries | Stravik";else if(parts[0]==="products"&&parts[1]==="gas-springs")document.title="Gas Springs | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(!["filter","steering","shock-absorbers","brakes","batteries","gas-springs","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key];
 }
 addEventListener("hashchange",route);route();
 })();

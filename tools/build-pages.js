@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
-//   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json), brakes (brakes.json) and batteries (batteries.json)
+//   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json), brakes (brakes.json), batteries (batteries.json) and gas springs (gas-springs.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
@@ -314,6 +314,54 @@ ${cantFind}`;
   urls.push(url);
 }
 
+// ================= gas springs =================
+const GSR = JSON.parse(rd("gas-springs.json"));
+const { GS_TYPES, GS_SPRING } = ctx;
+const GST = {}; GS_TYPES.forEach(t => GST[t[0]] = { code: t[0], one: t[1], many: t[2], slug: t[3] });
+const GS = GSR.parts.map(p => ({ pn: p[0], t: p[1], len: p[2], stroke: p[3], force: p[4], rod: p[5] || "", body: p[6] || "", pos: p[7] || "", oe: p[8] || [], xr: p[9] || [],
+  apps: (p[10] || []).map(a => ({ mk: GSR.makes[a[0]], mo: a[1] || "", yr: a[2] || "", pos: a[3] || "", ds: a[4] || "" })) }));
+{ const used = new Set(SS.map(i => i.pn).concat(SA.map(i => i.pn), BR.map(i => i.pn), BT.map(i => i.pn))); const clash = GS.filter(i => used.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Gas spring numbers also used in another catalogue: " + clash.slice(0, 5).join(", ")); }
+const gsDesc = i => (GST[i.t] ? GST[i.t].one : "Gas spring") + (i.len ? ", " + i.len + " mm" : "") + (i.force ? ", " + i.force + " N" : "");
+const gsMakes = i => uniq(i.apps.map(a => a.mk));
+const gsByVeh = new Map();
+GS.forEach(i => uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => { if (!gsByVeh.has(k)) gsByVeh.set(k, []); gsByVeh.get(k).push(i); }));
+function gsRelated(i) {
+  const score = new Map();
+  uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => (gsByVeh.get(k) || []).forEach(x => { if (x !== i) score.set(x, (score.get(x) || 0) + 1); }));
+  return [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]).slice(0, 8);
+}
+const gsArt = (x, w, h, id) => `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMid meet" aria-hidden="true">${GS_SPRING({ len: x.len, stroke: x.stroke, rod: x.rod, body: x.body, scale: w / 1000, tk: 3.6, cy: h / 2, id }).svg}</svg>`;
+const gsCard = x => { const T = GST[x.t] || { one: "Gas spring" }, mk = gsMakes(x);
+  return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(x.pn)}/"><span class="gsart">${gsArt(x, 300, 46, "r" + x.pn)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(T.one)}${x.pos ? ", " + esc(x.pos.toLowerCase()) : ""}</span><span class="veh"><b>${esc(x.len || "–")} mm · ${esc(x.stroke || "–")} mm stroke${x.force ? " · " + esc(x.force) + " N" : ""}</b></span><span class="veh"><b>Fits</b> ${esc(list(mk, 2))}</span></a></div>`; };
+for (const i of GS) {
+  const T = GST[i.t] || { one: "Gas spring", many: "Gas springs", slug: "" };
+  const url = `${SITE}/part/${i.pn}/`, mk = gsMakes(i);
+  const rows = [["Stravik number", i.pn], ["Type", T.one], ["Position", i.pos], ["A · Extended length", i.len ? i.len + " mm" : ""], ["B · Stroke", i.stroke ? i.stroke + " mm" : ""], ["Force", i.force ? i.force + " N" : ""], ["Rod Ø", i.rod ? i.rod + " mm" : ""], ["Body Ø", i.body ? i.body + " mm" : ""]].filter(r => r[1]);
+  const byMk = uniq(i.apps.map(a => a.mk)).map(m => ({ m, apps: i.apps.filter(a => a.mk === m) }));
+  const fig = GS_SPRING({ len: i.len, stroke: i.stroke, rod: i.rod, body: i.body, scale: Math.min(1.1, 600 / ((i.len || 400) + 60)), cy: 60, pad: 24, dims: true, id: "p" + i.pn });
+  const title = `Stravik ${i.pn} ${gsDesc(i)}${mk.length ? " | " + list(mk.slice(0, 2), 2) : ""}`.slice(0, 120);
+  const desc = `Stravik ${lc1(gsDesc(i))} ${i.pn}.` + (i.stroke ? ` Stroke ${i.stroke} mm.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}.` : "");
+  const item = { key: i.pn, no: i.pn, cat: "Gas Springs", desc: gsDesc(i), link: `/part/${i.pn}/`, kind: "gs" };
+  const rel = gsRelated(i);
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/gas-springs", "Gas springs"], [`/#/gas-springs/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(gsDesc(i)))}</p></div></div>
+<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span><div class="gsfig"><svg viewBox="0 0 ${fig.w} ${fig.h + 8}" role="img" aria-label="Gas spring ${esc(i.pn)}: length ${esc(i.len)} mm, stroke ${esc(i.stroke)} mm">${fig.svg}</svg></div></div>
+<div class="info"><div class="type">Stravik gas spring</div>
+<dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
+${i.xr.length ? `<h2 class="nums-h">Cross-reference numbers</h2><div class="chips">${i.xr.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
+<div class="replace"><b>Before you order</b><span>Check the extended length, stroke and force against the old gas spring, and the position on the vehicle. Replace gas springs in pairs.</span></div>
+${buyBox(item)}
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent("Gas spring")}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this part</a><a class="btn line" href="/#/gas-springs/${T.slug}">More ${esc(T.many.toLowerCase())}</a></div>
+</div></div>
+<section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${i.apps.length} ${i.apps.length === 1 ? "application" : "applications"}, ${byMk.length} ${byMk.length === 1 ? "make" : "makes"}</span></h2>
+${i.apps.length ? `<div class="ftable-wrap"><table class="ctable apps"><thead><tr><th>Model</th><th>Years</th><th>Position</th></tr></thead><tbody>${byMk.map(g => `<tr class="catrow"><td colspan="3">${esc(g.m)}</td></tr>` + g.apps.map(a => `<tr><td>${esc(ssCase(a.mo))}</td><td class="yr">${esc(a.yr)}</td><td>${esc(a.pos)}${a.ds ? " · " + esc(a.ds) : ""}</td></tr>`).join("")).join("")}</tbody></table></div>` : `<p class="sib">Vehicle details to follow. Send us your OE number and we'll confirm the match.</p>`}
+</div></section>
+${rel.length ? `<section class="block related"><div class="wrap"><h2>Other gas springs for the same vehicles</h2><p class="pp-note">Stravik gas springs for the boot, bonnet and rear window of the vehicles above.</p><div class="fgrid">${rel.map(gsCard).join("")}</div></div></section>` : ""}
+${cantFind}`;
+  write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${gsDesc(i)} ${i.pn}`, i.pn, T.one, desc, "/assets/og.jpg"), body }));
+  urls.push(url);
+}
+
 // ================= filters =================
 const F = JSON.parse(rd("filters.json"));
 const FT = {}; F.types.forEach(t => FT[t[0]] = { code: t[0], slug: t[1], name: t[2], one: t[3] });
@@ -352,4 +400,4 @@ ${cantFind}`;
 // ================= sitemap and robots =================
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
+console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages, ${GS.length} gas spring pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
