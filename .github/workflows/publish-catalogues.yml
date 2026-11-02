@@ -80,7 +80,8 @@ jobs:
         if: steps.go.outputs.run == 'yes'
         run: |
           read_one() {   # $1 function, $2 file, $3 list key, $4 label
-            curl -sS --fail-with-body -X POST "$SUPABASE_URL/rest/v1/rpc/$1" -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}' -o "$RUNNER_TEMP/$2"
+            # a cold database can take longer than the public key's 3-second limit; the retry is fast
+            curl -sS --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 -X POST "$SUPABASE_URL/rest/v1/rpc/$1" -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}' -o "$RUNNER_TEMP/$2"
             N=$(jq ".$3 | length" "$RUNNER_TEMP/$2")
             OLD=$( [ -f "$2" ] && jq ".$3 | length" "$2" || echo 0 )
             echo "$4: $N in the database (website now: $OLD)"
