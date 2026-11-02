@@ -1,4 +1,4 @@
-// Stravik buyer accounts: sign in, registration for review, prices for approved buyers, and orders to DP World SA.
+// Stravik buyer accounts: sign in, registration for review, prices for approved buyers, and order requests to the fulfilment centre.
 // Loaded on every page after common.js. Visitors who never signed in download nothing extra: the Supabase
 // library is only fetched once someone opens a dealer page or already has a session in this browser.
 // Data: Supabase "Master Data" (functions stravik_dealer_*, stravik_place_order; edge function stravik-dealer-mail).
@@ -112,7 +112,7 @@ function signIn(app,c,mode){
       <div class="full"><button class="btn gold" type="submit" id="dgo">${mode==="new"?"Create account":"Sign in"}</button>${mode==="in"?` <button type="button" class="linkbtn" id="dforgot">Forgot your password?</button>`:""}</div>
       <div class="status" id="dst" role="alert"></div>
     </form></div>
-    <aside class="dside"><h2>Why register?</h2><ul><li>See your buyer prices on every catalogue page</li><li>Order online; DP World SA delivers and invoices</li><li>Track your orders and their invoices</li></ul><p class="dhint">Accounts are reviewed by our team before prices are shown.</p></aside></div>`;
+    <aside class="dside"><h2>Why register?</h2><ul><li>See your buyer prices on every catalogue page</li><li>Send order requests online; our fulfilment centre delivers and invoices</li><li>Track your orders and their invoices</li></ul><p class="dhint">Accounts are reviewed by our team before prices are shown.</p></aside></div>`;
   app.querySelectorAll(".dtabs button").forEach(b=>b.onclick=()=>signIn(app,c,b.dataset.m));
   const f=app.querySelector("#dauth"),st=f.querySelector("#dst"),btn=f.querySelector("#dgo");
   const say=(h,good)=>{st.innerHTML=h;st.classList.add("show");st.classList.toggle("ok",!!good);};
@@ -248,7 +248,7 @@ async function account(app,c,me){
   else{
     const n=S.prices?S.prices.map.size:0;
     const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="#/batteries">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
-    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>You're a <b>${esc(d.group_name)}</b>${cats?` for <b>${esc(cats.join(", "))}</b>`:""}. Your prices (USD, excl. VAT) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and place the order there: it goes straight to DP World SA, who deliver and invoice it.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
+    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>You're a <b>${esc(d.group_name)}</b>${cats?` for <b>${esc(cats.join(", "))}</b>`:""}. Your prices (USD, excl. VAT) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
@@ -260,14 +260,14 @@ async function account(app,c,me){
   const box=app.querySelector("#dord");if(!box)return;
   try{
     const os=must(await c.rpc("stravik_dealer_orders"));
-    box.innerHTML=!os.length?`<p class="dhint">No orders yet.</p>`:os.map(o=>`<details class="dorder"><summary><b>${esc(o.order_no)}</b><span>${esc(new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}))}</span><span>${o.lines} line${o.lines===1?"":"s"}, ${o.units} units</span><span>${o.total_usd==null?"":usd(o.total_usd)}</span><span class="dbadge s">${esc(o.status)}</span></summary>
-      <div class="dorder-b">${o.po_ref?`<p>Your PO: <b>${esc(o.po_ref)}</b></p>`:""}<p>Deliver to: ${esc(o.delivery_address||"")}</p>${o.invoice_no?`<p>DP World SA invoice: <b>${esc(o.invoice_no)}</b></p>`:""}${o.waybill_no?`<p>Waybill: <b>${esc(o.waybill_no)}</b></p>`:""}
+    box.innerHTML=!os.length?`<p class="dhint">No orders yet.</p>`:os.map(o=>`<details class="dorder"><summary><b>${esc(o.order_no)}</b><span>${esc(new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}))}</span><span>${o.lines} line${o.lines===1?"":"s"}, ${o.units} units</span><span>${o.total_usd==null?"":usd(o.total_usd)}</span><span class="dbadge s">${esc(o.status==="With DPW"?"With fulfilment centre":o.status)}</span></summary>
+      <div class="dorder-b">${o.po_ref?`<p>Your PO: <b>${esc(o.po_ref)}</b></p>`:""}<p>Deliver to: ${esc(o.delivery_address||"")}</p>${o.invoice_no?`<p>Invoice: <b>${esc(o.invoice_no)}</b></p>`:""}${o.waybill_no?`<p>Waybill: <b>${esc(o.waybill_no)}</b></p>`:""}
       <table class="ctable"><thead><tr><th>Part</th><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td class="no"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td><td class="dsc">${esc(i.description||"")}</td><td>${i.qty}</td><td>${i.price==null?"on request":usd(i.price)}</td><td>${usd(i.total)}</td></tr>`).join("")}</tbody></table></div></details>`).join("");
   }catch(e){box.innerHTML=`<p class="dnote bad">${esc(msg(e))}</p>`;}
 }
 
 // =====================================================================
-// cart page: "Place order with DP World SA" for approved buyers
+// cart page: "Send order request" (to the fulfilment centre) for approved buyers
 // =====================================================================
 async function cart(app){
   if(!hasSession())return;
@@ -285,7 +285,7 @@ async function cart(app){
   const by={};chk.forEach(x=>by[x.pn]=x);
   const ok=items.filter(i=>by[i.no]&&by[i.no].allowed),no=items.filter(i=>!(by[i.no]&&by[i.no].allowed));
   const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
-  sec.innerHTML=`<div class="panel-head"><h2>Place order</h2><span class="muted">${esc(d.group_name)} · USD</span></div>
+  sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2><span class="muted">${esc(d.group_name)} · USD</span></div>
     ${ok.length?`<table class="ctable dot"><thead><tr><th>Part</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="dotb"></tbody><tfoot><tr><td colspan="3">Total (excl. VAT)</td><td id="dott"></td></tr></tfoot></table>`:""}
     ${no.length?`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(i=>i.no).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`:""}
     ${ok.length?`<form class="enq" id="dof" novalidate>
@@ -293,9 +293,9 @@ async function cart(app){
       <div><label for="o_cn">Contact name</label><input id="o_cn" value="${esc(d.contact_name)}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_ph">Contact phone</label><input id="o_ph" type="tel" value="${esc(d.mobile||d.phone||"")}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_ad">Deliver to</label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
-      <div class="full"><label for="o_no">Notes for DP World SA (optional)</label><textarea id="o_no" rows="2"></textarea></div>
-      <div class="full"><button class="btn gold" type="submit" id="o_go">Place order</button></div>
-      <p class="note">Your order goes to DP World SA, who deliver it and invoice you. Prices are in US dollars, excluding VAT.</p>
+      <div class="full"><label for="o_no">Notes for the fulfilment centre (optional)</label><textarea id="o_no" rows="2"></textarea></div>
+      <div class="full"><button class="btn gold" type="submit" id="o_go">Send order request</button></div>
+      <p class="note">Your order request goes to our fulfilment centre, who confirm it, deliver and invoice you. Prices are in US dollars, excluding VAT.</p>
       <div class="status" id="o_st" role="alert"></div></form>`:""}`;
   const paint=()=>{const tb=sec.querySelector("#dotb");if(!tb)return;let tot=0,anyNull=false;
     const cur=STV.Cart.items();
@@ -309,21 +309,21 @@ async function cart(app){
     ev.preventDefault();const st=f.querySelector("#o_st"),btn=f.querySelector("#o_go");st.classList.remove("show");
     let first=null;["o_cn","o_ph","o_ad"].forEach(id=>{const el=f.querySelector("#"+id),bad=!el.value.trim();el.classList.toggle("invalid",bad);if(bad&&!first)first=el;});if(first){first.focus();return;}
     const cur=STV.Cart.items(),lines=ok.map(i=>({pn:i.no,qty:(cur.find(x=>x.key===i.key)||i).qty||1}));
-    btn.disabled=true;btn.textContent="Placing order…";
+    btn.disabled=true;btn.textContent="Sending…";
     try{
       const r=must(await c.rpc("stravik_place_order",{p:{items:lines,po_ref:f.querySelector("#o_po").value,contact_name:f.querySelector("#o_cn").value,contact_phone:f.querySelector("#o_ph").value,delivery_address:f.querySelector("#o_ad").value,notes:f.querySelector("#o_no").value}}));
       let mail=null;try{mail=(await c.functions.invoke("stravik-dealer-mail",{body:{action:"order",order_no:r.order_no}})).data;}catch(e){}
       ok.forEach(i=>STV.Cart.remove(i.key));
       done(app,r.order_no,mail);
-    }catch(err){st.textContent=msg(err);st.classList.add("show");btn.disabled=false;btn.textContent="Place order";}
+    }catch(err){st.textContent=msg(err);st.classList.add("show");btn.disabled=false;btn.textContent="Send order request";}
   });
 }
 function done(app,no,mail){
   const sent=mail&&mail.status==="sent";
   app.innerHTML=`<div class="wrap"><section class="thanks" aria-labelledby="dty"><div class="tick" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-    <h1 id="dty" tabindex="-1">Order placed</h1><p>${sent?"Your order has gone to DP World SA. You'll get a copy by email.":"Your order is saved and we'll pass it to DP World SA."}</p>
+    <h1 id="dty" tabindex="-1">Order request sent</h1><p>${sent?"Your order request has gone to our fulfilment centre. You'll get a copy by email.":"Your order request is saved and we'll pass it to our fulfilment centre."}</p>
     <div class="refbox"><span>Your order number</span><strong>${esc(no)}</strong></div>
-    <p>DP World SA will contact you about delivery and invoicing. Quote this number in any correspondence.</p>
+    <p>The fulfilment centre will contact you to confirm delivery and invoicing. Quote this number in any correspondence.</p>
     <div class="row"><a class="btn gold" href="#/dealer">Your orders</a><a class="btn line" href="#/products">Back to the catalogue</a></div></section></div>`;
   window.scrollTo(0,0);app.querySelector("#dty").focus();
 }
