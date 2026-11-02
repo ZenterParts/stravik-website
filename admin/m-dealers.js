@@ -31,7 +31,7 @@
   async function dList() {
     await groups();
     L.cp({ crumbs: [['Buyers', DB], ['Accounts']], buttons: '<button type="button" class="btn ghost" id="dXls">Download</button>' });
-    L.searchBar({ placeholder: 'Search company, contact, email, CIPC…', text: S.text, filters: DFILTERS, active: S.active, onChange: function (s) { S.text = s.text; S.active = s.active; S.offset = 0; dLoad(); } });
+    L.searchBar({ placeholder: 'Search company, contact, email, reg. no., country…', text: S.text, filters: DFILTERS, active: S.active, onChange: function (s) { S.text = s.text; S.active = s.active; S.offset = 0; dLoad(); } });
     L.content('<div class="cards" id="dStats" style="margin-bottom:14px"></div><div id="dListBox"></div>');
     $('dXls').onclick = dExcel;
     dStats(); dLoad();
@@ -41,7 +41,7 @@
     var st = STATUSES.filter(function (s) { return S.active['st_' + s]; }); if (st.length) q = q.in('status', st);
     if (S.active.test && !S.active.real) q = q.eq('is_test', true);
     if (S.active.real && !S.active.test) q = q.eq('is_test', false);
-    var s = L.orSearch(['company_name', 'trading_name', 'contact_name', 'email', 'cipc_no', 'vat_no', 'city'], S.text); if (s) q = q.or(s);
+    var s = L.orSearch(['company_name', 'trading_name', 'contact_name', 'email', 'cipc_no', 'vat_no', 'city', 'country'], S.text); if (s) q = q.or(s);
     return q.order('submitted_at', { ascending: false });
   }
   async function dStats() {
@@ -61,8 +61,8 @@
       $('dListBox').innerHTML = L.listView([
         { label: 'Company', render: function (x) { return '<b>' + esc(x.trading_name || x.company_name) + '</b>' + (x.trading_name ? '<div class="small muted">' + esc(x.company_name) + '</div>' : '') + (x.is_test ? ' ' + L.pill('Test', 'warn') : ''); } },
         { label: 'Status', render: function (x) { return pill(x.status); } }, { label: 'Price group', render: function (x) { return esc(x.group_name || ''); } },
-        { label: 'Contact', render: function (x) { return esc(x.contact_name) + '<div class="small muted">' + esc(x.email) + '</div>'; } }, { label: 'Location', render: function (x) { return esc([x.city, x.province].filter(Boolean).join(', ')); } },
-        { label: 'CIPC', render: function (x) { return esc(x.cipc_no || ''); } }, { label: 'Docs', num: true, render: function (x) { return x.documents; } }, { label: 'Orders', num: true, render: function (x) { return x.orders; } },
+        { label: 'Contact', render: function (x) { return esc(x.contact_name) + '<div class="small muted">' + esc(x.email) + '</div>'; } }, { label: 'Location', render: function (x) { return esc([x.city, x.province, x.country === 'South Africa' ? '' : x.country].filter(Boolean).join(', ')); } },
+        { label: 'Reg. no.', render: function (x) { return esc(x.cipc_no || ''); } }, { label: 'Docs', num: true, render: function (x) { return x.documents; } }, { label: 'Orders', num: true, render: function (x) { return x.orders; } },
         { label: 'Registered', render: function (x) { return '<span class="small">' + esc(L.dt(x.submitted_at)) + '</span>'; } }
       ], rows, function (x) { return L.href('dealers', [x.id]); });
     } catch (e) { L.fail(e); }
@@ -98,9 +98,9 @@
           '<div class="o-subtitle">' + esc(d.company_name) + ' · registered ' + esc(L.dt(d.submitted_at)) + (d.reviewed_at ? ' · reviewed ' + esc(L.dt(d.reviewed_at)) + ' by ' + esc(d.reviewed_by || '') : '') + '</div>' +
           (d.review_note ? '<div class="notice"><b>Note to the buyer:</b> ' + esc(d.review_note) + '</div>' : '') +
           '<div class="o-groups">' +
-          L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], ['CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
+          L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], [d.country && d.country !== 'South Africa' ? 'Company reg. no.' : 'CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
           L.group('Contacts', [['Owner / director', t(d.owner_name)], ['Contact', t(d.contact_name) + (d.contact_role ? ' <span class="muted">(' + esc(d.contact_role) + ')</span>' : '')], ['Email (login)', '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>'], ['Mobile', t(d.mobile)], ['Phone', t(d.phone)], ['Accounts email', t(d.accounts_email)]]) +
-          L.group('Address', [['Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], ['Delivery address', t(d.delivery_address)], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
+          L.group('Address', [['Country', t(d.country)], [d.country && d.country !== 'South Africa' ? 'Region' : 'Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], ['Delivery address', t(d.delivery_address)], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
           L.group('Our side', [['Price group', t(gname(d.price_group))], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
           '</div>' +
           L.notebook([
@@ -292,7 +292,7 @@
       await groups();
       var o = L.must(await sb.from('stravik_orders').select('*').eq('order_no', no).maybeSingle());
       if (!o) { L.cp({ crumbs: [['Orders', OB], [no]] }); return L.content(L.empty('Order not found', '')); }
-      var r = await Promise.all([sb.from('stravik_order_items').select('*').eq('order_id', o.id).order('line'), sb.from('stravik_dealers').select('id,company_name,trading_name,email,cipc_no,dpw_customer_code').eq('id', o.dealer_id).single()]);
+      var r = await Promise.all([sb.from('stravik_order_items').select('*').eq('order_id', o.id).order('line'), sb.from('stravik_dealers').select('id,company_name,trading_name,email,cipc_no,dpw_customer_code,country').eq('id', o.dealer_id).single()]);
       var items = L.must(r[0]), d = L.must(r[1]), ed = L.isEditor(), ro = ed ? '' : ' readonly';
       var inp = function (k, type) { return '<input data-k="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(o[k] == null ? '' : o[k]) + '"' + ro + '>'; };
       L.form({
@@ -302,7 +302,7 @@
         status: { steps: OSTAT, current: o.status, clickable: ed, onClick: async function (s) { try { L.must(await sb.from('stravik_orders').update({ status: s }).eq('id', o.id)); L.toast('Status: ' + s); oForm(no); } catch (e) { L.fail(e); } } },
         sheet: '<div class="o-title"><h1>' + esc(o.order_no) + '</h1>' + (o.is_test ? L.pill('Test', 'warn') : '') + '</div><div class="o-subtitle">' + esc(d.trading_name || d.company_name) + ' · ' + esc(gname(o.price_group)) + ' · ' + esc(L.dt(o.created_at)) + '</div>' +
           '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Email to DP World SA and us: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
-          '<div class="o-groups">' + L.group('Order', [['Buyer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['CIPC', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
+          '<div class="o-groups">' + L.group('Order', [['Buyer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['Company reg. no.', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
           L.group('From DP World SA', [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
           L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit USD</th><th class="num">Total USD</th></tr></thead><tbody>' +
             items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + (i.unit_price_usd == null ? '<span class="muted">on request</span>' : L.money(i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total_usd) + '</td></tr>'; }).join('') +

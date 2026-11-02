@@ -10,9 +10,12 @@ const STORE="stravik-buyer-auth";          // separate from the admin site's ses
 const SITE=location.origin;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const usd=v=>v==null||v===""?"":"$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+// South Africa first, then the rest of our region (Africa, Middle East, Indian Ocean islands)
+const COUNTRIES=["South Africa","Algeria","Angola","Bahrain","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde","Central African Republic","Chad","Comoros","Congo (Brazzaville)","Congo (DRC)","Côte d'Ivoire","Djibouti","Egypt","Equatorial Guinea","Eritrea","Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea-Bissau","Iraq","Jordan","Kenya","Kuwait","Lebanon","Lesotho","Liberia","Libya","Madagascar","Malawi","Maldives","Mali","Mauritania","Mauritius","Morocco","Mozambique","Namibia","Niger","Nigeria","Oman","Qatar","Réunion","Rwanda","São Tomé and Príncipe","Saudi Arabia","Senegal","Seychelles","Sierra Leone","Somalia","South Sudan","Sudan","Syria","Tanzania","Togo","Tunisia","Uganda","United Arab Emirates","Yemen","Zambia","Zimbabwe","Other"];
+const isSA=c=>!c||c==="South Africa";
 const PROVINCES=["Eastern Cape","Free State","Gauteng","KwaZulu-Natal","Limpopo","Mpumalanga","Northern Cape","North West","Western Cape"];
 const RANGES=["Batteries","Brakes","Filters","Steering & Suspension","Shock Absorbers","Gas Springs"];
-const DOCS=[["CIPC certificate","Company registration (CIPC) certificate"],["VAT certificate","VAT registration certificate"],["Proof of address","Proof of business address"],["Bank letter","Bank confirmation letter (optional)"]];
+const DOCS=[["CIPC certificate","Company registration certificate (CIPC in South Africa)"],["VAT certificate","VAT registration certificate"],["Proof of address","Proof of business address"],["Bank letter","Bank confirmation letter (optional)"]];
 const toast=m=>window.STV&&STV.toast(m);
 const hasSession=()=>{try{return !!localStorage.getItem(STORE);}catch(e){return false;}};
 
@@ -171,7 +174,8 @@ function regForm(app,c,me){
      ${inp("accounts_email","Accounts email for invoices",{type:"email",full:1})}
    </div></fieldset>
    <fieldset><legend>Address</legend><div class="enq">
-     <div><label for="r_province">Province <span class="req" aria-hidden="true">*</span></label>${sel("r_province",PROVINCES,d.province,"Choose…")}<div class="err">Required.</div></div>${inp("city","City / town",{req:1,ac:"address-level2"})}
+     <div class="full"><label for="r_country">Country <span class="req" aria-hidden="true">*</span></label>${sel("r_country",COUNTRIES,d.country||"South Africa")}</div>
+     <div id="provBox"></div>${inp("city","City / town",{req:1,ac:"address-level2"})}
      ${inp("store_address","Store address",{req:1,full:1,area:1,ac:"street-address"})}${inp("postal_code","Postal code",{ac:"postal-code"})}<div></div>
      ${inp("delivery_address","Delivery address, if different",{full:1,area:1})}
      ${inp("receiving_hours","Receiving hours",{ph:"e.g. Mon–Fri 08:00–16:30"})}${inp("truck_access","Truck access / delivery notes",{ph:"e.g. no trucks over 8 t"})}
@@ -193,17 +197,28 @@ function regForm(app,c,me){
    <div class="status" id="rst" role="alert"></div>
   </form></div>`;
   const f=app.querySelector("#dreg"),st=f.querySelector("#rst"),btn=f.querySelector("#rgo");
+  // the address and business-number fields follow the country
+  const setLabel=(id,text,ph)=>{const l=f.querySelector('label[for="r_'+id+'"]');if(l)l.firstChild.nodeValue=text;const i=f.querySelector("#r_"+id);if(i)i.placeholder=ph||"";};
+  const byCountry=()=>{
+    const c=f.querySelector("#r_country").value,sa=isSA(c),cur=(f.querySelector("#r_province")||{}).value||d.province||"";
+    f.querySelector("#provBox").innerHTML=sa?`<label for="r_province">Province <span class="req" aria-hidden="true">*</span></label>${sel("r_province",PROVINCES,PROVINCES.indexOf(cur)>=0?cur:"","Choose…")}<div class="err">Required.</div>`
+      :`<label for="r_province">Region / state / province</label><input id="r_province" value="${esc(PROVINCES.indexOf(cur)>=0?"":cur)}" autocomplete="address-level1">`;
+    setLabel("cipc_no",sa?"CIPC registration number":"Company registration number",sa?"2015/123456/07":"");
+    setLabel("vat_no",sa?"VAT number":"VAT / tax number",sa?"4123456789":"");
+    setLabel("mobile","Mobile / WhatsApp ",sa?"+27 82 123 4567":"Include the country code, e.g. +254 712 345 678");
+  };
+  f.querySelector("#r_country").addEventListener("change",byCountry);byCountry();
   const ro=f.querySelector("#rout");if(ro)ro.onclick=()=>signOut(c);
   f.addEventListener("submit",async ev=>{
     ev.preventDefault();st.classList.remove("show");
     const val=id=>{const el=f.querySelector("#r_"+id);return el?el.value.trim():"";};
-    const req=["company_name","contact_name","mobile","province","city","store_address"];let first=null;
+    const req=["company_name","contact_name","mobile","city","store_address"].concat(isSA(val("country"))?["province"]:[]);let first=null;
     req.forEach(id=>{const el=f.querySelector("#r_"+id),bad=!el.value.trim();el.classList.toggle("invalid",bad);if(bad&&!first)first=el;});
     if(first){first.focus();return;}
     if(!f.querySelector("#r_terms").checked||!f.querySelector("#r_popia").checked){st.textContent="Please tick both consent boxes.";st.classList.add("show");return;}
     const files=[...f.querySelectorAll("input[type=file]")].filter(i=>i.files[0]);
     const big=files.find(i=>i.files[0].size>10485760);if(big){st.textContent=big.files[0].name+" is larger than 10 MB.";st.classList.add("show");return;}
-    const p={};["company_name","trading_name","cipc_no","vat_no","business_type","years_trading","owner_name","contact_name","contact_role","mobile","phone","accounts_email","province","city","store_address","postal_code","delivery_address","receiving_hours","truck_access","monthly_volume","comments"].forEach(k=>p[k]=val(k));
+    const p={};["company_name","trading_name","cipc_no","vat_no","business_type","years_trading","owner_name","contact_name","contact_role","mobile","phone","accounts_email","country","province","city","store_address","postal_code","delivery_address","receiving_hours","truck_access","monthly_volume","comments"].forEach(k=>p[k]=val(k));
     p.ranges_interest=[...f.querySelectorAll("input[name=rng]:checked")].map(x=>x.value);p.accepted_terms=true;p.accepted_popia=true;
     btn.disabled=true;btn.textContent="Sending…";
     try{
@@ -238,7 +253,7 @@ async function account(app,c,me){
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
     <div>${body}</div>
     <aside class="dcard"><span class="dbadge ${esc(d.status.toLowerCase())}">${esc(badge)}</span>
-      <dl><dt>Company</dt><dd>${esc(d.company_name)}</dd>${d.cipc_no?`<dt>CIPC</dt><dd>${esc(d.cipc_no)}</dd>`:""}<dt>Contact</dt><dd>${esc(d.contact_name)}</dd><dt>Email</dt><dd>${esc(d.email)}</dd><dt>Mobile</dt><dd>${esc(d.mobile||"")}</dd><dt>Location</dt><dd>${esc([d.city,d.province].filter(Boolean).join(", "))}</dd>${d.group_name?`<dt>Price list</dt><dd>${esc(d.group_name)}</dd>`:""}</dl>
+      <dl><dt>Company</dt><dd>${esc(d.company_name)}</dd>${d.cipc_no?`<dt>${isSA(d.country)?"CIPC":"Reg. no."}</dt><dd>${esc(d.cipc_no)}</dd>`:""}<dt>Contact</dt><dd>${esc(d.contact_name)}</dd><dt>Email</dt><dd>${esc(d.email)}</dd><dt>Mobile</dt><dd>${esc(d.mobile||"")}</dd><dt>Location</dt><dd>${esc([d.city,d.province,isSA(d.country)?"":d.country].filter(Boolean).join(", "))}</dd>${d.group_name?`<dt>Price list</dt><dd>${esc(d.group_name)}</dd>`:""}</dl>
       <button class="btn line" type="button" id="dout">Sign out</button></aside></div></div>`;
   app.querySelector("#dout").onclick=()=>signOut(c);
   const box=app.querySelector("#dord");if(!box)return;
@@ -268,7 +283,7 @@ async function cart(app){
   let chk;try{chk=must(await c.rpc("stravik_dealer_check",{pns:items.map(i=>i.no)}));}catch(e){sec.innerHTML=`<p class="dpad dnote bad">${esc(msg(e))}</p>`;return;}
   const by={};chk.forEach(x=>by[x.pn]=x);
   const ok=items.filter(i=>by[i.no]&&by[i.no].allowed),no=items.filter(i=>!(by[i.no]&&by[i.no].allowed));
-  const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code].filter(Boolean).join(", ");
+  const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
   sec.innerHTML=`<div class="panel-head"><h2>Place order</h2><span class="muted">${esc(d.group_name)} · USD</span></div>
     ${ok.length?`<table class="ctable dot"><thead><tr><th>Part</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="dotb"></tbody><tfoot><tr><td colspan="3">Total (excl. VAT)</td><td id="dott"></td></tr></tfoot></table>`:""}
     ${no.length?`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(i=>i.no).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`:""}
