@@ -1,4 +1,4 @@
-// Stravik buyer accounts: sign in, registration for review, prices for approved buyers, and order requests to the fulfilment centre.
+// Stravik customer accounts: sign in, registration for review, prices for approved customers, and order requests to the fulfilment centre.
 // Loaded on every page after common.js. Visitors who never signed in download nothing extra: the Supabase
 // library is only fetched once someone opens a dealer page or already has a session in this browser.
 // Data: Supabase "Master Data" (functions stravik_dealer_*, stravik_place_order; edge function stravik-dealer-mail).
@@ -36,7 +36,7 @@ function client(){
 }
 const must=r=>{if(r.error)throw r.error;return r.data;};
 const msg=e=>{const m=String(e&&(e.message||e.error_description)||e);
-  if(/signups? not allowed/i.test(m))return "New buyer accounts aren't open yet. Please contact us and we'll set you up.";
+  if(/signups? not allowed/i.test(m))return "New customer accounts aren't open yet. Please contact us and we'll set you up.";
   if(/invalid login credentials/i.test(m))return "The email or password is wrong.";
   if(/rate limit/i.test(m))return "Too many attempts. Please wait a few minutes and try again.";
   return m.replace(/^.*?Missing: /,"Please fill in: ").replace(/_/g," ");};
@@ -62,8 +62,8 @@ function paintNav(){
   if(!a){a=document.createElement("a");a.dataset.nav="dealer";a.href="/#/dealer";a.className="nav-ic nav-dealer";
     const ref=nav.querySelector('a[data-nav=contact]');nav.insertBefore(a,ref||null);}
   const d=D();
-  const label=d?(d.trading_name||d.company_name):S.me?"My account":"Buyer login";
-  a.title=d?"Your buyer account":"Sign in for buyer prices and ordering";
+  const label=d?(d.trading_name||d.company_name):S.me?"My account":"Customer login";
+  a.title=d?"Your customer account":"Sign in for customer prices and ordering";
   a.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="nav-l">${esc(label.length>22?label.slice(0,21)+"…":label)}</span>`;
 }
 function tag(pn){const m=S.prices&&S.prices.map;if(!m)return null;return m.has(pn)?usd(m.get(pn)):null;}
@@ -85,16 +85,16 @@ let raf=0;new MutationObserver(()=>{if(!S.prices||raf)return;raf=requestAnimatio
 // =====================================================================
 // pages: #/dealer, #/dealer/register, #/dealer/password
 // =====================================================================
-const head=(title,lead,crumb)=>`<div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span>${crumb?`<a href="#/dealer">Buyer account</a><span>/</span><span>${esc(crumb)}</span>`:"<span>Buyer account</span>"}</div><h1>${esc(title)}</h1>${lead?`<p>${lead}</p>`:""}</div></div>`;
+const head=(title,lead,crumb)=>`<div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span>${crumb?`<a href="#/dealer">Customer account</a><span>/</span><span>${esc(crumb)}</span>`:"<span>Customer account</span>"}</div><h1>${esc(title)}</h1>${lead?`<p>${lead}</p>`:""}</div></div>`;
 async function page(app,parts){
-  app.innerHTML=head("Buyer account","Loading…")+`<div class="wrap dwrap"></div>`;
+  app.innerHTML=head("Customer account","Loading…")+`<div class="wrap dwrap"></div>`;
   let c;try{c=await client();}catch(e){app.querySelector(".dwrap").innerHTML=`<p class="dnote bad">${esc(e.message)}. Check your connection and reload the page.</p>`;return;}
   const {data:{session}}=await c.auth.getSession();
   if(parts[0]==="password")return pwPage(app,c,session);
   if(!session)return signIn(app,c);
   S.loading=null;const me=await ensure();
   if(!me)return signIn(app,c);
-  if(me.staff&&!me.dealer){app.innerHTML=head("Buyer account")+`<div class="wrap dwrap"><p class="dnote">You're signed in as <b>${esc(me.email)}</b>, a staff account. Buyer accounts are for our customers; manage them in the <a href="/admin/#/dealers">admin site</a>.</p><p><button class="btn line" type="button" id="dout">Sign out</button></p></div>`;app.querySelector("#dout").onclick=()=>signOut(c);return;}
+  if(me.staff&&!me.dealer){app.innerHTML=head("Customer account")+`<div class="wrap dwrap"><p class="dnote">You're signed in as <b>${esc(me.email)}</b>, a staff account. Customer accounts are for our trade customers; manage them in the <a href="/admin/#/dealers">admin site</a>.</p><p><button class="btn line" type="button" id="dout">Sign out</button></p></div>`;app.querySelector("#dout").onclick=()=>signOut(c);return;}
   if(!me.dealer||(parts[0]==="register"&&["Pending","Rejected"].includes(me.dealer.status)))return regForm(app,c,me);
   return account(app,c,me);
 }
@@ -102,7 +102,7 @@ async function page(app,parts){
 // ---------- sign in / create account / forgot password ----------
 function signIn(app,c,mode){
   mode=mode||"in";
-  app.innerHTML=head(mode==="new"?"Create a buyer account":"Buyer login","Approved Stravik buyers see their prices in the catalogue and order online. New to Stravik? Create an account and register your business; we'll review it and email you.")+
+  app.innerHTML=head(mode==="new"?"Create a customer account":"Customer login","Approved Stravik customers see their prices in the catalogue and order online. New to Stravik? Create an account and register your business; we'll review it and email you.")+
   `<div class="wrap dwrap"><div class="dauth">
     <div class="dtabs" role="tablist"><button type="button" role="tab" data-m="in" aria-selected="${mode==="in"}">Sign in</button><button type="button" role="tab" data-m="new" aria-selected="${mode==="new"}">Create an account</button></div>
     <form class="enq" id="dauth" novalidate>
@@ -112,7 +112,7 @@ function signIn(app,c,mode){
       <div class="full"><button class="btn gold" type="submit" id="dgo">${mode==="new"?"Create account":"Sign in"}</button>${mode==="in"?` <button type="button" class="linkbtn" id="dforgot">Forgot your password?</button>`:""}</div>
       <div class="status" id="dst" role="alert"></div>
     </form></div>
-    <aside class="dside"><h2>Why register?</h2><ul><li>See your buyer prices on every catalogue page</li><li>Send order requests online; our fulfilment centre delivers and invoices</li><li>Track your orders and their invoices</li></ul><p class="dhint">Accounts are reviewed by our team before prices are shown.</p></aside></div>`;
+    <aside class="dside"><h2>Why register?</h2><ul><li>See your prices on every catalogue page</li><li>Send order requests online; our fulfilment centre delivers and invoices</li><li>Track your orders and their invoices</li></ul><p class="dhint">Accounts are reviewed by our team before prices are shown.</p></aside></div>`;
   app.querySelectorAll(".dtabs button").forEach(b=>b.onclick=()=>signIn(app,c,b.dataset.m));
   const f=app.querySelector("#dauth"),st=f.querySelector("#dst"),btn=f.querySelector("#dgo");
   const say=(h,good)=>{st.innerHTML=h;st.classList.add("show");st.classList.toggle("ok",!!good);};
@@ -248,7 +248,7 @@ async function account(app,c,me){
   else{
     const n=S.prices?S.prices.map.size:0;
     const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="#/batteries">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
-    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>You're a <b>${esc(d.group_name)}</b>${cats?` for <b>${esc(cats.join(", "))}</b>`:""}. Your prices (USD, excl. VAT) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
+    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>Your price list: <b>${esc(d.group_name)}</b>${cats?` (${esc(cats.join(", "))})`:""}. Your prices (USD, excl. VAT) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
@@ -277,7 +277,7 @@ async function cart(app){
   if(!STV.Cart.items().some(i=>i.no))return;
   let sec=wrap.querySelector("#dorderp");
   if(!sec){sec=document.createElement("section");sec.className="panel dorderp";sec.id="dorderp";wrap.insertBefore(sec,wrap.children[1]||null);}
-  if(d.status!=="Approved"){sec.innerHTML=`<div class="panel-head"><h2>Ordering</h2></div><p class="dpad">Your buyer account is <b>${esc({Pending:"waiting for review",Rejected:"waiting for changes",Suspended:"on hold"}[d.status]||d.status)}</b>. Once it's approved you can order these parts here. <a href="#/dealer">Your account</a></p>`;return;}
+  if(d.status!=="Approved"){sec.innerHTML=`<div class="panel-head"><h2>Ordering</h2></div><p class="dpad">Your customer account is <b>${esc({Pending:"waiting for review",Rejected:"waiting for changes",Suspended:"on hold"}[d.status]||d.status)}</b>. Once it's approved you can order these parts here. <a href="#/dealer">Your account</a></p>`;return;}
   const items=STV.Cart.items().filter(i=>i.no);
   if(!items.length){sec.remove();return;}
   const c=await client();
