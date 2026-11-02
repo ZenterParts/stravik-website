@@ -161,8 +161,9 @@ function regForm(app,c,me){
   const inp=(id,label,o={})=>`<div class="${o.full?"full":""}"><label for="r_${id}">${esc(label)}${o.req?' <span class="req" aria-hidden="true">*</span>':""}</label>${o.area?`<textarea id="r_${id}" rows="3">${v(id)}</textarea>`:`<input id="r_${id}" ${o.type?`type="${o.type}"`:""} ${o.ac?`autocomplete="${o.ac}"`:""} ${o.ph?`placeholder="${esc(o.ph)}"`:""} value="${id==="email"?esc(me.email):v(id)}"${id==="email"?" readonly":""}>`}${o.hint?`<small class="dhint">${o.hint}</small>`:""}<div class="err">Required.</div></div>`;
   const editing=!!me.dealer;
   app.innerHTML=head(editing?"Update your registration":"Register your business",editing?"Change anything that's wrong and send it again for review.":"Tell us about your business. Our team reviews every registration; once approved you'll see your prices and can order online.",editing?"Update registration":"Register")+
-  `<div class="wrap dwrap"><p class="dwho">Signed in as <b>${esc(me.email)}</b>. Not you? <button type="button" class="btn line small" id="rout2">Sign out</button></p><form class="dreg" id="dreg" novalidate>
+  `<div class="wrap dwrap"><p class="dwho"><span>Signed in as <b>${esc(me.email)}</b>. Not you?</span> <button type="button" class="btn line small" id="rout2">Sign out</button></p><form class="dreg" id="dreg" novalidate>
    <fieldset><legend>Business</legend><div class="enq">
+     <div class="full"><label for="r_country">Country where the business is registered <span class="req" aria-hidden="true">*</span></label>${sel("r_country",COUNTRIES,d.country||"South Africa")}<small class="dhint">The registration and address fields below follow this choice.</small></div>
      ${inp("company_name","Registered company name",{req:1,ac:"organization"})}${inp("trading_name","Trading (store) name, if different")}
      ${inp("cipc_no","CIPC registration number",{ph:"2015/123456/07"})}${inp("vat_no","VAT number",{ph:"4123456789"})}
      <div><label for="r_business_type">Type of business</label>${sel("r_business_type",["Distributor","Dealer / parts store","Workshop","Fleet operator","Other"],d.business_type,"Choose…")}</div>${inp("years_trading","Years trading")}
@@ -174,7 +175,6 @@ function regForm(app,c,me){
      ${inp("accounts_email","Accounts email for invoices",{type:"email",full:1})}
    </div></fieldset>
    <fieldset><legend>Address</legend><div class="enq">
-     <div class="full"><label for="r_country">Country <span class="req" aria-hidden="true">*</span></label>${sel("r_country",COUNTRIES,d.country||"South Africa")}</div>
      <div id="provBox"></div>${inp("city","City / town",{req:1,ac:"address-level2"})}
      ${inp("store_address","Store address",{req:1,full:1,area:1,ac:"street-address"})}${inp("postal_code","Postal code",{ac:"postal-code"})}<div></div>
      ${inp("delivery_address","Delivery address, if different",{full:1,area:1})}
