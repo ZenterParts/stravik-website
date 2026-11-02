@@ -161,7 +161,7 @@ function regForm(app,c,me){
   const inp=(id,label,o={})=>`<div class="${o.full?"full":""}"><label for="r_${id}">${esc(label)}${o.req?' <span class="req" aria-hidden="true">*</span>':""}</label>${o.area?`<textarea id="r_${id}" rows="3">${v(id)}</textarea>`:`<input id="r_${id}" ${o.type?`type="${o.type}"`:""} ${o.ac?`autocomplete="${o.ac}"`:""} ${o.ph?`placeholder="${esc(o.ph)}"`:""} value="${id==="email"?esc(me.email):v(id)}"${id==="email"?" readonly":""}>`}${o.hint?`<small class="dhint">${o.hint}</small>`:""}<div class="err">Required.</div></div>`;
   const editing=!!me.dealer;
   app.innerHTML=head(editing?"Update your registration":"Register your business",editing?"Change anything that's wrong and send it again for review.":"Tell us about your business. Our team reviews every registration; once approved you'll see your prices and can order online.",editing?"Update registration":"Register")+
-  `<div class="wrap dwrap"><form class="dreg" id="dreg" novalidate>
+  `<div class="wrap dwrap"><p class="dwho">Signed in as <b>${esc(me.email)}</b>. Not you? <button type="button" class="btn line small" id="rout2">Sign out</button></p><form class="dreg" id="dreg" novalidate>
    <fieldset><legend>Business</legend><div class="enq">
      ${inp("company_name","Registered company name",{req:1,ac:"organization"})}${inp("trading_name","Trading (store) name, if different")}
      ${inp("cipc_no","CIPC registration number",{ph:"2015/123456/07"})}${inp("vat_no","VAT number",{ph:"4123456789"})}
@@ -209,6 +209,7 @@ function regForm(app,c,me){
   };
   f.querySelector("#r_country").addEventListener("change",byCountry);byCountry();
   const ro=f.querySelector("#rout");if(ro)ro.onclick=()=>signOut(c);
+  app.querySelector("#rout2").onclick=()=>signOut(c);
   f.addEventListener("submit",async ev=>{
     ev.preventDefault();st.classList.remove("show");
     const val=id=>{const el=f.querySelector("#r_"+id);return el?el.value.trim():"";};
