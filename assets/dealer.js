@@ -32,7 +32,11 @@ function client(){
   }));
 }
 const must=r=>{if(r.error)throw r.error;return r.data;};
-const msg=e=>String(e&&(e.message||e.error_description)||e).replace(/^.*?Missing: /,"Please fill in: ").replace(/_/g," ");
+const msg=e=>{const m=String(e&&(e.message||e.error_description)||e);
+  if(/signups? not allowed/i.test(m))return "New buyer accounts aren't open yet. Please contact us and we'll set you up.";
+  if(/invalid login credentials/i.test(m))return "The email or password is wrong.";
+  if(/rate limit/i.test(m))return "Too many attempts. Please wait a few minutes and try again.";
+  return m.replace(/^.*?Missing: /,"Please fill in: ").replace(/_/g," ");};
 
 // ---------- state ----------
 const S={me:null,prices:null,loading:null};
@@ -275,7 +279,7 @@ async function cart(app){
       <div class="full"><label for="o_ad">Deliver to</label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
       <div class="full"><label for="o_no">Notes for DP World SA (optional)</label><textarea id="o_no" rows="2"></textarea></div>
       <div class="full"><button class="btn gold" type="submit" id="o_go">Place order</button></div>
-      <p class="note">Your order goes to DP World SA, who deliver it and invoice you, and to our team. Prices are in US dollars, excluding VAT.</p>
+      <p class="note">Your order goes to DP World SA, who deliver it and invoice you. Prices are in US dollars, excluding VAT.</p>
       <div class="status" id="o_st" role="alert"></div></form>`:""}`;
   const paint=()=>{const tb=sec.querySelector("#dotb");if(!tb)return;let tot=0,anyNull=false;
     const cur=STV.Cart.items();
@@ -301,7 +305,7 @@ async function cart(app){
 function done(app,no,mail){
   const sent=mail&&mail.status==="sent";
   app.innerHTML=`<div class="wrap"><section class="thanks" aria-labelledby="dty"><div class="tick" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-    <h1 id="dty" tabindex="-1">Order placed</h1><p>${sent?"Your order has gone to DP World SA and our team. You'll get a copy by email.":"Your order is saved and our team has it. We'll pass it to DP World SA."}</p>
+    <h1 id="dty" tabindex="-1">Order placed</h1><p>${sent?"Your order has gone to DP World SA. You'll get a copy by email.":"Your order is saved and we'll pass it to DP World SA."}</p>
     <div class="refbox"><span>Your order number</span><strong>${esc(no)}</strong></div>
     <p>DP World SA will contact you about delivery and invoicing. Quote this number in any correspondence.</p>
     <div class="row"><a class="btn gold" href="#/dealer">Your orders</a><a class="btn line" href="#/products">Back to the catalogue</a></div></section></div>`;
