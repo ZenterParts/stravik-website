@@ -2,7 +2,7 @@
 // A range is a config in CATS (title, data file, hero photo, filters, columns). The data file is written by the publish
 // workflow from the database function stravik_std_catalogue(<range>) and has the standard shape:
 //   { v:1, at, cat, makes:[...], parts:[{ pn, t, d, s:{spec:value}, oe:[...], xr:[...], ap:[[makeIndex, model, years]] }] }
-// Part photos: <img>/<Stravik no.>.webp, listed in <img>/index.json.
+// Part photos: <img>/<Stravik no.>.webp, listed in <img>/index.json; parts without one show the range's Stravik box (box).
 // Search by Stravik, OE or cross-reference number or vehicle, pick the vehicle (make, model, year), narrow by specs,
 // see the parts as cards or a list, open a part for its full details, add it to the cart.
 (function(){
@@ -17,7 +17,7 @@ const PAGE=48;
 const CATS={
   "ignition-coils":{
     title:"Ignition coils", one:"ignition coil", many:"ignition coils", cat:"Ignition Coils", data:"/ignition-coils.json",
-    crumbs:[["Our products","#/products"]], hero:"/assets/img/ignition-coils/hero.webp", img:"/assets/img/ignition-coils/",
+    crumbs:[["Our products","#/products"]], hero:"/assets/img/ignition-coils/hero.webp", img:"/assets/img/ignition-coils/", box:"/assets/img/ignition-coils/box.webp",
     lead:n=>`${fmt(n.items)} coils for ${fmt(n.makes)} vehicle makes. Search by Stravik, OE or cross-reference number, or pick the vehicle.`,
     hint:["SEIGC0102","0221503033","Corolla"],
     facets:[{k:"Connector",sort:"num"},{k:"Ignition module"},{k:"Vehicle type"}],
@@ -57,7 +57,7 @@ function years(y){
 function prep(d,c){
   const makes=d.makes;d.items=d.parts||d.items||[];
   d.items.forEach((i,ix)=>{
-    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos.has(i.pn)?c.img+i.pn+".webp":"";
+    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos.has(i.pn)?c.img+i.pn+".webp":"";i.box=!i.ph&&c.box?c.box:"";
     i.apps=(i.ap||[]).map(a=>{const mk=makes[a[0]],[mo,eng]=tidyModel(mk,a[1]),[y0,y1,yl]=years(a[2]);return {mk,mo,eng,y0,y1,yl};});
     i.mks=[...new Set(i.apps.map(a=>a.mk))];
     i.keys=[clean(i.pn)].concat(i.oe.map(clean),i.xr.map(clean));
@@ -127,7 +127,8 @@ function numsLine(i,st){
   if(!i.oe.length)return `<span class="sc-muted">No OE numbers listed</span>`;
   return `<span class="sc-k">OE</span> ${i.oe.slice(0,2).map(esc).join(", ")}${i.oe.length>2?` <span class="sc-muted">+${i.oe.length-2}</span>`:""}`;
 }
-const photo=(i,cls)=>i.ph?`<img class="${cls}" src="${esc(i.ph)}" alt="${esc(i.pn)} ${esc(i.d)}" loading="lazy" width="217" height="217">`:`<span class="${cls} sc-nophoto" aria-hidden="true">${IC.photo}</span>`;
+const photo=(i,cls)=>i.ph?`<img class="${cls}" src="${esc(i.ph)}" alt="${esc(i.pn)} ${esc(i.d)}" loading="lazy" width="217" height="217">`
+  :i.box?`<img class="${cls} sc-box" src="${esc(i.box)}" alt="Stravik box" loading="lazy" width="640" height="407">`:`<span class="${cls} sc-nophoto" aria-hidden="true">${IC.photo}</span>`;
 function card(i,c,st){
   return `<article class="sc-card" data-pn="${esc(i.pn)}">
     <button type="button" class="sc-card-open" data-open="${esc(i.pn)}" aria-label="Details of ${esc(i.pn)}"></button>
@@ -277,7 +278,7 @@ function page(app,id,params){
       if(!i)return;lastFocus=document.activeElement;
       const specs=Object.keys(i.s).filter(k=>i.s[k]&&i.s[k]!=="Not specified");
       const apps=i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0);
-      dp.innerHTML=`${i.ph?`<div class="sc-dph"><img src="${esc(i.ph)}" alt="${esc(i.pn)}" width="217" height="217"></div>`:""}<header class="sc-dh"><div><p class="sc-dcat">${esc(c.title)}</p><h2 id="scDT" class="sc-pn">${esc(i.pn)}</h2><p>${esc(i.d)}</p></div><button type="button" class="sc-dx" data-close aria-label="Close">${IC.x}</button></header>
+      dp.innerHTML=`${i.ph||i.box?`<div class="sc-dph">${photo(i,"sc-dimg")}</div>`:""}<header class="sc-dh"><div><p class="sc-dcat">${esc(c.title)}</p><h2 id="scDT" class="sc-pn">${esc(i.pn)}</h2><p>${esc(i.d)}</p></div><button type="button" class="sc-dx" data-close aria-label="Close">${IC.x}</button></header>
         <div class="sc-dbody">
           <div class="sc-dcta">${cartBtn(i,c,"big")}</div>
           ${specs.length?`<section><h3>Specifications</h3><dl class="sc-spec">${specs.map(k=>`<div><dt>${esc(k)}</dt><dd>${esc(i.s[k])}</dd></div>`).join("")}</dl></section>`:""}
