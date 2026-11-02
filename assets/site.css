@@ -975,7 +975,7 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .gsfig svg{width:100%;height:auto;display:block}
 @media (max-width:900px){.gsband .wrap{grid-template-columns:1fr}}
 
-/* buyer accounts (dealer.js): sign in, registration, account, prices, orders to DP World SA */
+/* buyer accounts (dealer.js): sign in, registration, account, prices, order requests to the fulfilment centre */
 .dprice{display:inline-block;margin-right:8px;padding:3px 8px;border-radius:5px;background:var(--gold-tint);color:var(--gold-deep);font-family:var(--display);font-weight:700;font-size:14.5px;white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
 .dprice.big{font-size:20px;padding:6px 12px;margin:0 12px 0 0;align-self:flex-end}
 .dwrap{padding:36px 0 90px}
