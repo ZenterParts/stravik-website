@@ -974,3 +974,67 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .gsfig{background:linear-gradient(180deg,#fbfaf8,#f1eee8);border-radius:10px;padding:18px 12px;width:100%}
 .gsfig svg{width:100%;height:auto;display:block}
 @media (max-width:900px){.gsband .wrap{grid-template-columns:1fr}}
+
+/* buyer accounts (dealer.js): sign in, registration, account, prices, orders to DP World SA */
+.dprice{display:inline-block;margin-right:8px;padding:3px 8px;border-radius:5px;background:var(--gold-tint);color:var(--gold-deep);font-family:var(--display);font-weight:700;font-size:14.5px;white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
+.dprice.big{font-size:20px;padding:6px 12px;margin:0 12px 0 0;align-self:flex-end}
+.dwrap{padding:36px 0 90px}
+.dauth{max-width:520px;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:10px;padding:22px}
+.dwrap:has(.dside){display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:40px;align-items:start}
+.dtabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.dtabs button{font:inherit;font-weight:600;background:none;border:0;padding:10px 14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.dtabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.dside{padding:8px 0}
+.dside h2{font-size:24px;margin-bottom:10px}
+.dside ul{margin:0 0 14px;padding-left:20px}
+.dside li{margin:6px 0}
+.dhint{display:block;color:var(--muted);font-size:14px;margin-top:4px}
+.dnote{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:15px}
+.dnote.bad{background:#fdf3f2;border-color:#f2c7c3;color:#8c1d18}
+.status.ok{background:#eef7f1;border-color:#bfe0cb;color:#1d5c37}
+.dreg{max-width:900px}
+.dreg fieldset{border:1px solid var(--line);border-radius:10px;padding:18px 20px 22px;margin:0 0 20px;background:var(--card)}
+.dreg legend{font-family:var(--display);font-weight:700;font-size:20px;padding:0 8px}
+.dreg .enq{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.dreg .enq .full{grid-column:1/-1}
+.dreg label,.dreg .lbl{display:block;font-weight:600;font-size:14.5px;margin-bottom:6px}
+.dreg input:not([type=checkbox]),.dreg select,.dreg textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:6px;font:inherit;background:var(--card);color:var(--ink)}
+.dreg input[readonly]{background:var(--paper);color:var(--muted)}
+.dreg input:focus,.dreg select:focus,.dreg textarea:focus{border-color:var(--gold);outline:none}
+.dreg .req{color:var(--gold-deep)}
+.dchecks{display:flex;flex-wrap:wrap;gap:8px 18px}
+.dchecks label{font-weight:500;display:inline-flex;gap:7px;align-items:center;margin:0}
+.dcheck{display:flex !important;gap:10px;align-items:flex-start;font-weight:500 !important;margin:8px 0 !important}
+.dcheck input{margin-top:5px;flex:none}
+.ddocs{margin:0 0 14px;padding-left:20px;font-size:15px}
+.dsubmit{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.dreg .status{margin-top:14px}
+.dacc{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:32px;align-items:start}
+.dstat{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:10px;padding:22px}
+.dstat.bad{border-top-color:#b3261e}
+.dstat.ok{border-top-color:#2f7d5b}
+.dstat h2{font-size:24px;margin-bottom:8px}
+.dstat p{margin:10px 0}
+.dstat .btn{margin:4px 8px 0 0}
+.dcard{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:20px}
+.dcard dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:14px 0 18px;font-size:15px}
+.dcard dt{color:var(--muted)}
+.dcard dd{margin:0;overflow-wrap:anywhere}
+.dbadge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:700;background:var(--gold-tint);color:var(--gold-deep)}
+.dbadge.approved{background:#e3f2e9;color:#1d5c37}
+.dbadge.rejected,.dbadge.suspended{background:#fdecea;color:#8c1d18}
+.dorders{margin-top:28px}
+.dorders h2{font-size:24px;margin-bottom:10px}
+.dorder{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:var(--card)}
+.dorder summary{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:12px 14px;cursor:pointer;font-size:15px}
+.dorder summary b{font-family:var(--display);font-size:17px}
+.dorder summary .s{margin-left:auto}
+.dorder-b{padding:0 14px 14px;font-size:15px}
+.dorder-b p{margin:4px 0}
+.dorderp{grid-column:1/-1}
+.dpad{padding:14px 20px;margin:0}
+.ctable.dot td{padding:10px 14px}
+.ctable.dot td .dsc{font-family:var(--body);font-weight:400;font-size:13.5px;color:var(--muted);white-space:normal}
+.ctable.dot tfoot td{font-weight:700;border-top:2px solid var(--line)}
+.ctable.dot tfoot td:last-child,.ctable.dot td:nth-child(n+3){text-align:right;white-space:nowrap}
+@media (max-width:900px){.dwrap:has(.dside),.dacc,.dreg .enq{grid-template-columns:1fr}}

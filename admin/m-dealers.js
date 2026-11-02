@@ -1,0 +1,327 @@
+/* Apps: Buyers and Orders.
+   Buyers: accounts that registered on the Stravik website (review, approve with a price group, reject, suspend), the price lists per group
+   (Preferred supplier = batteries only; Tier 1-5), and the order email settings.
+   Orders: orders placed by approved buyers; they go to DP World SA and to us by email. DP World SA's invoice and delivery details are kept here.
+   Tables: stravik_dealers, stravik_dealer_documents, stravik_price_groups, stravik_group_prices, stravik_orders, stravik_order_items, stravik_settings.
+   Emails: edge function stravik-dealer-mail (Resend). */
+(function (L) {
+  'use strict';
+  var esc = L.esc, sb = L.sb, $ = L.$;
+  var DB = L.href('dealers'), OB = L.href('orders');
+  var STATUSES = ['Pending', 'Approved', 'Rejected', 'Suspended'];
+  var GROUPS = [];
+  async function groups() { if (!GROUPS.length) GROUPS = L.must(await sb.from('stravik_group_price_counts').select('*').order('sort')); return GROUPS; }
+  var gname = function (code) { var g = GROUPS.find(function (x) { return x.code === code; }); return g ? g.name : (code || ''); };
+  async function mail(body) {
+    try {
+      var r = await sb.functions.invoke('stravik-dealer-mail', { body: body });
+      var d = r.data || {};
+      if (r.error) return 'Email not sent: ' + (r.error.message || r.error);
+      if (d.status === 'not configured') return 'Email not sent: Resend is not set up yet (RESEND_API_KEY).';
+      if (!d.ok) return 'Email not sent: ' + (d.error || d.status || 'unknown error');
+      return 'Email sent.';
+    } catch (e) { return 'Email not sent: ' + (e.message || e); }
+  }
+  var pillCls = { Pending: 'New', Approved: 'Active', Rejected: 'warn', Suspended: 'Inactive', Submitted: 'New', 'With DPW': 'Quoted', Invoiced: 'Quoted', Dispatched: 'Won', Delivered: 'Won', Cancelled: 'Inactive' };
+  var pill = function (s) { return L.pill(s, pillCls[s] || ''); };
+
+  // =================================================================== buyers list
+  var S = L.state.dealers = { text: '', active: { st_Pending: true }, offset: 0 };
+  var DFILTERS = STATUSES.map(function (s) { return { key: 'st_' + s, label: s, group: 'Status' }; }).concat([{ key: 'test', label: 'Test accounts', group: 'Other' }, { key: 'real', label: 'Real accounts', group: 'Other' }]);
+  async function dList() {
+    await groups();
+    L.cp({ crumbs: [['Buyers', DB], ['Accounts']], buttons: '<button type="button" class="btn ghost" id="dXls">Download</button>' });
+    L.searchBar({ placeholder: 'Search company, contact, email, CIPC…', text: S.text, filters: DFILTERS, active: S.active, onChange: function (s) { S.text = s.text; S.active = s.active; S.offset = 0; dLoad(); } });
+    L.content('<div class="cards" id="dStats" style="margin-bottom:14px"></div><div id="dListBox"></div>');
+    $('dXls').onclick = dExcel;
+    dStats(); dLoad();
+  }
+  function dQuery(opts) {
+    var q = sb.from('stravik_dealer_list').select('*', opts);
+    var st = STATUSES.filter(function (s) { return S.active['st_' + s]; }); if (st.length) q = q.in('status', st);
+    if (S.active.test && !S.active.real) q = q.eq('is_test', true);
+    if (S.active.real && !S.active.test) q = q.eq('is_test', false);
+    var s = L.orSearch(['company_name', 'trading_name', 'contact_name', 'email', 'cipc_no', 'vat_no', 'city'], S.text); if (s) q = q.or(s);
+    return q.order('submitted_at', { ascending: false });
+  }
+  async function dStats() {
+    try {
+      var rows = L.must(await sb.from('stravik_dealer_list').select('status,price_group,is_test'));
+      var c = function (f) { return rows.filter(f).length; };
+      $('dStats').innerHTML = [[c(function (r) { return r.status === 'Pending'; }), 'waiting for review'], [c(function (r) { return r.status === 'Approved' && r.price_group === 'PREF'; }), 'approved preferred suppliers'],
+        [c(function (r) { return r.status === 'Approved' && r.price_group !== 'PREF'; }), 'approved tier 1–5 buyers'], [c(function (r) { return r.status === 'Rejected' || r.status === 'Suspended'; }), 'rejected or on hold']]
+        .map(function (s) { return '<div class="card"><div class="stat">' + s[0] + '</div><div class="stat-l">' + esc(s[1]) + '</div></div>'; }).join('');
+    } catch (e) { /* informative only */ }
+  }
+  async function dLoad() {
+    try {
+      var res = await dQuery({ count: 'exact' }).range(S.offset, S.offset + L.PAGE - 1), rows = L.must(res);
+      L.pager(S.offset, res.count || 0, function (o) { S.offset = o; dLoad(); });
+      if (!rows.length) { $('dListBox').innerHTML = L.empty(S.active.st_Pending ? 'No registrations waiting' : 'No accounts', 'Buyers register on the website under "Buyer login". New registrations appear here for review.'); return; }
+      $('dListBox').innerHTML = L.listView([
+        { label: 'Company', render: function (x) { return '<b>' + esc(x.trading_name || x.company_name) + '</b>' + (x.trading_name ? '<div class="small muted">' + esc(x.company_name) + '</div>' : '') + (x.is_test ? ' ' + L.pill('Test', 'warn') : ''); } },
+        { label: 'Status', render: function (x) { return pill(x.status); } }, { label: 'Price group', render: function (x) { return esc(x.group_name || ''); } },
+        { label: 'Contact', render: function (x) { return esc(x.contact_name) + '<div class="small muted">' + esc(x.email) + '</div>'; } }, { label: 'Location', render: function (x) { return esc([x.city, x.province].filter(Boolean).join(', ')); } },
+        { label: 'CIPC', render: function (x) { return esc(x.cipc_no || ''); } }, { label: 'Docs', num: true, render: function (x) { return x.documents; } }, { label: 'Orders', num: true, render: function (x) { return x.orders; } },
+        { label: 'Registered', render: function (x) { return '<span class="small">' + esc(L.dt(x.submitted_at)) + '</span>'; } }
+      ], rows, function (x) { return L.href('dealers', [x.id]); });
+    } catch (e) { L.fail(e); }
+  }
+  async function dExcel() {
+    try {
+      var rows = await L.fetchAll(function () { return sb.from('stravik_dealers').select('*').order('company_name'); });
+      var cols = ['status', 'price_group', 'company_name', 'trading_name', 'cipc_no', 'vat_no', 'business_type', 'years_trading', 'owner_name', 'contact_name', 'contact_role', 'email', 'mobile', 'phone', 'accounts_email', 'country', 'province', 'city', 'store_address', 'postal_code', 'delivery_address', 'receiving_hours', 'truck_access', 'ranges_interest', 'monthly_volume', 'dpw_customer_code', 'review_note', 'submitted_at', 'reviewed_at', 'reviewed_by', 'is_test'];
+      await L.saveXlsx([{ name: 'Buyers', head: cols.map(L.label), rows: rows.map(function (r) { return cols.map(function (k) { var v = r[k]; return Array.isArray(v) ? v.join(', ') : v == null ? '' : v; }); }) }], 'Stravik_buyers_' + L.today() + '.xlsx');
+    } catch (e) { L.fail(e); }
+  }
+
+  // =================================================================== buyer form
+  async function dForm(id) {
+    try {
+      await groups();
+      var r = await Promise.all([sb.from('stravik_dealers').select('*').eq('id', id).maybeSingle(), sb.from('stravik_dealer_documents').select('*').eq('dealer_id', id).order('id'), sb.from('stravik_order_list').select('*').eq('dealer_id', id).order('created_at', { ascending: false })]);
+      var d = L.must(r[0]), docs = L.must(r[1]), orders = L.must(r[2]), ed = L.isEditor();
+      if (!d) { L.cp({ crumbs: [['Buyers', DB], ['Not found']] }); return L.content(L.empty('Account not found', '')); }
+      var t = function (v) { return v == null || v === '' ? '' : esc(v); };
+      var act = '';
+      if (ed) {
+        if (d.status !== 'Approved') act += '<button type="button" class="btn" id="dApprove">Approve</button>';
+        if (d.status === 'Pending') act += '<button type="button" class="btn ghost" id="dReject">Ask for changes / reject</button>';
+        if (d.status === 'Approved') act += '<button type="button" class="btn ghost" id="dGroup">Change price group</button><button type="button" class="btn ghost" id="dSuspend">Put on hold</button>';
+        act += '<button type="button" class="btn ghost" id="dEdit">Edit details</button>';
+      }
+      L.form({
+        crumbs: [['Buyers', DB], [d.trading_name || d.company_name]],
+        actions: act,
+        status: { steps: STATUSES, current: d.status, clickable: false },
+        sheet: '<div class="o-title"><h1>' + esc(d.trading_name || d.company_name) + '</h1>' + (d.is_test ? L.pill('Test account', 'warn') : '') + (d.group_name || d.price_group ? L.pill(gname(d.price_group), 'Website') : '') + '</div>' +
+          '<div class="o-subtitle">' + esc(d.company_name) + ' · registered ' + esc(L.dt(d.submitted_at)) + (d.reviewed_at ? ' · reviewed ' + esc(L.dt(d.reviewed_at)) + ' by ' + esc(d.reviewed_by || '') : '') + '</div>' +
+          (d.review_note ? '<div class="notice"><b>Note to the buyer:</b> ' + esc(d.review_note) + '</div>' : '') +
+          '<div class="o-groups">' +
+          L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], ['CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
+          L.group('Contacts', [['Owner / director', t(d.owner_name)], ['Contact', t(d.contact_name) + (d.contact_role ? ' <span class="muted">(' + esc(d.contact_role) + ')</span>' : '')], ['Email (login)', '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>'], ['Mobile', t(d.mobile)], ['Phone', t(d.phone)], ['Accounts email', t(d.accounts_email)]]) +
+          L.group('Address', [['Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], ['Delivery address', t(d.delivery_address)], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
+          L.group('Our side', [['Price group', t(gname(d.price_group))], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
+          '</div>' +
+          L.notebook([
+            { key: 'docs', label: 'Documents (' + docs.length + ')', html: docs.length ? '<table class="grid compact"><thead><tr><th>Document</th><th>File</th><th>Uploaded</th><th></th></tr></thead><tbody>' + docs.map(function (x) { return '<tr><td>' + esc(x.kind) + '</td><td>' + esc(x.file_name) + ' <span class="small muted">' + (x.size_bytes ? Math.round(x.size_bytes / 1024) + ' KB' : '') + '</span></td><td class="small">' + esc(L.dt(x.uploaded_at)) + '</td><td><button type="button" class="btn ghost small" data-doc="' + esc(x.path) + '">Open</button></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">No documents uploaded. Ask the buyer to email them, or to upload them under “Update your details”.</p>' },
+            { key: 'orders', label: 'Orders (' + orders.length + ')', html: orders.length ? L.listView([{ label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>'; } }, { label: 'Date', render: function (o) { return esc(L.dt(o.created_at)); } }, { label: 'Status', render: function (o) { return pill(o.status); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Total USD', num: true, render: function (o) { return L.money(o.total_usd); } }, { label: 'Invoice', render: function (o) { return esc(o.invoice_no || ''); } }], orders, function (o) { return L.href('orders', [o.order_no]); }) : '<p class="muted">No orders yet.</p>' }
+          ])
+      });
+      $('content').querySelectorAll('[data-doc]').forEach(function (b) {
+        b.onclick = async function () { try { var u = L.must(await sb.storage.from('stravik-dealer-docs').createSignedUrl(b.dataset.doc, 300)); window.open(u.signedUrl, '_blank', 'noopener'); } catch (e) { L.fail(e); } };
+      });
+      if (!ed) return;
+      var opt = function (sel) { return GROUPS.map(function (g) { return '<option value="' + esc(g.code) + '"' + (g.code === sel ? ' selected' : '') + '>' + esc(g.name) + (g.categories ? ' (' + esc(g.categories.join(', ')) + ' only)' : '') + '</option>'; }).join(''); };
+      var setStatus = async function (patch, label) {
+        L.must(await sb.from('stravik_dealers').update(patch).eq('id', id));
+        var m = patch.status && patch.status !== d.status ? await mail({ action: 'dealer-status', dealer_id: id }) : '';
+        L.closeModal(); L.toast(label + (m ? ' · ' + m : '')); GROUPS = []; dForm(id);
+      };
+      if ($('dApprove')) $('dApprove').onclick = function () {
+        L.modal('Approve ' + (d.trading_name || d.company_name), '<p>The buyer will see this group\'s prices in the catalogue and can order from DP World SA. They get an email.</p>' +
+          L.group('', [['Price group', '<select id="apG">' + opt(d.price_group || 'PREF') + '</select>'], ['DPW customer code', '<input id="apC" value="' + esc(d.dpw_customer_code || '') + '" placeholder="if DP World SA gives one">'], ['Note (internal)', '<textarea id="apN">' + esc(d.internal_notes || '') + '</textarea>']]) +
+          '<div class="o-footer"><button class="btn" id="apGo">Approve</button><button class="btn ghost" id="apX">Cancel</button></div>');
+        $('apX').onclick = L.closeModal;
+        $('apGo').onclick = function () { this.disabled = true; setStatus({ status: 'Approved', price_group: $('apG').value, dpw_customer_code: $('apC').value.trim() || null, internal_notes: $('apN').value.trim() || null, review_note: null }, 'Approved').catch(L.fail); };
+      };
+      if ($('dReject')) $('dReject').onclick = function () {
+        L.modal('Ask for changes or reject', '<p>The buyer sees this note on their account page and gets it by email. They can update their details and send them again.</p><textarea id="rjN" rows="4" placeholder="e.g. Please upload your CIPC certificate and VAT certificate.">' + esc(d.review_note || '') + '</textarea>' +
+          '<div class="o-footer"><button class="btn" id="rjGo">Send</button><button class="btn ghost" id="rjX">Cancel</button></div>');
+        $('rjX').onclick = L.closeModal;
+        $('rjGo').onclick = function () { if (!$('rjN').value.trim()) return L.toast('Write a note for the buyer'); this.disabled = true; setStatus({ status: 'Rejected', review_note: $('rjN').value.trim() }, 'Sent back to the buyer').catch(L.fail); };
+      };
+      if ($('dSuspend')) $('dSuspend').onclick = function () { if (confirm('Put this account on hold? The buyer can no longer see prices or order.')) setStatus({ status: 'Suspended' }, 'On hold').catch(L.fail); };
+      if ($('dGroup')) $('dGroup').onclick = function () {
+        L.modal('Change price group', L.group('', [['Price group', '<select id="cgG">' + opt(d.price_group) + '</select>'], ['DPW customer code', '<input id="cgC" value="' + esc(d.dpw_customer_code || '') + '">']]) + '<div class="o-footer"><button class="btn" id="cgGo">Save</button><button class="btn ghost" id="cgX">Cancel</button></div>');
+        $('cgX').onclick = L.closeModal;
+        $('cgGo').onclick = function () { setStatus({ price_group: $('cgG').value, dpw_customer_code: $('cgC').value.trim() || null }, 'Saved').catch(L.fail); };
+      };
+      $('dEdit').onclick = function () {
+        var F = [['company_name', 'Company'], ['trading_name', 'Trading as'], ['cipc_no', 'CIPC no.'], ['vat_no', 'VAT no.'], ['contact_name', 'Contact'], ['mobile', 'Mobile'], ['phone', 'Phone'], ['accounts_email', 'Accounts email'], ['province', 'Province'], ['city', 'City'], ['store_address', 'Store address'], ['delivery_address', 'Delivery address'], ['receiving_hours', 'Receiving hours'], ['truck_access', 'Truck access'], ['dpw_customer_code', 'DPW customer code'], ['internal_notes', 'Internal notes']];
+        L.modal('Edit ' + (d.trading_name || d.company_name), L.group('', F.map(function (f) { return [f[1], /address|notes/.test(f[0]) ? '<textarea data-k="' + f[0] + '">' + esc(d[f[0]] || '') + '</textarea>' : '<input data-k="' + f[0] + '" value="' + esc(d[f[0]] || '') + '">']; }).concat([['Test account', '<label><input type="checkbox" id="edT"' + (d.is_test ? ' checked' : '') + '> mark as a test (orders are tagged [TEST])</label>']])) +
+          '<div class="o-footer"><button class="btn" id="edGo">Save</button><button class="btn ghost" id="edX">Cancel</button></div>', true);
+        $('edX').onclick = L.closeModal;
+        $('edGo').onclick = async function () {
+          var p = { is_test: $('edT').checked };
+          $('modalBody').querySelectorAll('[data-k]').forEach(function (i) { p[i.dataset.k] = i.value.trim() || null; });
+          if (!p.company_name || !p.contact_name) return L.toast('Company and contact are required');
+          try { L.must(await sb.from('stravik_dealers').update(p).eq('id', id)); L.closeModal(); L.toast('Saved'); dForm(id); } catch (e) { L.fail(e); }
+        };
+      };
+    } catch (e) { L.fail(e); }
+  }
+
+  // =================================================================== prices per group
+  async function prices() {
+    try {
+      GROUPS = []; await groups();
+      L.cp({ crumbs: [['Buyers', DB], ['Prices']], buttons: '<button type="button" class="btn editor-only" id="pUp">Upload prices</button><button type="button" class="btn ghost" id="pTpl">Download price list</button>' });
+      L.content('<p class="muted" style="max-width:820px">Each approved buyer sees the prices of their group, in US dollars, next to the parts in the catalogue. Preferred suppliers see batteries only. A part without a price for the group shows “on request” and can still be ordered. ' +
+        'Download the list, fill in or change the prices per group, and upload it again. An empty cell leaves the price as it is; type <b>0</b> only for a free part, or <b>-</b> to remove a price.</p>' +
+        '<div class="o-list"><table class="grid compact"><thead><tr><th>Group</th><th>Ranges</th><th class="num">Parts with a price</th><th class="num">Approved accounts</th></tr></thead><tbody>' +
+        GROUPS.map(function (g) { return '<tr><td><b>' + esc(g.name) + '</b>' + (g.description ? '<div class="small muted">' + esc(g.description) + '</div>' : '') + '</td><td>' + esc(g.categories ? g.categories.join(', ') : 'All ranges') + '</td><td class="num">' + Number(g.priced_parts).toLocaleString() + '</td><td class="num">' + g.approved_accounts + '</td></tr>'; }).join('') +
+        '</tbody></table></div><p class="small muted" style="margin-top:12px">Download options: all ranges, or one range (choose below).</p><select id="pRange" style="max-width:320px">' + L.rangeOptions(true, 'Batteries') + '</select>');
+      $('pTpl').onclick = function () { priceList($('pRange').value); };
+      $('pUp').onclick = function () { L.pickFile(priceUpload); };
+    } catch (e) { L.fail(e); }
+  }
+  async function priceList(range) {
+    try {
+      L.toast('Preparing the price list…');
+      var parts = await L.fetchAll(function () { var q = sb.from('stravik_parts').select('sv_pn,short_desc,subcategory,part_type').eq('on_website', true).neq('status', 'Inactive').order('subcategory').order('sv_pn'); return range ? q.eq('subcategory', range) : q; });
+      var gp = await L.fetchAll(function () { return sb.from('stravik_group_prices').select('sv_pn,group_code,price_usd').order('sv_pn'); });
+      var by = {}; gp.forEach(function (x) { (by[x.sv_pn] = by[x.sv_pn] || {})[x.group_code] = Number(x.price_usd); });
+      var lc = {}; (await L.fetchAll(function () { return sb.from('stravik_price_list').select('sv_pn,fob_usd,landed_cost').order('sv_pn'); })).forEach(function (x) { lc[x.sv_pn] = x; });
+      var head = ['Stravik PN', 'Description', 'Range', 'Type', 'FOB USD', 'Landed cost USD'].concat(GROUPS.map(function (g) { return g.name + ' USD'; }));
+      await L.saveXlsx([{ name: 'Prices', widths: [14, 50, 18, 8, 10, 14].concat(GROUPS.map(function () { return 14; })), head: head,
+        rows: parts.map(function (p) { var b = by[p.sv_pn] || {}, c = lc[p.sv_pn] || {}; return [p.sv_pn, p.short_desc, p.subcategory, p.part_type, c.fob_usd == null ? '' : Number(c.fob_usd), c.landed_cost == null ? '' : Number(c.landed_cost)].concat(GROUPS.map(function (g) { return b[g.code] == null ? '' : b[g.code]; })); }) }],
+        'Stravik_buyer_prices' + (range ? '_' + range.replace(/\W+/g, '_') : '') + '_' + L.today() + '.xlsx');
+    } catch (e) { L.fail(e); }
+  }
+  async function priceUpload(f) {
+    L.modal('Upload prices', '<p class="muted">Reading ' + esc(f.name) + '…</p>', true);
+    try {
+      await groups();
+      var rows = await L.readRows(f); if (rows.length < 2) return L.modal('Upload prices', '<p class="flag">The file is empty.</p>');
+      var head = rows[0].map(L.normHead), pi = head.findIndex(function (h) { return L.PN_COLS.indexOf(h) >= 0; });
+      if (pi < 0) return L.modal('Upload prices', '<p class="flag">No "Stravik PN" column found.</p>');
+      var gcols = GROUPS.map(function (g) { var k = L.normHead(g.name), i = head.findIndex(function (h) { return h === k + 'usd' || h === k || h === L.normHead(g.code); }); return { g: g, i: i }; }).filter(function (x) { return x.i >= 0; });
+      if (!gcols.length) return L.modal('Upload prices', '<p class="flag">No price columns found. Use the headings from the downloaded list, e.g. "Preferred supplier USD", "Tier 1 USD".</p>');
+      var pns = rows.slice(1).map(function (r) { return L.pnNorm(r[pi]); }).filter(Boolean), rmap = await L.resolvePns(pns);
+      var parts = {}; for (var ch of L.chunks(Object.values(rmap), 300)) L.must(await sb.from('stravik_parts').select('sv_pn,subcategory').in('sv_pn', ch)).forEach(function (p) { parts[p.sv_pn] = p; });
+      var cur = {}; (await L.fetchAll(function () { return sb.from('stravik_group_prices').select('sv_pn,group_code,price_usd'); })).forEach(function (x) { cur[x.sv_pn + '|' + x.group_code] = Number(x.price_usd); });
+      var up = [], del = [], bad = [], unknown = [], skipped = 0;
+      rows.slice(1).forEach(function (r, n) {
+        var raw = L.pnNorm(r[pi]); if (!raw) return; var pn = rmap[raw];
+        if (!pn) { unknown.push(raw); return; }
+        gcols.forEach(function (c) {
+          var v = String(r[c.i] == null ? '' : r[c.i]).trim(), k = pn + '|' + c.g.code;
+          if (v === '') return;
+          if (c.g.categories && parts[pn] && c.g.categories.indexOf(parts[pn].subcategory) < 0) { skipped++; return; }
+          if (v === '-') { if (cur[k] != null) del.push({ sv_pn: pn, group_code: c.g.code }); return; }
+          var x = L.num(v); if (Number.isNaN(x) || x < 0) { bad.push('Row ' + (n + 2) + ' (' + pn + '), ' + c.g.name + ': "' + v + '" is not a price'); return; }
+          x = Math.round(x * 100) / 100; if (cur[k] !== x) up.push({ sv_pn: pn, group_code: c.g.code, price_usd: x, old: cur[k] });
+        });
+      });
+      L.modal('Upload prices', '<p>' + esc(f.name) + ': price columns ' + gcols.map(function (c) { return '<b>' + esc(c.g.name) + '</b>'; }).join(', ') + '. <b>' + up.length + '</b> prices will be added or changed' + (del.length ? ', <b>' + del.length + '</b> removed' : '') + '.' +
+        (unknown.length ? ' <span class="flag">' + unknown.length + ' part numbers not found (skipped): ' + esc(unknown.slice(0, 8).join(', ')) + (unknown.length > 8 ? '…' : '') + '</span>' : '') +
+        (skipped ? ' <span class="muted">' + skipped + ' prices outside a group\'s ranges ignored (e.g. non-battery prices for preferred suppliers).</span>' : '') + '</p>' +
+        (bad.length ? '<div class="notice bad"><b>Fix these first:</b><ul>' + bad.slice(0, 30).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></div>' : '') +
+        (up.length ? '<div class="o-list"><table class="grid"><thead><tr><th>Stravik PN</th><th>Group</th><th class="num">Now</th><th class="num">New</th></tr></thead><tbody>' + up.slice(0, 300).map(function (x) { return '<tr><td class="pn">' + esc(x.sv_pn) + '</td><td>' + esc(gname(x.group_code)) + '</td><td class="num">' + L.money(x.old) + '</td><td class="num"><b>' + L.money(x.price_usd) + '</b></td></tr>'; }).join('') + '</tbody></table></div>' + (up.length > 300 ? '<p class="small muted">…and ' + (up.length - 300) + ' more.</p>' : '') : '') +
+        '<div class="o-footer"><button class="btn" id="puGo"' + (bad.length || !(up.length || del.length) ? ' disabled' : '') + '>Save ' + (up.length + del.length) + ' changes</button><button class="btn ghost" id="puX">Cancel</button></div>', true);
+      $('puX').onclick = L.closeModal;
+      $('puGo').onclick = async function () {
+        var b = this; b.disabled = true; b.textContent = 'Saving…';
+        try {
+          for (var c of L.chunks(up.map(function (x) { return { sv_pn: x.sv_pn, group_code: x.group_code, price_usd: x.price_usd }; }), 500)) L.must(await sb.from('stravik_group_prices').upsert(c, { onConflict: 'sv_pn,group_code' }));
+          for (var x of del) L.must(await sb.from('stravik_group_prices').delete().eq('sv_pn', x.sv_pn).eq('group_code', x.group_code));
+          L.closeModal(); L.toast('Saved ' + (up.length + del.length) + ' price changes'); prices();
+        } catch (e) { L.fail(e); b.disabled = false; b.textContent = 'Try again'; }
+      };
+    } catch (e) { L.fail(e); }
+  }
+
+  // =================================================================== order email settings
+  async function settings() {
+    try {
+      var rows = L.must(await sb.from('stravik_settings').select('*').order('key')), ed = L.isEditor();
+      L.cp({ crumbs: [['Buyers', DB], ['Email settings']], buttons: ed ? '<button type="button" class="btn" id="seSave">Save</button>' : '' });
+      L.content('<div class="o-sheet" style="max-width:820px"><p class="muted">Orders and registrations are emailed through Resend. Until the RESEND_API_KEY secret is set in Supabase, orders are saved here but no email goes out.</p>' +
+        rows.map(function (r) { return '<div class="o-field" style="grid-template-columns:200px minmax(0,1fr)"><label for="se_' + esc(r.key) + '">' + esc(({ order_email_dpw: 'DP World SA email', order_email_team: 'Our team email', order_email_from: 'Sender', site_url: 'Website address' })[r.key] || L.label(r.key)) + '</label><div class="o-val"><input id="se_' + esc(r.key) + '" data-k="' + esc(r.key) + '" value="' + esc(r.value || '') + '"' + (ed ? '' : ' readonly') + '><div class="small muted">' + esc(r.description || '') + '</div></div></div>'; }).join('') + '</div>');
+      if (!ed) return;
+      $('seSave').onclick = async function () {
+        try { for (var i of Array.from($('content').querySelectorAll('[data-k]'))) L.must(await sb.from('stravik_settings').update({ value: i.value.trim() }).eq('key', i.dataset.k)); L.toast('Saved'); } catch (e) { L.fail(e); }
+      };
+    } catch (e) { L.fail(e); }
+  }
+
+  L.register({
+    key: 'dealers', name: 'Buyers', color: '#2f7d5b',
+    icon: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.8-3.4 3.2-5.2 6-5.2s5.2 1.8 6 5.2"/><path d="M16 6.5a3 3 0 0 1 0 5.6M18 14.6c1.6.7 2.6 2.4 3 5.4"/>',
+    menus: [{ label: 'Accounts', href: DB }, { label: 'Prices', href: L.href('dealers', ['prices']) }, { label: 'Email settings', href: L.href('dealers', ['settings']) }, { label: 'Orders', href: OB }],
+    route: function (r) { var p = r.parts[0]; if (p === 'prices') prices(); else if (p === 'settings') settings(); else if (p) dForm(p); else dList(); }
+  });
+
+  // =================================================================== orders
+  var O = L.state.orders = { text: '', active: {}, offset: 0 };
+  var OSTAT = ['Submitted', 'With DPW', 'Invoiced', 'Dispatched', 'Delivered', 'Cancelled'];
+  var OFILTERS = OSTAT.map(function (s) { return { key: 'st_' + s, label: s, group: 'Status' }; }).concat([{ key: 'mailbad', label: 'Email not sent', group: 'Email' }, { key: 'real', label: 'Hide test orders', group: 'Other' }]);
+  async function oList() {
+    await groups();
+    L.cp({ crumbs: [['Orders', OB]], buttons: '<button type="button" class="btn ghost" id="oXls">Download</button>' });
+    L.searchBar({ placeholder: 'Search order no., company, PO, invoice…', text: O.text, filters: OFILTERS, active: O.active, onChange: function (s) { O.text = s.text; O.active = s.active; O.offset = 0; oLoad(); } });
+    L.content('<div id="oListBox"></div>');
+    $('oXls').onclick = oExcel; oLoad();
+  }
+  function oQuery(opts) {
+    var q = sb.from('stravik_order_list').select('*', opts);
+    var st = OSTAT.filter(function (s) { return O.active['st_' + s]; }); if (st.length) q = q.in('status', st);
+    if (O.active.mailbad) q = q.neq('email_status', 'sent');
+    if (O.active.real) q = q.eq('is_test', false);
+    var s = L.orSearch(['order_no', 'company_name', 'po_ref', 'invoice_no', 'waybill_no'], O.text); if (s) q = q.or(s);
+    return q.order('created_at', { ascending: false });
+  }
+  async function oLoad() {
+    try {
+      var res = await oQuery({ count: 'exact' }).range(O.offset, O.offset + L.PAGE - 1), rows = L.must(res);
+      L.pager(O.offset, res.count || 0, function (o) { O.offset = o; oLoad(); });
+      if (!rows.length) { $('oListBox').innerHTML = L.empty('No orders yet', 'Approved buyers place orders from their cart on the website. Each order is emailed to DP World SA and to us, and shows up here.'); return; }
+      $('oListBox').innerHTML = L.listView([
+        { label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>' + (o.is_test ? ' ' + L.pill('Test', 'warn') : ''); } }, { label: 'Date', render: function (o) { return '<span class="small">' + esc(L.dt(o.created_at)) + '</span>'; } },
+        { label: 'Buyer', render: function (o) { return esc(o.company_name) + '<div class="small muted">' + esc(gname(o.price_group)) + '</div>'; } }, { label: 'Status', render: function (o) { return pill(o.status); } },
+        { label: 'PO', render: function (o) { return esc(o.po_ref || ''); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Units', num: true, render: function (o) { return o.units; } },
+        { label: 'Total USD', num: true, render: function (o) { return L.money(o.total_usd); } }, { label: 'Email', render: function (o) { return o.email_status === 'sent' ? '<span class="ok">Sent</span>' : '<span class="flag">' + esc(o.email_status) + '</span>'; } },
+        { label: 'DPW invoice', render: function (o) { return esc(o.invoice_no || '') + (o.invoice_amount != null ? ' <span class="small muted">' + L.money(o.invoice_amount) + '</span>' : ''); } }
+      ], rows, function (o) { return L.href('orders', [o.order_no]); });
+    } catch (e) { L.fail(e); }
+  }
+  async function oExcel() {
+    try {
+      var os = await L.fetchAll(function () { return oQuery(); });
+      var items = await L.fetchAll(function () { return sb.from('stravik_order_items').select('order_id,line,sv_pn,description,qty,unit_price_usd,line_total_usd').order('order_id').order('line'); });
+      var byId = {}; os.forEach(function (o) { byId[o.id] = o; });
+      await L.saveXlsx([
+        { name: 'Orders', head: ['Order', 'Date', 'Buyer', 'Price group', 'Status', 'PO', 'Lines', 'Units', 'Total USD', 'Email', 'DPW invoice', 'Invoice amount', 'Waybill', 'Test'], rows: os.map(function (o) { return [o.order_no, L.dt(o.created_at), o.company_name, gname(o.price_group), o.status, o.po_ref || '', o.lines, o.units, o.total_usd == null ? '' : Number(o.total_usd), o.email_status, o.invoice_no || '', o.invoice_amount == null ? '' : Number(o.invoice_amount), o.waybill_no || '', o.is_test ? 'Yes' : '']; }) },
+        { name: 'Order lines', head: ['Order', 'Buyer', 'Line', 'Stravik PN', 'Description', 'Qty', 'Unit USD', 'Total USD'], rows: items.filter(function (i) { return byId[i.order_id]; }).map(function (i) { var o = byId[i.order_id]; return [o.order_no, o.company_name, i.line, i.sv_pn, i.description, i.qty, i.unit_price_usd == null ? '' : Number(i.unit_price_usd), i.line_total_usd == null ? '' : Number(i.line_total_usd)]; }) }
+      ], 'Stravik_orders_' + L.today() + '.xlsx');
+    } catch (e) { L.fail(e); }
+  }
+  async function oForm(no) {
+    try {
+      await groups();
+      var o = L.must(await sb.from('stravik_orders').select('*').eq('order_no', no).maybeSingle());
+      if (!o) { L.cp({ crumbs: [['Orders', OB], [no]] }); return L.content(L.empty('Order not found', '')); }
+      var r = await Promise.all([sb.from('stravik_order_items').select('*').eq('order_id', o.id).order('line'), sb.from('stravik_dealers').select('id,company_name,trading_name,email,cipc_no,dpw_customer_code').eq('id', o.dealer_id).single()]);
+      var items = L.must(r[0]), d = L.must(r[1]), ed = L.isEditor(), ro = ed ? '' : ' readonly';
+      var inp = function (k, type) { return '<input data-k="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(o[k] == null ? '' : o[k]) + '"' + ro + '>'; };
+      L.form({
+        crumbs: [['Orders', OB], [o.order_no]],
+        buttons: ed ? '<button type="button" class="btn" id="oSave">Save</button>' : '',
+        actions: (ed ? '<button type="button" class="btn ghost" id="oMail">' + (o.email_status === 'sent' ? 'Send the email again' : 'Send the email') + '</button>' : '') + '<a class="btn ghost" href="' + L.href('dealers', [d.id]) + '">Open buyer</a>',
+        status: { steps: OSTAT, current: o.status, clickable: ed, onClick: async function (s) { try { L.must(await sb.from('stravik_orders').update({ status: s }).eq('id', o.id)); L.toast('Status: ' + s); oForm(no); } catch (e) { L.fail(e); } } },
+        sheet: '<div class="o-title"><h1>' + esc(o.order_no) + '</h1>' + (o.is_test ? L.pill('Test', 'warn') : '') + '</div><div class="o-subtitle">' + esc(d.trading_name || d.company_name) + ' · ' + esc(gname(o.price_group)) + ' · ' + esc(L.dt(o.created_at)) + '</div>' +
+          '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Email to DP World SA and us: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
+          '<div class="o-groups">' + L.group('Order', [['Buyer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['CIPC', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
+          L.group('From DP World SA', [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
+          L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit USD</th><th class="num">Total USD</th></tr></thead><tbody>' +
+            items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + (i.unit_price_usd == null ? '<span class="muted">on request</span>' : L.money(i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total_usd) + '</td></tr>'; }).join('') +
+            '</tbody><tfoot><tr><td colspan="4">' + o.lines + ' lines</td><td class="num">' + o.units + '</td><td></td><td class="num">' + L.money(o.total_usd) + '</td></tr></tfoot></table>' }])
+      });
+      if (!ed) return;
+      $('oSave').onclick = async function () {
+        var p = {};
+        $('content').querySelectorAll('[data-k]').forEach(function (i) { p[i.dataset.k] = i.value.trim() || null; });
+        if (p.invoice_amount != null) { var n = L.num(p.invoice_amount); if (Number.isNaN(n)) return L.toast('Invoice amount must be a number'); p.invoice_amount = n; }
+        try { L.must(await sb.from('stravik_orders').update(p).eq('id', o.id)); L.toast('Saved'); oForm(no); } catch (e) { L.fail(e); }
+      };
+      $('oMail').onclick = async function () { this.disabled = true; L.toast(await mail({ action: 'order', order_no: o.order_no })); oForm(no); };
+    } catch (e) { L.fail(e); }
+  }
+  L.register({
+    key: 'orders', name: 'Orders', color: '#8a6326',
+    icon: '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 11h7M9 15h7M9 19h4"/>',
+    menus: [{ label: 'Orders', href: OB }, { label: 'Buyers', href: DB }],
+    route: function (r) { if (r.parts[0]) oForm(r.parts[0]); else oList(); }
+  });
+})(window.LS);
