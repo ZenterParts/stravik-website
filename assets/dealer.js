@@ -321,7 +321,7 @@ async function cart(app){
 function done(app,no,mail){
   const sent=mail&&mail.status==="sent";
   app.innerHTML=`<div class="wrap"><section class="thanks" aria-labelledby="dty"><div class="tick" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-    <h1 id="dty" tabindex="-1">Order request sent</h1><p>${sent?"Your order request has gone to our fulfilment centre. You'll get a copy by email.":"Your order request is saved and we'll pass it to our fulfilment centre."}</p>
+    <h1 id="dty" tabindex="-1">Order request sent</h1><p>${sent?"Your order request has gone to our fulfilment centre. You'll get a confirmation by email.":"Your order request is saved and we'll pass it to our fulfilment centre."}</p>
     <div class="refbox"><span>Your order number</span><strong>${esc(no)}</strong></div>
     <p>The fulfilment centre will contact you to confirm delivery and invoicing. Quote this number in any correspondence.</p>
     <div class="row"><a class="btn gold" href="#/dealer">Your orders</a><a class="btn line" href="#/products">Back to the catalogue</a></div></section></div>`;
