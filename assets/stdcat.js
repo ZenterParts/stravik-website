@@ -1,28 +1,30 @@
-// Stravik standard e-catalogue: one page layout for every product range.
-// A range is a config in CATS (title, data file, hero photo, filters, columns). The data file is written by the publish
-// workflow from the database function stravik_std_catalogue(<range>) and has the standard shape:
+// Stravik standard e-catalogue: one page layout for every product range, laid out like the Lucas MEA catalogues
+// in Stravik colours: banner with the range image, a sticky bar with the search and the filter drop-downs, the part list
+// on the left and the selected part's details on the right (full screen on phones).
+// A range is a config in CATS. The data file is written by the publish workflow from the database function
+// stravik_std_catalogue(<range>) and has the standard shape:
 //   { v:1, at, cat, makes:[...], parts:[{ pn, t, d, s:{spec:value}, oe:[...], xr:[...], ap:[[makeIndex, model, years]] }] }
-// Part photos: <img>/<Stravik no.>.webp, listed in <img>/index.json; parts without one show the range's Stravik box (box).
-// Search by Stravik, OE or cross-reference number or vehicle, pick the vehicle (make, model, year), narrow by specs,
-// see the parts as cards or a list, open a part for its full details, add it to the cart.
+// Part photos (optional): <img>/<Stravik no.>.webp, listed in <img>/index.json.
 (function(){
 "use strict";
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const clean=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const lc=s=>String(s||"").toLowerCase();
 const fmt=n=>Number(n).toLocaleString("en-GB");
-const PAGE=48;
+const PAGE=60;
 
 // ---------------------------------------------------------------- range configs
 const CATS={
   "ignition-coils":{
-    title:"Ignition coils", one:"ignition coil", many:"ignition coils", cat:"Ignition Coils", data:"/ignition-coils.json",
-    crumbs:[["Our products","#/products"]], hero:"/assets/img/ignition-coils/hero.webp", img:"/assets/img/ignition-coils/", box:"/assets/img/ignition-coils/box.webp",
-    lead:n=>`${fmt(n.items)} coils for ${fmt(n.makes)} vehicle makes. Search by Stravik, OE or cross-reference number, or pick the vehicle.`,
-    hint:["SEIGC0102","0221503033","Corolla"],
-    facets:[{k:"Connector",sort:"num"},{k:"Ignition module"},{k:"Vehicle type"}],
-    chips:["Connector","Ignition module"],
-    cols:[{k:"Connector",h:"Connector"},{k:"Ignition module",h:"Module"}]
+    title:"Ignition coils", one:"coil", many:"coils", cat:"Ignition Coils", data:"/ignition-coils.json",
+    crumbs:[["Our products","#/products"]], hero:"/assets/img/ignition-coils/hero.webp",
+    lead:"Find the right Stravik ignition coil by Stravik number, OE or cross-reference number, or vehicle.",
+    placeholder:"Stravik no., OE no., cross-reference no., or vehicle (e.g. Corolla 1.6)",
+    // drop-downs after Make / Model / Year; label, spec name, text for "any"
+    filters:[{k:"Vehicle type",h:"Vehicle type",any:"All types"},{k:"Connector",h:"Connector",any:"Any pins",sort:"num"},{k:"Ignition module",h:"Ignition module",any:"Any"}],
+    kind:"Ignition coil",
+    specLine:s=>[s["Connector"]&&s["Connector"]!=="Not specified"?s["Connector"]+" connector":"Connector to be confirmed",
+      s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
   }
 };
 
@@ -52,35 +54,38 @@ function years(y){
     if(m[2])b=Math.max(b,+m[2]);else if(/[-–]\s*$/.test(p))open=true;else b=Math.max(b,f);});
   if(a===9999)return [0,9999,t];
   const to=open?9999:(b||a);
-  return [a,to,a+(to===9999?"–":to!==a?"–"+to:"")];
+  return [a,to,to===9999?a+" on":to!==a?a+"–"+to:String(a)];
 }
 function prep(d,c){
   const makes=d.makes;d.items=d.parts||d.items||[];
   d.items.forEach((i,ix)=>{
-    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos.has(i.pn)?c.img+i.pn+".webp":"";i.box=!i.ph&&c.box?c.box:"";
+    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos.has(i.pn)?c.img+i.pn+".webp":"";
     i.apps=(i.ap||[]).map(a=>{const mk=makes[a[0]],[mo,eng]=tidyModel(mk,a[1]),[y0,y1,yl]=years(a[2]);return {mk,mo,eng,y0,y1,yl};});
     i.mks=[...new Set(i.apps.map(a=>a.mk))];
-    i.keys=[clean(i.pn)].concat(i.oe.map(clean),i.xr.map(clean));
+    // model years: the part's "Year from" / "Year to" specs (no "Year to" = still current), else worked out from the vehicles
+    const yf=parseInt(i.s["Year from"],10),yt=parseInt(i.s["Year to"],10);delete i.s["Year from"];delete i.s["Year to"];
+    if(yf)i.yrs=!yt?yf+" on":yt!==yf?yf+"–"+yt:String(yf);
+    else{const ys=i.apps.filter(a=>a.y0),y0=ys.length?Math.min(...ys.map(a=>a.y0)):0,y1=ys.length?Math.max(...ys.map(a=>a.y1)):0;
+      i.yrs=!y0?"":y1===9999?y0+" on":y1!==y0?y0+"–"+y1:String(y0);}
     i.text=lc([i.pn,i.d,i.apps.map(a=>a.mk+" "+a.mo+" "+a.eng).join(" ")].join(" "));
   });
   const mkCount={};d.items.forEach(i=>i.mks.forEach(m=>mkCount[m]=(mkCount[m]||0)+1));
-  d.mkList=Object.keys(mkCount).sort((a,b)=>a.localeCompare(b));d.mkCount=mkCount;
-  d.n={items:d.items.length,makes:d.mkList.length};
+  d.mkList=Object.keys(mkCount).sort((a,b)=>a.localeCompare(b));
+  d.n={items:d.items.length,makes:d.mkList.length,apps:d.items.reduce((n,i)=>n+i.apps.length,0)};
   return d;
 }
 
 // ---------------------------------------------------------------- state <-> url
 function readState(params,c){
-  const st={q:params.get("q")||"",mk:params.get("mk")||"",mo:params.get("mo")||"",yr:params.get("yr")||"",sort:params.get("sort")||"pn",view:params.get("view")||"",f:{}};
-  c.facets.forEach(f=>{const v=params.getAll("f."+f.k);if(v.length)st.f[f.k]=v;});
-  if(!st.view){try{st.view=localStorage.getItem("stravik-cat-view")||"cards";}catch(e){st.view="cards";}}
+  const st={q:params.get("q")||"",mk:params.get("mk")||"",mo:params.get("mo")||"",yr:params.get("yr")||"",p:params.get("p")||"",f:{}};
+  c.filters.forEach(f=>{const v=params.get("f."+f.k);if(v)st.f[f.k]=v;});
   return st;
 }
 function writeState(id,st){
   const p=new URLSearchParams();
   ["q","mk","mo","yr"].forEach(k=>{if(st[k])p.set(k,st[k]);});
-  if(st.sort!=="pn")p.set("sort",st.sort);
-  Object.keys(st.f).forEach(k=>st.f[k].forEach(v=>p.append("f."+k,v)));
+  Object.keys(st.f).forEach(k=>{if(st.f[k])p.set("f."+k,st.f[k]);});
+  if(st.p)p.set("p",st.p);
   const qs=p.toString();history.replaceState(null,"","#/"+id+(qs?"?"+qs:""));
 }
 
@@ -88,63 +93,30 @@ function writeState(id,st){
 function numHit(i,q){const c=clean(q);if(c.length<3)return null;
   if(clean(i.pn).includes(c))return {k:"pn"};
   const o=i.oe.find(n=>clean(n).includes(c));if(o)return {k:"OE",v:o};
-  const x=i.xr.find(n=>clean(n).includes(c));if(x)return {k:"Cross-ref.",v:x};return null;}
+  const x=i.xr.find(n=>clean(n).includes(c));if(x)return {k:"Cross-reference",v:x};return null;}
 function textHit(i,q){const w=lc(q).split(/\s+/).filter(Boolean);return w.length&&w.every(t=>i.text.includes(t));}
 function appOk(a,st){return (!st.mk||a.mk===st.mk)&&(!st.mo||a.mo===st.mo)&&(!st.yr||(+st.yr>=a.y0&&+st.yr<=a.y1));}
-function pass(i,st,skip){
+const yrOk=st=>!st.yr||/^\d{4}$/.test(st.yr);
+function pass(i,st){
+  i._hit=null;
   if(st.q&&!(i._hit=numHit(i,st.q))&&!textHit(i,st.q))return false;
-  if((st.mk||st.yr)&&!i.apps.some(a=>appOk(a,st)))return false;
-  for(const k in st.f){if(k===skip)continue;const v=st.f[k];if(v&&v.length&&!v.includes(i.s[k]))return false;}
+  if((st.mk||(st.yr&&yrOk(st)))&&!i.apps.some(a=>appOk(a,st)))return false;
+  for(const k in st.f){const v=st.f[k];if(v&&i.s[k]!==v)return false;}
   return true;
 }
 
-// ---------------------------------------------------------------- rendering helpers
+// ---------------------------------------------------------------- page
 const IC={
   search:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>',
-  car:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15.5V12l2.2-5.2A2 2 0 0 1 7 5.6h10a2 2 0 0 1 1.8 1.2L21 12v3.5"/><path d="M3 12h18M3 15.5h18v2.5H3z"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>',
-  grid:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>',
-  list:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
-  x:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-  photo:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-5 4 4 2.5-2.5L20 17"/></svg>',
-  sliders:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'
+  part:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-5 4 4 2.5-2.5L20 17"/></svg>'
 };
-const mark=(t,q)=>{const c=clean(q);if(c.length<3)return esc(t);return clean(t).includes(c)?`<mark>${esc(t)}</mark>`:esc(t);};
+const makesText=i=>!i.mks.length?"Vehicle list to follow":i.mks.length<=3?i.mks.join(", "):i.mks.slice(0,3).join(", ")+" and "+(i.mks.length-3)+" more";
 function cartBtn(i,c,cls){
   const Cart=window.STV&&STV.Cart,on=Cart&&Cart.has(i.pn);
-  const item={key:i.pn,no:i.pn,cat:c.cat,desc:i.d,link:"/#/"+c.id+"?q="+i.pn,kind:"std"};
-  return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ In cart":"Add to cart"}</button>`;
-}
-function fitsLine(i,st){
-  const ok=(st.mk||st.yr)?i.apps.filter(a=>appOk(a,st)):i.apps;
-  if(!i.apps.length)return `<span class="sc-muted">No vehicle list yet</span>`;
-  const mods=[...new Set(ok.map(a=>a.mo))];
-  const head=(st.mk?"":`<b>${esc(i.mks.slice(0,2).join(", "))}</b>${i.mks.length>2?` +${i.mks.length-2}`:""} `)+esc(mods.slice(0,st.mk?3:2).join(", "))+(mods.length>(st.mk?3:2)?"…":"");
-  return head+` <span class="sc-muted">· ${i.apps.length} vehicle${i.apps.length===1?"":"s"}</span>`;
-}
-function numsLine(i,st){
-  const h=st.q&&i._hit&&i._hit.v?i._hit:null;
-  if(h)return `<span class="sc-k">${esc(h.k)}</span> <mark>${esc(h.v)}</mark>`;
-  if(!i.oe.length)return `<span class="sc-muted">No OE numbers listed</span>`;
-  return `<span class="sc-k">OE</span> ${i.oe.slice(0,2).map(esc).join(", ")}${i.oe.length>2?` <span class="sc-muted">+${i.oe.length-2}</span>`:""}`;
-}
-const photo=(i,cls)=>i.ph?`<img class="${cls}" src="${esc(i.ph)}" alt="${esc(i.pn)} ${esc(i.d)}" loading="lazy" width="217" height="217">`
-  :i.box?`<img class="${cls} sc-box" src="${esc(i.box)}" alt="Stravik box" loading="lazy" width="640" height="407">`:`<span class="${cls} sc-nophoto" aria-hidden="true">${IC.photo}</span>`;
-function card(i,c,st){
-  return `<article class="sc-card" data-pn="${esc(i.pn)}">
-    <button type="button" class="sc-card-open" data-open="${esc(i.pn)}" aria-label="Details of ${esc(i.pn)}"></button>
-    <div class="sc-ph">${photo(i,"sc-img")}</div>
-    <header><h3 class="sc-pn">${mark(i.pn,st.q)}</h3>${c.chips.map(k=>i.s[k]&&i.s[k]!=="Not specified"?`<span class="sc-chip">${esc(i.s[k])}</span>`:"").join("")}</header>
-    <p class="sc-desc">${esc(i.d)}</p>
-    <dl class="sc-ledger"><div><dt>Numbers</dt><dd>${numsLine(i,st)}</dd></div><div><dt>Fits</dt><dd>${fitsLine(i,st)}</dd></div></dl>
-    <footer><button type="button" class="sc-link" data-open="${esc(i.pn)}">Details</button>${cartBtn(i,c)}</footer>
-  </article>`;
-}
-function row(i,c,st){
-  return `<tr data-pn="${esc(i.pn)}"><td class="sc-tph">${photo(i,"sc-thumb")}</td><td><button type="button" class="sc-pn sc-pnlink" data-open="${esc(i.pn)}">${mark(i.pn,st.q)}</button></td><td>${esc(i.d)}</td>
-    ${c.cols.map(k=>`<td>${esc(i.s[k.k]||"")}</td>`).join("")}<td>${numsLine(i,st)}</td><td>${fitsLine(i,st)}</td><td class="sc-r">${cartBtn(i,c,"small")}</td></tr>`;
+  const item={key:i.pn,no:i.pn,cat:c.cat,desc:i.d,link:"/#/"+c.id+"?p="+i.pn,kind:"std"};
+  return `<button type="button" class="fadd ${cls||""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ In cart":"Add to cart"}</button>`;
 }
 
-// ---------------------------------------------------------------- page
 function page(app,id,params){
   const c=CATS[id];c.id=id;
   const st=readState(params,c);
@@ -155,150 +127,122 @@ function page(app,id,params){
     <div class="sc-hero-g">
       <div class="sc-hero-t">
         <h1>${esc(c.title)}</h1>
-        <p class="sc-lead" id="scLead">Loading the catalogue…</p>
-        <form class="sc-search" role="search" id="scForm"><span class="sc-search-ic">${IC.search}</span>
-          <input id="scQ" type="search" autocomplete="off" spellcheck="false" placeholder="Stravik, OE or cross-reference number, or vehicle" aria-label="Search ${esc(c.many)}" value="${esc(st.q)}">
-          <button type="submit" class="sc-go">Search</button></form>
-        <p class="sc-hint">Try ${c.hint.map(h=>`<button type="button" data-try="${esc(h)}">${esc(h)}</button>`).join(" ")}</p>
+        <p class="sc-lead">${esc(c.lead)}</p>
+        <div class="sc-facts" id="scFacts"></div>
       </div>
-      <div class="sc-art">${c.hero?`<img src="${esc(c.hero)}" alt="Stravik ${esc(c.many)}" width="600" height="380">`:""}</div>
+      ${c.hero?`<div class="sc-art"><img src="${esc(c.hero)}" alt="Stravik ${esc(c.title.toLowerCase())} box" width="1200" height="760"></div>`:""}
     </div>
   </div></section>
-  <div class="sc-veh" id="scVeh"><div class="sc-in">
-    <span class="sc-veh-l">${IC.car}<span>Your vehicle</span></span>
-    <label class="sc-sel"><span>Make</span><select id="scMk"><option value="">All makes</option></select></label>
-    <label class="sc-sel"><span>Model</span><select id="scMo" disabled><option value="">All models</option></select></label>
-    <label class="sc-sel"><span>Year</span><select id="scYr"><option value="">Any year</option></select></label>
-    <button type="button" class="sc-veh-x" id="scVehX" hidden>${IC.x}<span>Clear vehicle</span></button>
-    <span class="sc-veh-n" id="scCount" aria-live="polite"></span>
+  <div class="sc-bar" id="scBar"><div class="sc-in">
+    <label class="sr" for="scQ">Search ${esc(c.many)}</label>
+    <form class="sc-q" role="search" id="scForm">${IC.search}<input id="scQ" type="search" autocomplete="off" spellcheck="false" placeholder="${esc(c.placeholder)}" value="${esc(st.q)}"><button type="button" class="sc-clearq" id="scClearQ"${st.q?"":" hidden"}>Clear</button></form>
+    <div class="sc-filters">
+      <label>Make<select id="scMk"><option value="">All makes</option></select></label>
+      <label>Model<select id="scMo" disabled><option value="">All models</option></select></label>
+      <label>Model year<input id="scYr" inputmode="numeric" maxlength="4" placeholder="e.g. 2015" value="${esc(st.yr)}"></label>
+      ${c.filters.map((f,k)=>`<label>${esc(f.h)}<select data-f="${k}"><option value="">${esc(f.any)}</option></select></label>`).join("")}
+      <button type="button" class="sc-reset" id="scReset">Reset</button>
+    </div>
   </div></div>
   <div class="sc-in sc-body">
-    <aside class="sc-facets" id="scFacets" aria-label="Filters">
-      <div class="sc-facets-h"><h2>Filters</h2><button type="button" class="sc-link" id="scFClear">Clear all</button><button type="button" class="sc-facets-close" id="scFClose" aria-label="Close filters">${IC.x}</button></div>
-      <div id="scFacetBox"></div>
-    </aside>
-    <div class="sc-main">
-      <div class="sc-tools">
-        <button type="button" class="sc-ftoggle" id="scFOpen">${IC.sliders}<span>Filters</span><b id="scFN"></b></button>
-        <div class="sc-active" id="scActive"></div>
-        <label class="sc-sort"><span>Sort</span><select id="scSort"><option value="pn">Stravik number</option><option value="veh">Most vehicles</option></select></label>
-        <div class="sc-view" role="group" aria-label="View"><button type="button" data-view="cards" aria-pressed="${st.view==="cards"}">${IC.grid}<span>Cards</span></button><button type="button" data-view="list" aria-pressed="${st.view==="list"}">${IC.list}<span>List</span></button></div>
-      </div>
-      <div id="scResults" class="sc-results"><p class="sc-loading">Loading…</p></div>
-      <div class="sc-more-w"><button type="button" class="btn line" id="scMore" hidden>Show more</button></div>
+    <section class="sc-res" aria-label="Results">
+      <p class="sc-count" id="scCount" aria-live="polite">Loading the catalogue…</p>
+      <ol class="sc-list" id="scList"></ol>
+      <button type="button" class="sc-more" id="scMore" hidden>Show more</button>
       <aside class="cantfind"><div><h3>Can't find your part?</h3><p>Send us the vehicle, the OE number or a photo reference and we'll check it for you.</p></div><a class="btn gold" href="#/request">Request a part</a></aside>
-    </div>
+    </section>
+    <aside class="sc-detail" id="scDetail" aria-label="Part details"></aside>
   </div>
-  <div class="sc-drawer" id="scDrawer" hidden><div class="sc-drawer-bg" data-close></div><section class="sc-drawer-p" role="dialog" aria-modal="true" aria-labelledby="scDT" tabindex="-1" id="scDP"></section></div>
   </div>`;
   const $=s=>app.querySelector(s);
-  $("#scSort").value=st.sort;
   load(id).then(d=>{
-    $("#scLead").textContent=c.lead(d.n);
-    // vehicle selects
-    const mkSel=$("#scMk"),moSel=$("#scMo"),yrSel=$("#scYr");
-    mkSel.insertAdjacentHTML("beforeend",d.mkList.map(m=>`<option value="${esc(m)}">${esc(m)} (${d.mkCount[m]})</option>`).join(""));
-    const yNow=new Date().getFullYear();for(let y=yNow;y>=1960;y--)yrSel.insertAdjacentHTML("beforeend",`<option>${y}</option>`);
+    $("#scFacts").innerHTML=`<span><strong>${fmt(d.n.items)}</strong>${esc(c.many)}</span><span><strong>${fmt(d.n.apps)}</strong>applications</span><span><strong>${fmt(d.n.makes)}</strong>vehicle makes</span>`;
+    const q=$("#scQ"),mkSel=$("#scMk"),moSel=$("#scMo"),yr=$("#scYr");
+    mkSel.insertAdjacentHTML("beforeend",d.mkList.map(m=>`<option>${esc(m)}</option>`).join(""));mkSel.value=st.mk;
     const fillModels=()=>{
-      const set={};d.items.forEach(i=>i.apps.forEach(a=>{if(a.mk===st.mk)set[a.mo]=(set[a.mo]||0)+1;}));
-      moSel.innerHTML=`<option value="">All models</option>`+Object.keys(set).sort((a,b)=>a.localeCompare(b)).map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join("");
-      moSel.disabled=!st.mk;moSel.value=st.mo;
+      const set=new Set();d.items.forEach(i=>i.apps.forEach(a=>{if(a.mk===st.mk)set.add(a.mo);}));
+      moSel.innerHTML=`<option value="">All models</option>`+[...set].sort((a,b)=>a.localeCompare(b)).map(m=>`<option>${esc(m)}</option>`).join("");
+      moSel.disabled=!st.mk;moSel.value=st.mo;if(moSel.value!==st.mo)st.mo="";
     };
-    mkSel.value=st.mk;yrSel.value=st.yr;fillModels();
+    fillModels();
+    // spec drop-downs: values from the whole range, most common first (or by number)
+    app.querySelectorAll("select[data-f]").forEach(sel=>{const f=c.filters[sel.dataset.f],cnt={};
+      d.items.forEach(i=>{const v=i.s[f.k];if(v)cnt[v]=(cnt[v]||0)+1;});
+      let vals=Object.keys(cnt);vals.sort(f.sort==="num"?(a,b)=>(parseFloat(a)||99)-(parseFloat(b)||99)||a.localeCompare(b):(a,b)=>cnt[b]-cnt[a]);
+      sel.insertAdjacentHTML("beforeend",vals.map(v=>`<option>${esc(v)}</option>`).join(""));sel.value=st.f[f.k]||"";
+      sel.onchange=()=>{if(sel.value)st.f[f.k]=sel.value;else delete st.f[f.k];update(true);};});
+    let t=0;
+    q.oninput=()=>{$("#scClearQ").hidden=!q.value;clearTimeout(t);t=setTimeout(()=>{st.q=q.value.trim();update(true);},150);};
+    $("#scForm").onsubmit=e=>{e.preventDefault();st.q=q.value.trim();update(true);};
+    $("#scClearQ").onclick=()=>{q.value="";st.q="";$("#scClearQ").hidden=true;q.focus();update(true);};
     mkSel.onchange=()=>{st.mk=mkSel.value;st.mo="";fillModels();update(true);};
     moSel.onchange=()=>{st.mo=moSel.value;update(true);};
-    yrSel.onchange=()=>{st.yr=yrSel.value;update(true);};
-    $("#scVehX").onclick=()=>{st.mk=st.mo=st.yr="";mkSel.value=yrSel.value="";fillModels();update(true);};
-    // search
-    const q=$("#scQ");let t=0;
-    q.oninput=()=>{clearTimeout(t);t=setTimeout(()=>{st.q=q.value.trim();update(true);},160);};
-    $("#scForm").onsubmit=e=>{e.preventDefault();st.q=q.value.trim();update(true);};
-    app.querySelectorAll("[data-try]").forEach(b=>b.onclick=()=>{q.value=b.dataset.try;st.q=q.value;update(true);});
-    $("#scSort").onchange=e=>{st.sort=e.target.value;update(true);};
-    app.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{st.view=b.dataset.view;try{localStorage.setItem("stravik-cat-view",st.view);}catch(e){}
-      app.querySelectorAll("[data-view]").forEach(x=>x.setAttribute("aria-pressed",x===b));update(false);});
-    // facets
-    $("#scFacetBox").onchange=e=>{const b=e.target;if(!b.dataset.f)return;const k=b.dataset.f,v=b.value;const cur=st.f[k]||[];
-      st.f[k]=b.checked?cur.concat(v):cur.filter(x=>x!==v);if(!st.f[k].length)delete st.f[k];update(true);};
-    $("#scFClear").onclick=()=>{st.f={};update(true);};
-    $("#scActive").onclick=e=>{const b=e.target.closest("[data-rm]");if(!b)return;const [k,v]=JSON.parse(b.dataset.rm);
-      if(k==="q"){st.q="";q.value="";}else if(k==="veh"){st.mk=st.mo=st.yr="";mkSel.value=yrSel.value="";fillModels();}
-      else{st.f[k]=(st.f[k]||[]).filter(x=>x!==v);if(!st.f[k].length)delete st.f[k];}update(true);};
-    const fac=$("#scFacets");
-    $("#scFOpen").onclick=()=>{fac.classList.add("open");document.body.classList.add("sc-lock");$("#scFClose").focus();};
-    $("#scFClose").onclick=()=>{fac.classList.remove("open");document.body.classList.remove("sc-lock");$("#scFOpen").focus();};
-    // details
-    app.addEventListener("click",e=>{const o=e.target.closest("[data-open]");if(o){e.preventDefault();openPart(d.items.find(i=>i.pn===o.dataset.open));}});
-    let shown=PAGE;
-    $("#scMore").onclick=()=>{shown+=PAGE;paint();};
-    let list=[];
+    yr.oninput=()=>{const v=yr.value.replace(/\D/g,"").slice(0,4);if(v!==yr.value)yr.value=v;if(!v||v.length===4){st.yr=v;update(true);}};
+    $("#scReset").onclick=()=>{st.q=st.mk=st.mo=st.yr="";st.f={};q.value=yr.value="";mkSel.value="";$("#scClearQ").hidden=true;
+      app.querySelectorAll("select[data-f]").forEach(s=>s.value="");fillModels();update(true);};
+    const setBarH=()=>app.querySelector(".sc").style.setProperty("--barh",($("#scBar").offsetHeight+74+16)+"px");setBarH();addEventListener("resize",setBarH);
+
+    let list=[],shown=PAGE,cur=null;
+    const listEl=$("#scList"),det=$("#scDetail");
     function update(reset){
       if(reset)shown=PAGE;
       list=d.items.filter(i=>pass(i,st));
-      if(st.sort==="veh")list.sort((a,b)=>b.apps.length-a.apps.length||a.pn.localeCompare(b.pn));
-      else if(st.q)list.sort((a,b)=>(b._hit?1:0)-(a._hit?1:0)||a.pn.localeCompare(b.pn));
-      paintFacets();paintActive();paint();
-      const veh=st.mk||st.yr;$("#scVehX").hidden=!veh;$("#scVeh").classList.toggle("on",!!veh);
+      if(st.q)list.sort((a,b)=>(b._hit?1:0)-(a._hit?1:0)||a.pn.localeCompare(b.pn));
+      const veh=[st.mk,st.mo,yrOk(st)?st.yr:""].filter(Boolean).join(" ");
+      $("#scCount").textContent=!list.length?`No ${c.many} found`:(list.length===d.items.length?`All ${fmt(list.length)} ${c.many}`:`${fmt(list.length)} ${list.length===1?c.one:c.many}`+(veh?` for ${veh}`:st.q?` for “${st.q}”`:""));
+      paint();
+      if(!cur||!list.includes(cur)){const p=st.p&&list.find(i=>i.pn===st.p);show(p||list[0]||null,false);}
+      else markCurrent();
       writeState(id,st);
     }
+    function row(i){
+      const h=st.q&&i._hit&&i._hit.v?`<span class="sc-hit">${esc(i._hit.k)} ${esc(i._hit.v)}</span>`:"";
+      const inCart=window.STV&&STV.Cart.has(i.pn);
+      return `<li><button class="sc-row" type="button" data-pn="${esc(i.pn)}" aria-current="false">
+        ${i.ph?`<span class="sc-tile"><img src="${esc(i.ph)}" alt="" loading="lazy"></span>`:""}
+        <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
+        <span class="sc-yr">${esc(i.yrs)}</span></button></li>`;
+    }
     function paint(){
-      const n=list.length,box=$("#scResults");
-      $("#scCount").innerHTML=`<b>${fmt(n)}</b> ${n===1?c.one:c.many}${st.mk||st.yr?` fit${n===1?"s":""} ${esc([st.mk,st.mo,st.yr].filter(Boolean).join(" "))}`:""}`;
-      if(!n){box.innerHTML=`<div class="sc-empty"><h3>No ${esc(c.many)} match</h3><p>${st.q?`Nothing matches “${esc(st.q)}”. Check the number, or search with fewer characters.`:"Try another vehicle or remove a filter."}</p><button type="button" class="btn line" id="scReset">Clear search and filters</button></div>`;
-        $("#scReset").onclick=()=>{st.q="";q.value="";st.f={};st.mk=st.mo=st.yr="";mkSel.value=yrSel.value="";fillModels();update(true);};$("#scMore").hidden=true;return;}
-      const part=list.slice(0,shown);
-      box.className="sc-results "+(st.view==="list"?"is-list":"is-cards");
-      box.innerHTML=st.view==="list"
-        ?`<div class="sc-tablew"><table class="sc-table"><thead><tr><th><span class="sr">Photo</span></th><th>Stravik no.</th><th>Description</th>${c.cols.map(k=>`<th>${esc(k.h)}</th>`).join("")}<th>Numbers</th><th>Fits</th><th></th></tr></thead><tbody>${part.map(i=>row(i,c,st)).join("")}</tbody></table></div>`
-        :part.map(i=>card(i,c,st)).join("");
-      const more=$("#scMore");more.hidden=n<=shown;more.textContent=`Show ${fmt(Math.min(PAGE,n-shown))} more of ${fmt(n-shown)}`;
-      if(window.STV)STV.cartPaint();
+      if(!list.length){listEl.innerHTML=`<li class="sc-empty"><strong>No ${esc(c.many)} match${st.q?` “${esc(st.q)}”`:""}.</strong><br>Check the number for typing errors, try fewer characters, or reset the filters. You can also <a href="#/request${st.q?"?q="+encodeURIComponent(st.q):""}">request the part</a> and we'll check it for you.</li>`;$("#scMore").hidden=true;return;}
+      listEl.innerHTML=list.slice(0,shown).map(row).join("");
+      const more=$("#scMore");more.hidden=list.length<=shown;more.textContent=`Show more ${c.many} (${fmt(list.length-shown)} left)`;
+      markCurrent();
     }
-    function paintFacets(){
-      $("#scFacetBox").innerHTML=c.facets.map(f=>{
-        const cnt={};d.items.forEach(i=>{const v=i.s[f.k];if(v&&pass(i,st,f.k))cnt[v]=(cnt[v]||0)+1;});
-        (st.f[f.k]||[]).forEach(v=>{if(!(v in cnt))cnt[v]=0;});
-        let vals=Object.keys(cnt);vals.sort(f.sort==="num"?(a,b)=>(parseFloat(a)||99)-(parseFloat(b)||99)||a.localeCompare(b):(a,b)=>cnt[b]-cnt[a]||a.localeCompare(b));
-        if(!vals.length)return "";
-        const fid="scf_"+clean(f.k);return `<div class="sc-facet" role="group" aria-labelledby="${fid}"><h3 id="${fid}">${esc(f.label||f.k)}</h3>${vals.map(v=>{const on=(st.f[f.k]||[]).includes(v);
-          return `<label class="sc-opt${cnt[v]?"":" none"}"><input type="checkbox" data-f="${esc(f.k)}" value="${esc(v)}"${on?" checked":""}><span>${esc(v)}</span><em>${fmt(cnt[v])}</em></label>`;}).join("")}</div>`;
-      }).join("");
-      const nf=Object.values(st.f).reduce((a,v)=>a+v.length,0);$("#scFN").textContent=nf?nf:"";
-    }
-    function paintActive(){
-      const chips=[];
-      if(st.q)chips.push([["q",""],"“"+st.q+"”"]);
-      if(st.mk||st.yr)chips.push([["veh",""],[st.mk,st.mo,st.yr].filter(Boolean).join(" ")]);
-      Object.keys(st.f).forEach(k=>st.f[k].forEach(v=>chips.push([[k,v],v])));
-      $("#scActive").innerHTML=chips.map(x=>`<button type="button" class="sc-achip" data-rm="${esc(JSON.stringify(x[0]))}">${esc(x[1])}${IC.x}<span class="sr">Remove</span></button>`).join("");
-    }
-    // ---------------- part details drawer
-    const dr=$("#scDrawer"),dp=$("#scDP");let lastFocus=null;
-    function openPart(i){
-      if(!i)return;lastFocus=document.activeElement;
+    $("#scMore").onclick=()=>{shown+=PAGE;paint();};
+    listEl.addEventListener("click",e=>{const b=e.target.closest(".sc-row");if(!b)return;show(d.items.find(i=>i.pn===b.dataset.pn),true);});
+    function markCurrent(){listEl.querySelectorAll(".sc-row").forEach(b=>b.setAttribute("aria-current",cur&&b.dataset.pn===cur.pn?"true":"false"));}
+    function show(i,open){
+      cur=i;st.p=i&&open?i.pn:(st.p&&i&&i.pn===st.p?st.p:"");markCurrent();
+      if(!i){det.innerHTML="";det.hidden=true;return;}det.hidden=false;
       const specs=Object.keys(i.s).filter(k=>i.s[k]&&i.s[k]!=="Not specified");
-      const apps=i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0);
-      dp.innerHTML=`${i.ph||i.box?`<div class="sc-dph">${photo(i,"sc-dimg")}</div>`:""}<header class="sc-dh"><div><p class="sc-dcat">${esc(c.title)}</p><h2 id="scDT" class="sc-pn">${esc(i.pn)}</h2><p>${esc(i.d)}</p></div><button type="button" class="sc-dx" data-close aria-label="Close">${IC.x}</button></header>
-        <div class="sc-dbody">
-          <div class="sc-dcta">${cartBtn(i,c,"big")}</div>
-          ${specs.length?`<section><h3>Specifications</h3><dl class="sc-spec">${specs.map(k=>`<div><dt>${esc(k)}</dt><dd>${esc(i.s[k])}</dd></div>`).join("")}</dl></section>`:""}
-          ${i.oe.length?`<section><h3>OE numbers</h3><ul class="sc-nums">${i.oe.map(n=>`<li>${mark(n,st.q)}</li>`).join("")}</ul></section>`:""}
-          ${i.xr.length?`<section><h3>Cross-references</h3><ul class="sc-nums">${i.xr.map(n=>`<li>${mark(n,st.q)}</li>`).join("")}</ul></section>`:""}
-          <section><h3>Fits ${apps.length} vehicle${apps.length===1?"":"s"}</h3>
-            ${apps.length>8?`<input type="search" class="sc-dfind" id="scDF" placeholder="Filter these vehicles" aria-label="Filter the vehicle list">`:""}
-            ${apps.length?`<table class="sc-apps"><thead><tr><th>Make</th><th>Model</th><th>Engine</th><th>Years</th></tr></thead><tbody>${apps.map(a=>`<tr class="${(st.mk||st.yr)&&appOk(a,st)?"hit":""}" data-t="${esc(lc(a.mk+" "+a.mo+" "+a.eng+" "+a.yl))}"><td>${esc(a.mk)}</td><td>${esc(a.mo)}</td><td>${esc(a.eng)}</td><td>${esc(a.yl)}</td></tr>`).join("")}</tbody></table>`:`<p class="sc-muted">No vehicle list yet. Ask us and we'll check the fitment.</p>`}
-          </section>
-        </div>`;
-      dr.hidden=false;document.body.classList.add("sc-lock");requestAnimationFrame(()=>dr.classList.add("open"));dp.focus();
-      const f=dp.querySelector("#scDF");if(f)f.oninput=()=>{const v=lc(f.value);dp.querySelectorAll(".sc-apps tbody tr").forEach(r=>r.hidden=!!v&&!r.dataset.t.includes(v));};
+      const groups={};i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0).forEach(a=>{(groups[a.mk]=groups[a.mk]||[]).push(a);});
+      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(i.d||c.kind)}</div></div><button class="sc-close" type="button" id="scClose">Close</button></div>
+        ${i.ph?`<div class="sc-photo"><img src="${esc(i.ph)}" alt="${esc(i.pn)}"></div>`:""}
+        <div class="sc-dcart">${cartBtn(i,c,"sc-addcart")}</div>
+        ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(k=>`<dt>${esc(k)}</dt><dd>${esc(i.s[k])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
+        ${i.oe.length?`<div class="sc-dsec"><h3>OE numbers</h3><div class="sc-chips">${i.oe.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
+        ${i.xr.length?`<div class="sc-dsec"><h3>Cross-references</h3><div class="sc-chips">${i.xr.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
+        <div class="sc-dsec"><h3>Applications (${fmt(i.apps.length)})</h3>${i.apps.length?`<div class="sc-appwrap"><table class="sc-apps"><thead><tr><th>Model and engine</th><th>Years</th></tr></thead><tbody>${Object.keys(groups).map(m=>`<tr class="sc-mkrow"><td colspan="2">${esc(m)}</td></tr>`+groups[m].map(a=>`<tr${(st.mk||st.yr)&&appOk(a,st)?' class="sc-on"':""}><td>${esc(a.mo)}${a.eng?" "+esc(a.eng):""}</td><td>${esc(a.yl)}</td></tr>`).join("")).join("")}</tbody></table></div>`:`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`}</div>`;
+      det.scrollTop=0;
+      if(open&&matchMedia("(max-width:900px)").matches){det.classList.add("open");document.body.style.overflow="hidden";det.focus();}
       if(window.STV)STV.cartPaint();
+      if(open)writeState(id,st);
     }
-    function closePart(){dr.classList.remove("open");document.body.classList.remove("sc-lock");setTimeout(()=>{dr.hidden=true;},200);if(lastFocus)lastFocus.focus();}
-    dr.addEventListener("click",e=>{if(e.target.closest("[data-close]"))closePart();});
-    dr.addEventListener("keydown",e=>{if(e.key==="Escape")closePart();});
+    det.addEventListener("click",e=>{
+      if(e.target.closest("#scClose")){det.classList.remove("open");document.body.style.overflow="";const b=listEl.querySelector('.sc-row[aria-current="true"]');if(b)b.focus();return;}
+      const ch=e.target.closest(".sc-chip");if(ch){q.value=ch.dataset.q;$("#scClearQ").hidden=false;st.q=ch.dataset.q;det.classList.remove("open");document.body.style.overflow="";update(true);window.scrollTo({top:app.querySelector(".sc-bar").offsetTop-74,behavior:"smooth"});}
+    });
+    det.tabIndex=-1;
+    repaint=()=>{if(document.body.contains(listEl)){const y=window.scrollY;paint();window.scrollTo(0,y);}};
     update(false);
-  }).catch(e=>{$("#scResults").innerHTML=`<div class="sc-empty"><h3>The catalogue didn't load</h3><p>Check your connection and reload the page. (${esc(e.message)})</p></div>`;});
+    if(st.p){const b=listEl.querySelector('.sc-row[aria-current="true"]');if(b)b.scrollIntoView({block:"nearest"});}
+  }).catch(e=>{$("#scCount").textContent="The catalogue didn't load. Check your connection and reload the page. ("+e.message+")";});
 }
+
+// keep the "In cart" tags in the list current
+let repaint=null;
+document.addEventListener("click",e=>{if(repaint&&e.target.closest&&e.target.closest("button[data-cart-key]"))setTimeout(repaint,0);});
 
 window.StdCat={has:id=>!!CATS[id],page,cats:CATS};
 })();
