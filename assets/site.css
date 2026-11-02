@@ -1038,3 +1038,5 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .ctable.dot tfoot td{font-weight:700;border-top:2px solid var(--line)}
 .ctable.dot tfoot td:last-child,.ctable.dot td:nth-child(n+3){text-align:right;white-space:nowrap}
 @media (max-width:900px){.dwrap:has(.dside),.dacc,.dreg .enq{grid-template-columns:1fr}}
+.dwho{max-width:900px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:10px 14px;background:var(--paper);border:1px solid var(--line);border-radius:8px;font-size:15px}
+.dwho .btn.small{padding:6px 14px;font-size:14px}
