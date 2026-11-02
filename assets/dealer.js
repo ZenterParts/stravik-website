@@ -32,7 +32,11 @@ function client(){
   }));
 }
 const must=r=>{if(r.error)throw r.error;return r.data;};
-const msg=e=>String(e&&(e.message||e.error_description)||e).replace(/^.*?Missing: /,"Please fill in: ").replace(/_/g," ");
+const msg=e=>{const m=String(e&&(e.message||e.error_description)||e);
+  if(/signups? not allowed/i.test(m))return "New buyer accounts aren't open yet. Please contact us and we'll set you up.";
+  if(/invalid login credentials/i.test(m))return "The email or password is wrong.";
+  if(/rate limit/i.test(m))return "Too many attempts. Please wait a few minutes and try again.";
+  return m.replace(/^.*?Missing: /,"Please fill in: ").replace(/_/g," ");};
 
 // ---------- state ----------
 const S={me:null,prices:null,loading:null};
