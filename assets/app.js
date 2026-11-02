@@ -686,6 +686,7 @@ function cartPage(){
   box.addEventListener("click",e=>{const b=e.target.closest(".rm button");if(!b)return;Cart.remove(b.closest("tr.item").dataset.key);
     if(!Cart.items().length)cartPage();else renderItems();});
   const form=app.querySelector("#rfp");if(form)wireRfp(form);
+  if(window.StravikDealer)StravikDealer.cart(app);
 }
 function renderItems(){
   const items=Cart.items(),box=app.querySelector("#citems");
@@ -1588,6 +1589,7 @@ function route(){
   else if(parts[0]==="product"){key="products";product(parts[1],params);}
   else if(parts[0]==="contact"){key="contact";contact(params);}
   else if(parts[0]==="cart"){key="cart";cartPage();}
+  else if(parts[0]==="dealer"){key="dealer";if(window.StravikDealer)StravikDealer.page(app,parts.slice(1));else notFound();}
   else if(parts[0]==="filters"){key="filters";filtersPage(parts[1],params);}
   else if(parts[0]==="filter"&&parts[1]){location.replace(filterUrl(decodeURIComponent(parts[1])));return;}
   else if(parts[0]==="steering"){key="steering";ssPage(parts[1],params);}
@@ -1602,7 +1604,7 @@ function route(){
   ddSet(false);cartPaint();
   nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");
   if(!(parts[0]==="products"&&parts[2]))window.scrollTo(0,0);
-  const titles={home:"Stravik | Auto Parts: find a part by number or vehicle",find:"Find a part | Stravik",new:"New to range | Stravik",where:"Where to buy | Stravik",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",steering:"Steering & suspension catalogue | Stravik",shocks:"Shock absorber catalogue | Stravik",brakes:"Brake catalogue | Stravik",batteries:"Battery catalogue | Stravik",gassprings:"Gas spring catalogue | Stravik",cart:"Your cart | Stravik"};
+  const titles={home:"Stravik | Auto Parts: find a part by number or vehicle",find:"Find a part | Stravik",new:"New to range | Stravik",where:"Where to buy | Stravik",about:"About us | Stravik",products:"Our products | Stravik",contact:"Contact us | Stravik",filters:"Filter catalogue | Stravik",steering:"Steering & suspension catalogue | Stravik",shocks:"Shock absorber catalogue | Stravik",brakes:"Brake catalogue | Stravik",batteries:"Battery catalogue | Stravik",gassprings:"Gas spring catalogue | Stravik",cart:"Your cart | Stravik",dealer:"Buyer account | Stravik"};
   if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="products"&&parts[1]==="shock-absorbers")document.title="Shock Absorbers | Stravik";else if(parts[0]==="products"&&parts[1]==="braking-system"&&!parts[2])document.title="Braking System | Stravik";else if(parts[0]==="products"&&parts[1]==="batteries")document.title="Batteries | Stravik";else if(parts[0]==="products"&&parts[1]==="gas-springs")document.title="Gas Springs | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(!["filter","steering","shock-absorbers","brakes","batteries","gas-springs","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key];
 }
 addEventListener("hashchange",route);route();
