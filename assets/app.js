@@ -417,6 +417,7 @@ function productsHome(){
       ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`)}
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
       ${pc("/assets/img/gas-springs-hero.svg","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`)}
+      ${pc("/assets/img/ignition-coils/hero.webp","bolt","Ignition Coils","Ignition coils, coil packs and pencil coils for cars, bakkies and motorcycles, each with its connector, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/ignition-coils">Open the catalogue</a>`)}
       ${pc("/assets/img/batteries/efb_75_eu.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",""],`<a class="btn gold" href="#/batteries">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`)}
     </div>
   </div></section>
@@ -1598,9 +1599,11 @@ function route(){
   else if(parts[0]==="batteries"){key="batteries";batPage(parts[1],params);}
   else if(parts[0]==="gas-springs"){key="gassprings";gsPage(parts[1],params);}
   else if(parts[0]==="part"&&parts[1]){location.replace(partUrl(decodeURIComponent(parts[1])));return;}
+  else if(window.StdCat&&StdCat.has(parts[0])){key="stdcat";StdCat.page(app,parts[0],params);}
   else notFound();
   document.querySelectorAll("nav.main a").forEach(a=>{if(a.dataset.nav===key)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
-  const inProducts=key==="products"||key==="filters"||key==="steering"||key==="shocks"||key==="brakes"||key==="batteries"||key==="gassprings";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
+  const inProducts=key==="stdcat"||key==="products"||key==="filters"||key==="steering"||key==="shocks"||key==="brakes"||key==="batteries"||key==="gassprings";if(inProducts)ddBtn.setAttribute("aria-current","page");else ddBtn.removeAttribute("aria-current");
+  document.body.classList.toggle("sc-wide",key==="stdcat");
   ddSet(false);cartPaint();
   nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");
   if(!(parts[0]==="products"&&parts[2]))window.scrollTo(0,0);
