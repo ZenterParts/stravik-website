@@ -87,7 +87,7 @@ const YEARS=(()=>{const a=[],y=new Date().getFullYear()+1;for(let i=y;i>=1980;i-
 // ---------- vehicle index (built from both catalogues) ----------
 let VIX=null;
 function vehicleIndex(){
-  return VIX||(VIX=Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS()]).then(([ss,fl,sa,br,bt,gs])=>{
+  return VIX||(VIX=Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS(),loadStd()]).then(([ss,fl,sa,br,bt,gs,std])=>{
     const makes=new Map();const add=(label,model)=>{const k=label.toUpperCase();if(!makes.has(k))makes.set(k,{label,models:new Set()});if(model)makes.get(k).models.add(model);};
     ss.items.forEach(i=>i.apps.forEach(a=>{const m=ss.makes[a.mk];if(m&&!/other makes/i.test(m.label))add(m.label,ssCase(a.veh).replace(/^\s+|\s+$/g,""));}));
     fl.items.forEach(i=>(i.mk||[]).forEach(mk=>{(i.mo||"").split(/[;,]/).map(x=>x.trim()).filter(Boolean).forEach(mo=>add(mk,mo));if(!i.mo)add(mk);}));
@@ -95,8 +95,9 @@ function vehicleIndex(){
     br.items.forEach(i=>i.apps.forEach(a=>{const m=br.makes[a.mk];if(m&&m.veh)add(m.label,a.mo.trim());}));
     (bt.vehicles||[]).forEach(v=>{const m=bt.makes[v[0]];if(m)add(m.label,String(v[1]||"").trim());});
     gs.items.forEach(i=>i.apps.forEach(a=>{const m=gs.makes[a.mk];if(m)add(m.label,ssCase(a.mo).trim());}));
+    std.forEach(r=>r.d.items.forEach(i=>i.apps.forEach(a=>add(a.mk,a.any?"":a.mo))));
     const list=[...makes.values()].sort((a,b)=>a.label.localeCompare(b.label));
-    return {ss,fl,sa,br,bt,gs,makes:list};
+    return {ss,fl,sa,br,bt,gs,std,makes:list};
   }).catch(e=>{VIX=null;throw e;}));
 }
 // a make label matches a catalogue make if equal, or one is part of a "A / B" group label
@@ -109,14 +110,16 @@ function vehicleMatch(ix,mk,mo,yr){
   const br=ix.br.items.filter(i=>i.apps.some(a=>{const M=ix.br.makes[a.mk];return M&&M.veh&&mkHit(mk,M.label)&&(!m||lc(a.mo).includes(m))&&yearIn(a.yr,y);}));
   const bt=ix.bt.items.filter(i=>i.apps.some(a=>{const M=ix.bt.makes[a.mk];return a.rec&&M&&mkHit(mk,M.label)&&batAppOk(a,{mk:-1,mo:"",mq:m,yr:y,sg:""});}));
   const gs=ix.gs.items.filter(i=>i.apps.some(a=>{const M=ix.gs.makes[a.mk];return M&&mkHit(mk,M.label)&&(!m||lc(a.mo).includes(m))&&yearIn(a.yr,y);}));
-  return {ss,fl,sa,br,bt,gs};
+  // standard catalogue ranges: a vehicle listed by make only matches when no model is asked for
+  const std=ix.std.map(r=>({id:r.id,c:r.c,d:r.d,list:r.d.items.filter(i=>i.apps.some(a=>mkHit(mk,a.mk)&&(!m||(!a.any&&lc([a.mo,a.code,a.ver,a.eng].join(" ")).includes(m)))&&(!y||(y>=a.y0&&y<=a.y1)))).map(i=>({i}))}));
+  return {ss,fl,sa,br,bt,gs,std};
 }
 
 // ---------- universal number search ----------
 function numScore(c,vals){let best=0,hit="";vals.forEach(v=>{const k=fclean(v);if(!k)return;const s=k===c?3:k.startsWith(c)?2:(c.length>=4&&k.includes(c))?1:0;if(s>best){best=s;hit=v;}});return [best,hit];}
 function searchAll(q){
-  return Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS()]).then(([ss,fl,sa,br,bt,gs])=>{
-    const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[],B=[],T=[],G=[];
+  return Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS(),loadStd()]).then(([ss,fl,sa,br,bt,gs,stdR])=>{
+    const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[],B=[],T=[],G=[],std=[];
     if(num){
       ss.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["CTR number",[i.ctr]],["Old CTR number",i.old],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])S.push({i,score:b[0],on:b[2]+" "+b[1]});});
       fl.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE / cross-reference",i.n||[]]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])F.push({i,score:b[0],on:b[2]+" "+b[1]});});
@@ -124,13 +127,14 @@ function searchAll(q){
       br.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["External number",[i.k]],["OE number",i.oe],["WVA number",i.wva]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])B.push({i,score:b[0],on:b[2]+" "+b[1]});});
       bt.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["SAB number",i.sab]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0]>=2)T.push({i,score:b[0],on:b[2]+" "+b[1]});});
       gs.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe],["Cross-reference",i.xr]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])G.push({i,score:b[0],on:b[2]+" "+b[1]});});
-      if(S.length||F.length||A.length||B.length||T.length||G.length)mode="number";
+      std=stdR.map(r=>({id:r.id,c:r.c,d:r.d,list:r.d.items.map(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe],["Cross-reference",i.xr]];let b=[0,"",""];f.forEach(([lab,v])=>{const x=numScore(c,v);if(x[0]>b[0])b=[x[0],x[1],lab];});return b[0]?{i,score:b[0],on:b[2]+" "+b[1],hit:b[1]}:null;}).filter(Boolean)}));
+      if(S.length||F.length||A.length||B.length||T.length||G.length||std.some(r=>r.list.length))mode="number";
     }
-    if(mode==="text"){S=ss.items.filter(i=>ssmatch(i,q)).map(i=>({i,score:0}));F=fl.items.filter(i=>fmatch(i,q)).map(i=>({i,score:0}));A=sa.items.filter(i=>samatch(i,q)).map(i=>({i,score:0}));B=br.items.filter(i=>brmatch(i,q)).map(i=>({i,score:0}));T=bt.items.filter(i=>batmatch(i,q)).map(i=>({i,score:0}));G=gs.items.filter(i=>gsmatch(i,q)).map(i=>({i,score:0}));}
-    S.sort((a,b)=>b.score-a.score);F.sort((a,b)=>b.score-a.score);A.sort((a,b)=>b.score-a.score);B.sort((a,b)=>b.score-a.score);T.sort((a,b)=>b.score-a.score);G.sort((a,b)=>b.score-a.score);
+    if(mode==="text"){const w=lc(q).split(/\s+/).filter(Boolean);std=stdR.map(r=>({id:r.id,c:r.c,d:r.d,list:r.d.items.filter(i=>w.every(t=>i.text.includes(t))).map(i=>({i,score:0}))}));S=ss.items.filter(i=>ssmatch(i,q)).map(i=>({i,score:0}));F=fl.items.filter(i=>fmatch(i,q)).map(i=>({i,score:0}));A=sa.items.filter(i=>samatch(i,q)).map(i=>({i,score:0}));B=br.items.filter(i=>brmatch(i,q)).map(i=>({i,score:0}));T=bt.items.filter(i=>batmatch(i,q)).map(i=>({i,score:0}));G=gs.items.filter(i=>gsmatch(i,q)).map(i=>({i,score:0}));}
+    std.forEach(r=>r.list.sort((a,b)=>b.score-a.score));S.sort((a,b)=>b.score-a.score);F.sort((a,b)=>b.score-a.score);A.sort((a,b)=>b.score-a.score);B.sort((a,b)=>b.score-a.score);T.sort((a,b)=>b.score-a.score);G.sort((a,b)=>b.score-a.score);
     const words=lc(q).split(/\s+/).filter(w=>w.length>2);
     const P=words.length?ALL.filter(p=>words.every(w=>lc(p.name+" "+p.type.name+" "+p.cat.name+" "+p.desc).includes(w))):[];
-    return {ss,fl,sa,br,bt,gs,S,F,A,B,T,G,P,mode};
+    return {ss,fl,sa,br,bt,gs,S,F,A,B,T,G,P,std,mode};
   });
 }
 
@@ -146,6 +150,26 @@ function flResults(d,list,q,max){
   return `<div class="rgroup"><h2>Filters <span>${list.length} ${list.length===1?"filter":"filters"}</span></h2>
   <div class="ftable-wrap"><table class="ftable"><thead><tr><th>Stravik no.</th><th>Filter</th><th>Fits</th><th>OE / ref. numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(x=>frow(d,x.i,q)).join("")}</tbody></table></div>
   ${list.length>max?`<p class="rmore"><a class="btn line" href="#/filters?q=${encodeURIComponent(q)}">See all ${list.length} in the filter catalogue</a></p>`:""}</div>`;
+}
+// standard catalogue ranges (assets/stdcat.js): ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters
+function loadStd(){
+  if(!window.StdCat)return Promise.resolve([]);
+  return Promise.all(Object.keys(StdCat.cats).map(id=>StdCat.load(id).then(d=>({id,c:StdCat.cats[id],d})).catch(()=>null))).then(a=>a.filter(Boolean));
+}
+function stdResults(r,q,max,veh){
+  const {id,c,list}=r;if(!list.length)return "";const shown=list.slice(0,max),cq=fclean(q);
+  const row=x=>{const i=x.i,on=Cart.has(i.pn),item=StdCat.cartItem(i,c);
+    const nums=i.oe.concat(i.xr),hit=cq.length>=3?nums.filter(n=>fclean(n).includes(cq)):[],ord=hit.concat(nums.filter(n=>!hit.includes(n))),sh=ord.slice(0,3);
+    const sl=c.specLine?c.specLine(i.s):"",fits=[StdCat.makesText(i),i.yrs].filter(Boolean).join(" · ");
+    return `<tr data-href="${partUrl(i.pn)}"><td class="fpn"><a href="${partUrl(i.pn)}">${esc(i.pn)}</a></td>`+
+      `<td class="fty"><b>${esc(StdCat.title1(i,c))}</b>${sl?`<span>${esc(sl)}</span>`:""}</td>`+
+      `<td class="fveh">${c.vehicles===false?"":esc(fits)}</td>`+
+      `<td class="fnum">${sh.length?sh.map(n=>hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)).join(", ")+(ord.length>3?` +${ord.length-3} more`:""):""}</td>`+
+      `<td class="fact"><button type="button" class="fadd inline" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button></td></tr>`;};
+  const more=veh?`#/${id}?mk=${encodeURIComponent(veh)}`:`#/${id}?q=${encodeURIComponent(q)}`;
+  return `<div class="rgroup"><h2>${esc(c.title)} <span>${list.length.toLocaleString("en-US")} ${list.length===1?c.one:c.many}</span></h2>
+  <div class="ftable-wrap"><table class="ftable"><thead><tr><th>Stravik no.</th><th>Part</th><th>Fits</th><th>OE / ref. numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>
+  ${list.length>max?`<p class="rmore"><a class="btn line" href="${more}">See all ${list.length.toLocaleString("en-US")} in the ${esc(c.title.toLowerCase())} catalogue</a></p>`:""}</div>`;
 }
 const cantFind=(q,veh)=>`<aside class="cantfind"><div><h3>Can't find your part?</h3><p>Send us the vehicle, the OE number or a photo reference and we'll check it for you. Every request also tells us which parts to add to the range.</p></div><a class="btn gold" href="#/request${q||veh?"?"+new URLSearchParams(Object.assign(q?{q}:{},veh?{veh}:{})).toString():""}">Request a part</a></aside>`;
 
@@ -240,19 +264,19 @@ function findPage(params){
   if(byVeh){
     const mk=params.get("mk"),mo=params.get("mo")||"",yr=params.get("yr")||"";const label=[mk,mo,yr].filter(Boolean).join(" ");
     document.title=`${label} parts | Stravik`;
-    vehicleIndex().then(ix=>{const r=vehicleMatch(ix,mk,mo,yr),n=r.ss.length+r.fl.length+r.sa.length+r.br.length+r.bt.length+r.gs.length;
+    vehicleIndex().then(ix=>{const r=vehicleMatch(ix,mk,mo,yr),n=r.ss.length+r.fl.length+r.sa.length+r.br.length+r.bt.length+r.gs.length+r.std.reduce((k,x)=>k+x.list.length,0);
       const sv={mk:ix.sa.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",yr:parseInt(yr,10)||0};
       const bv={mk:ix.br.makes.findIndex(M=>M.veh&&mkHit(mk,M.label)),mo:"",mq:lc(mo).replace(/\s+/g," ").trim(),yr:parseInt(yr,10)||0};
       box.innerHTML=`<p class="rsum"><b>${n.toLocaleString("en-US")}</b> ${n===1?"part fits":"parts fit"} <b>${esc(label)}</b></p>`+
-        (n?brResults(ix.br,r.br.map(i=>({i})),"",100,bv)+batResults(ix.bt,r.bt.map(i=>({i})),"",100,{mk:ix.bt.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",mq:bv.mq,yr:bv.yr,sg:""})+ssResults(ix.ss,r.ss.map(i=>({i})),"",100)+saResults(ix.sa,r.sa.map(i=>({i})),"",100,sv)+gsResults(ix.gs,r.gs.map(i=>({i})),"",100,{mk:ix.gs.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",yr:parseInt(yr,10)||0})+flResults(ix.fl,r.fl.map(i=>({i})),"",100):`<div class="noresults"><p>No parts listed for this vehicle yet. Check the spelling of the model, or try without the year.</p></div>`)+cantFind("",label);
+        (n?brResults(ix.br,r.br.map(i=>({i})),"",100,bv)+batResults(ix.bt,r.bt.map(i=>({i})),"",100,{mk:ix.bt.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",mq:bv.mq,yr:bv.yr,sg:""})+ssResults(ix.ss,r.ss.map(i=>({i})),"",100)+saResults(ix.sa,r.sa.map(i=>({i})),"",100,sv)+gsResults(ix.gs,r.gs.map(i=>({i})),"",100,{mk:ix.gs.makes.findIndex(M=>mkHit(mk,M.label)),mo:"",yr:parseInt(yr,10)||0})+flResults(ix.fl,r.fl.map(i=>({i})),"",100)+r.std.map(x=>stdResults(x,"",100,(x.d.mkList.find(M=>mkHit(mk,M))||""))).join(""):`<div class="noresults"><p>No parts listed for this vehicle yet. Check the spelling of the model, or try without the year.</p></div>`)+cantFind("",label);
     }).catch(fail);
     return;
   }
   if(!q)return;
   document.title=`${q} | Find a part | Stravik`;
-  searchAll(q).then(r=>{const n=r.S.length+r.F.length+r.A.length+r.B.length+r.T.length+r.G.length;
+  searchAll(q).then(r=>{const n=r.S.length+r.F.length+r.A.length+r.B.length+r.T.length+r.G.length+r.std.reduce((k,x)=>k+x.list.length,0);
     box.innerHTML=`<p class="rsum"><b>${n.toLocaleString("en-US")}</b> ${n===1?"part matches":"parts match"} <b>“${esc(q)}”</b>${r.mode==="number"?" by number":""}</p>`+
-      brResults(r.br,r.B,q,50)+batResults(r.bt,r.T,q,50)+ssResults(r.ss,r.S,q,50)+saResults(r.sa,r.A,q,50)+gsResults(r.gs,r.G,q,50)+flResults(r.fl,r.F,q,50)+
+      brResults(r.br,r.B,q,50)+batResults(r.bt,r.T,q,50)+ssResults(r.ss,r.S,q,50)+saResults(r.sa,r.A,q,50)+gsResults(r.gs,r.G,q,50)+flResults(r.fl,r.F,q,50)+r.std.map(x=>stdResults(x,q,50)).join("")+
       (r.P.length?`<div class="rgroup"><h2>Product lines <span>${r.P.length}</span></h2><div class="grid">${r.P.slice(0,8).map(card).join("")}</div></div>`:"")+
       (!n&&!r.P.length?`<div class="noresults"><p>Nothing matches “${esc(q)}”. Check the number, try fewer words, or search by vehicle.</p></div>`:"")+cantFind(q,"");
   }).catch(fail);
