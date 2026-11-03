@@ -34,7 +34,7 @@ const index = rd("index.html");
 const cut = (a, b) => { const i = index.indexOf(a), j = index.indexOf(b, i); if (i < 0 || j < 0) throw new Error("index.html: missing " + a); return index.slice(i, j + b.length); };
 const SHELL = {
   icons: index.split("\n").filter(l => /rel="(icon|apple-touch-icon)"/.test(l)).join("\n"),
-  fonts: cut('<link rel="preconnect" href="https://fonts.googleapis.com">', 'display=swap" rel="stylesheet">'),
+  fonts: cut("<!-- fonts -->", "<!-- /fonts -->"),   // self-hosted fonts (assets/fonts)
   header: cut('<header class="site">', "</header>").replace('class="dd-btn" aria-expanded="false"', 'class="dd-btn" aria-current="page" aria-expanded="false"'),
   fcart: cut('<a href="/#/cart" class="fcart"', "</a>"),
   toast: cut('<div class="toast"', "</div>"),

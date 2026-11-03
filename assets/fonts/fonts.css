@@ -1,0 +1,7 @@
+/* Stravik web fonts, served from this site (no requests to Google Fonts).
+   Saira Semi Condensed (headings) and Instrument Sans (text), both under the SIL Open Font License 1.1:
+   see OFL-SairaSemiCondensed.txt, OFL-InstrumentSans.txt and README.txt in this folder. */
+@font-face{font-family:"Saira Semi Condensed";font-style:normal;font-weight:500;font-display:swap;src:url(/assets/fonts/SairaSemiCondensed-Medium.woff2) format("woff2")}
+@font-face{font-family:"Saira Semi Condensed";font-style:normal;font-weight:600;font-display:swap;src:url(/assets/fonts/SairaSemiCondensed-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"Saira Semi Condensed";font-style:normal;font-weight:700;font-display:swap;src:url(/assets/fonts/SairaSemiCondensed-Bold.woff2) format("woff2")}
+@font-face{font-family:"Instrument Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url(/assets/fonts/InstrumentSans-Latin.woff2) format("woff2")}
