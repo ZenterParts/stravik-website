@@ -409,7 +409,9 @@ const stdCounts = [];
   for (const [id, c] of Object.entries(STD.cats)) {
     const file = c.data.replace(/^\//, "");
     if (!fs.existsSync(path.join(ROOT, file))) continue;
-    const d = JSON.parse(rd(file)); d.photos = new Set(); c.id = id; STD.prep(d, c);
+    const d = JSON.parse(rd(file)); c.id = id;
+    d.photos = STD.photoMap(c.img && fs.existsSync(path.join(ROOT, c.img, "index.json")) ? JSON.parse(rd(path.join(c.img, "index.json"))) : []);
+    STD.prep(d, c);
     const clash = d.items.filter(i => used.has(i.pn)).map(i => i.pn);
     if (clash.length) throw new Error(c.title + " numbers also used in another catalogue: " + clash.slice(0, 5).join(", "));
     d.items.forEach(i => used.add(i.pn));
@@ -420,7 +422,7 @@ const stdCounts = [];
       return [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]).slice(0, 8); };
     const t1 = i => STD.title1(i, c), sl = i => (c.specLine ? c.specLine(i.s) : "");
     const fits = i => i.mks.length ? list(i.mks, 3) : "";
-    const card = x => `<div class="fcell"><a class="fcard" href="/part/${esc(x.pn)}/"><span class="ic">${icon(c.icon)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(t1(x))}</span>${sl(x) ? `<span class="veh">${esc(sl(x))}</span>` : ""}${x.mks.length ? `<span class="veh"><b>Fits</b> ${esc(fits(x))}</span>` : ""}</a></div>`;
+    const card = x => `<div class="fcell"><a class="fcard" href="/part/${esc(x.pn)}/"><span class="ic">${x.ph ? `<img src="${esc(x.ph)}" alt="" loading="lazy" style="max-height:100%;max-width:100%">` : icon(c.icon)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(t1(x))}</span>${sl(x) ? `<span class="veh">${esc(sl(x))}</span>` : ""}${x.mks.length ? `<span class="veh"><b>Fits</b> ${esc(fits(x))}</span>` : ""}</a></div>`;
     for (const i of d.items) {
       const url = `${SITE}/part/${i.pn}/`, name = t1(i);
       const okv = v => v && v !== "Not specified";
@@ -439,7 +441,7 @@ const stdCounts = [];
       const desc = `Stravik ${lc1(name)} ${i.pn}.` + (sl(i) ? ` ${sl(i).charAt(0).toUpperCase() + sl(i).slice(1)}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mks.length ? ` Fits ${list(mks, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
       const rel = related(i);
       const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], [`/#/${id}`, c.title], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(name))}</p></div></div>
-<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(c.title)}</span><div class="big">${icon(c.icon)}</div></div>
+<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(c.title)}</span>${i.ph ? `<img class="bphoto stdph" src="${esc(i.ph)}" alt="${esc(name)}">` : `<div class="big">${icon(c.icon)}</div>`}</div>
 <div class="info"><div class="type">Stravik ${esc(lc1(name))}</div>
 <dl class="specs">${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
 ${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
@@ -455,7 +457,7 @@ ${!ex.length && !only.length ? `<p class="sib">Vehicle details to follow. Send u
 </div></section>`}
 ${rel.length ? `<section class="block related"><div class="wrap"><h2>Other ${esc(c.many)} for the same vehicles</h2><div class="fgrid">${rel.map(card).join("")}</div></div></section>` : ""}
 ${cantFind}`;
-      write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${name} ${i.pn}`, i.pn, c.title, desc, "/assets/og.jpg"), body }));
+      write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${name} ${i.pn}`, i.pn, c.title, desc, i.ph || "/assets/og.jpg"), body }));
       urls.push(url);
     }
     stdCounts.push(`${d.items.length} ${c.title.toLowerCase()}`);
