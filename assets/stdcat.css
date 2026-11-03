@@ -30,6 +30,7 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-q input{flex:1;min-width:0;border:0;background:transparent;padding:13px 12px 12px 0;font:500 17px var(--body);color:var(--ink);outline:none}
 .sc-clearq{border:0;background:none;padding:10px 14px;color:var(--muted);cursor:pointer;font:500 15px var(--body)}
 .sc-filters{display:flex;flex-wrap:wrap;gap:10px;margin-top:11px;align-items:flex-end}
+.sc-veh{display:contents}
 .sc-filters label{display:flex;flex-direction:column;font-size:12.5px;font-weight:600;color:var(--muted);gap:3px}
 .sc-filters select,.sc-filters input{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:8px 8px;font:500 14.5px var(--body);min-width:130px;max-width:220px}
 .sc-filters select:disabled{opacity:.55}

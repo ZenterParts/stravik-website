@@ -25,8 +25,33 @@ const CATS={
     kind:"Ignition coil",
     specLine:s=>[s["Connector"]&&s["Connector"]!=="Not specified"?s["Connector"]+" connector":"Connector to be confirmed",
       s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
+  },
+  "bulbs":{
+    title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
+    crumbs:[["Our products","#/products"]],
+    lead:"Halogen, miniature, LED and HID xenon bulbs. Find the right Stravik bulb by Stravik number, bulb (e.g. H4, W5W, D1S) or base.",
+    placeholder:"Stravik no., bulb (e.g. H4, W5W, D1S) or base (e.g. BA15s)",
+    exact:["Bulb","Base"],   // a search that is exactly a bulb or base code shows only those
+    filters:[{k:"Bulb type",h:"Technology",any:"All",order:["HALOGEN","HALOGEN MINI","LED","HID"],label:v=>BULB_TECH[v]||v},
+      {k:"Bulb",h:"Bulb",any:"All",sort:"alpha"},{k:"Range",h:"Range",any:"All",label:v=>BULB_RANGE[v]?v+" – "+BULB_RANGE[v]:v,sort:"alpha"},
+      {k:"Voltage",h:"Voltage",any:"All",sort:"num"},{k:"Base",h:"Base",any:"All",sort:"alpha"}],
+    facts:d=>[[d.n.items,"bulbs"],[new Set(d.items.map(i=>i.s["Bulb"]).filter(Boolean)).size,"bulb types"],[new Set(d.items.map(i=>i.s["Base"]).filter(Boolean)).size,"bases"]],
+    order:(a,b)=>BULB_ORDER.indexOf(a.s["Bulb type"])-BULB_ORDER.indexOf(b.s["Bulb type"])||a.pn.localeCompare(b.pn),
+    title1:i=>(BULB_TECH[i.s["Bulb type"]]||"")+" bulb"+(i.s["Bulb"]?" "+i.s["Bulb"]:""),
+    rowLine:i=>[i.s["Voltage"],watt(i.s["Wattage"]),i.s["Base"]].filter(Boolean).join(", "),
+    specLine:s=>[BULB_TECH[s["Bulb type"]],bulbRange(s)].filter(Boolean).join(", "),
+    rowRight:i=>i.s["Bulb"]||"",
+    specs:[["Bulb type","Technology",(v)=>BULB_TECH[v]||v],["Bulb","Bulb"],["Range","Range",(v,s)=>bulbRange(s)+(BULB_RANGE[v]||BULB_HID[v]?" ("+v+")":"")],["Voltage","Voltage"],["Wattage","Wattage",watt],["Base","Base"],["Colour temperature","Colour temperature"],["ECE approval","ECE approval"]]
   }
 };
+// bulbs: technology and range code names (as in the Lucas bulb catalogue's "reading the range codes")
+const BULB_ORDER=["HALOGEN","HALOGEN MINI","LED","HID"];
+const BULB_TECH={HALOGEN:"Halogen","HALOGEN MINI":"Halogen mini",LED:"LED",HID:"HID xenon"};
+const BULB_RANGE={STD:"Standard",HL:"High Light",LL:"Long Life",VF:"Vibration Free",SF:"Super Fleet",SW:"Super White",SWP:"Super White Plus",YE:"Yellow",SVP:"Super Vision Plus",SUVP:"Super Ultra Vision Plus",SUR:"Super Rally",HLP:"High Performance",HW:"High Wattage"};
+const BULB_HID={STD:"Standard white, 4300K",WH:"Intense white, 5000K",RW:"Cool white, 6000K",BW:"Blue white, 8000K"};
+const titleCase=v=>String(v||"").toLowerCase().replace(/(^|\s)\S/g,m=>m.toUpperCase());
+function bulbRange(s){const v=s["Range"];if(!v)return "";if(s["Bulb type"]==="HID"&&BULB_HID[v])return BULB_HID[v];return BULB_RANGE[v]||(/^[A-Z0-9 ]+$/.test(v)?titleCase(v):v);}
+function watt(v){v=String(v||"");return !v?"":/W$/i.test(v)?v:v+" W";}
 
 // ---------------------------------------------------------------- data
 const cache={};
@@ -67,7 +92,8 @@ function prep(d,c){
     if(yf)i.yrs=!yt?yf+" on":yt!==yf?yf+"–"+yt:String(yf);
     else{const ys=i.apps.filter(a=>a.y0),y0=ys.length?Math.min(...ys.map(a=>a.y0)):0,y1=ys.length?Math.max(...ys.map(a=>a.y1)):0;
       i.yrs=!y0?"":y1===9999?y0+" on":y1!==y0?y0+"–"+y1:String(y0);}
-    i.text=lc([i.pn,i.d,i.apps.map(a=>a.mk+" "+a.mo+" "+a.eng).join(" ")].join(" "));
+    i.text=lc([i.pn,i.d,Object.values(i.s).join(" "),i.apps.map(a=>a.mk+" "+a.mo+" "+a.eng).join(" ")].join(" "));
+    i.codes=(c.exact||[]).flatMap(k=>String(i.s[k]||"").split(/\s*,\s*/)).map(clean).filter(Boolean);
   });
   const mkCount={};d.items.forEach(i=>i.mks.forEach(m=>mkCount[m]=(mkCount[m]||0)+1));
   d.mkList=Object.keys(mkCount).sort((a,b)=>a.localeCompare(b));
@@ -97,9 +123,10 @@ function numHit(i,q){const c=clean(q);if(c.length<3)return null;
 function textHit(i,q){const w=lc(q).split(/\s+/).filter(Boolean);return w.length&&w.every(t=>i.text.includes(t));}
 function appOk(a,st){return (!st.mk||a.mk===st.mk)&&(!st.mo||a.mo===st.mo)&&(!st.yr||(+st.yr>=a.y0&&+st.yr<=a.y1));}
 const yrOk=st=>!st.yr||/^\d{4}$/.test(st.yr);
-function pass(i,st){
+function pass(i,st,exactQ){
   i._hit=null;
-  if(st.q&&!(i._hit=numHit(i,st.q))&&!textHit(i,st.q))return false;
+  if(exactQ){if(!i.codes.includes(exactQ)&&!clean(i.pn).includes(exactQ))return false;}
+  else if(st.q&&!(i._hit=numHit(i,st.q))&&!textHit(i,st.q))return false;
   if((st.mk||(st.yr&&yrOk(st)))&&!i.apps.some(a=>appOk(a,st)))return false;
   for(const k in st.f){const v=st.f[k];if(v&&i.s[k]!==v)return false;}
   return true;
@@ -113,7 +140,7 @@ const IC={
 const makesText=i=>!i.mks.length?"Vehicle list to follow":i.mks.length<=3?i.mks.join(", "):i.mks.slice(0,3).join(", ")+" and "+(i.mks.length-3)+" more";
 function cartBtn(i,c,cls){
   const Cart=window.STV&&STV.Cart,on=Cart&&Cart.has(i.pn);
-  const item={key:i.pn,no:i.pn,cat:c.cat,desc:i.d,link:"/#/"+c.id+"?p="+i.pn,kind:"std"};
+  const item={key:i.pn,no:i.pn,cat:c.cat,desc:c.title1?c.title1(i)+(c.rowLine?", "+c.rowLine(i):""):i.d,link:"/#/"+c.id+"?p="+i.pn,kind:"std"};
   return `<button type="button" class="fadd ${cls||""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ In cart":"Add to cart"}</button>`;
 }
 
@@ -137,9 +164,9 @@ function page(app,id,params){
     <label class="sr" for="scQ">Search ${esc(c.many)}</label>
     <form class="sc-q" role="search" id="scForm">${IC.search}<input id="scQ" type="search" autocomplete="off" spellcheck="false" placeholder="${esc(c.placeholder)}" value="${esc(st.q)}"><button type="button" class="sc-clearq" id="scClearQ"${st.q?"":" hidden"}>Clear</button></form>
     <div class="sc-filters">
-      <label>Make<select id="scMk"><option value="">All makes</option></select></label>
+      <span class="sc-veh"${c.vehicles===false?" hidden":""}><label>Make<select id="scMk"><option value="">All makes</option></select></label>
       <label>Model<select id="scMo" disabled><option value="">All models</option></select></label>
-      <label>Model year<input id="scYr" inputmode="numeric" maxlength="4" placeholder="e.g. 2015" value="${esc(st.yr)}"></label>
+      <label>Model year<input id="scYr" inputmode="numeric" maxlength="4" placeholder="e.g. 2015" value="${esc(st.yr)}"></label></span>
       ${c.filters.map((f,k)=>`<label>${esc(f.h)}<select data-f="${k}"><option value="">${esc(f.any)}</option></select></label>`).join("")}
       <button type="button" class="sc-reset" id="scReset">Reset</button>
     </div>
@@ -156,7 +183,10 @@ function page(app,id,params){
   </div>`;
   const $=s=>app.querySelector(s);
   load(id).then(d=>{
-    $("#scFacts").innerHTML=`<span><strong>${fmt(d.n.items)}</strong>${esc(c.many)}</span><span><strong>${fmt(d.n.apps)}</strong>applications</span><span><strong>${fmt(d.n.makes)}</strong>vehicle makes</span>`;
+    const facts=c.facts?c.facts(d):[[d.n.items,c.many],[d.n.apps,"applications"],[d.n.makes,"vehicle makes"]];
+    $("#scFacts").innerHTML=facts.map(f=>`<span><strong>${fmt(f[0])}</strong>${esc(f[1])}</span>`).join("");
+    if(c.order)d.items.sort(c.order);
+    const allCodes=new Set(d.items.flatMap(i=>i.codes));
     const q=$("#scQ"),mkSel=$("#scMk"),moSel=$("#scMo"),yr=$("#scYr");
     mkSel.insertAdjacentHTML("beforeend",d.mkList.map(m=>`<option>${esc(m)}</option>`).join(""));mkSel.value=st.mk;
     const fillModels=()=>{
@@ -168,8 +198,10 @@ function page(app,id,params){
     // spec drop-downs: values from the whole range, most common first (or by number)
     app.querySelectorAll("select[data-f]").forEach(sel=>{const f=c.filters[sel.dataset.f],cnt={};
       d.items.forEach(i=>{const v=i.s[f.k];if(v)cnt[v]=(cnt[v]||0)+1;});
-      let vals=Object.keys(cnt);vals.sort(f.sort==="num"?(a,b)=>(parseFloat(a)||99)-(parseFloat(b)||99)||a.localeCompare(b):(a,b)=>cnt[b]-cnt[a]);
-      sel.insertAdjacentHTML("beforeend",vals.map(v=>`<option>${esc(v)}</option>`).join(""));sel.value=st.f[f.k]||"";
+      let vals=Object.keys(cnt);
+      vals.sort(f.order?(a,b)=>(f.order.indexOf(a)+1||99)-(f.order.indexOf(b)+1||99):f.sort==="num"?(a,b)=>(parseFloat(a)||99)-(parseFloat(b)||99)||a.localeCompare(b)
+        :f.sort==="alpha"?(a,b)=>a.localeCompare(b,undefined,{numeric:true}):(a,b)=>cnt[b]-cnt[a]);
+      sel.insertAdjacentHTML("beforeend",vals.map(v=>`<option value="${esc(v)}">${esc(f.label?f.label(v):v)}</option>`).join(""));sel.value=st.f[f.k]||"";
       sel.onchange=()=>{if(sel.value)st.f[f.k]=sel.value;else delete st.f[f.k];update(true);};});
     let t=0;
     q.oninput=()=>{$("#scClearQ").hidden=!q.value;clearTimeout(t);t=setTimeout(()=>{st.q=q.value.trim();update(true);},150);};
@@ -186,7 +218,8 @@ function page(app,id,params){
     const listEl=$("#scList"),det=$("#scDetail");
     function update(reset){
       if(reset)shown=PAGE;
-      list=d.items.filter(i=>pass(i,st));
+      const cq=clean(st.q),exactQ=cq&&allCodes.has(cq)?cq:"";
+      list=d.items.filter(i=>pass(i,st,exactQ));
       if(st.q)list.sort((a,b)=>(b._hit?1:0)-(a._hit?1:0)||a.pn.localeCompare(b.pn));
       const veh=[st.mk,st.mo,yrOk(st)?st.yr:""].filter(Boolean).join(" ");
       $("#scCount").textContent=!list.length?`No ${c.many} found`:(list.length===d.items.length?`All ${fmt(list.length)} ${c.many}`:`${fmt(list.length)} ${list.length===1?c.one:c.many}`+(veh?` for ${veh}`:st.q?` for “${st.q}”`:""));
@@ -200,8 +233,8 @@ function page(app,id,params){
       const inCart=window.STV&&STV.Cart.has(i.pn);
       return `<li><button class="sc-row" type="button" data-pn="${esc(i.pn)}" aria-current="false">
         ${i.ph?`<span class="sc-tile"><img src="${esc(i.ph)}" alt="" loading="lazy"></span>`:""}
-        <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
-        <span class="sc-yr">${esc(i.yrs)}</span></button></li>`;
+        <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(c.rowLine?c.rowLine(i):makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
+        <span class="sc-yr">${esc(c.rowRight?c.rowRight(i):i.yrs)}</span></button></li>`;
     }
     function paint(){
       if(!list.length){listEl.innerHTML=`<li class="sc-empty"><strong>No ${esc(c.many)} match${st.q?` “${esc(st.q)}”`:""}.</strong><br>Check the number for typing errors, try fewer characters, or reset the filters. You can also <a href="#/request${st.q?"?q="+encodeURIComponent(st.q):""}">request the part</a> and we'll check it for you.</li>`;$("#scMore").hidden=true;return;}
@@ -215,15 +248,16 @@ function page(app,id,params){
     function show(i,open){
       cur=i;st.p=i&&open?i.pn:(st.p&&i&&i.pn===st.p?st.p:"");markCurrent();
       if(!i){det.innerHTML="";det.hidden=true;return;}det.hidden=false;
-      const specs=Object.keys(i.s).filter(k=>i.s[k]&&i.s[k]!=="Not specified");
+      const okv=v=>v&&v!=="Not specified";
+      const specs=c.specs?c.specs.filter(x=>okv(i.s[x[0]])).map(x=>[x[1],x[2]?x[2](i.s[x[0]],i.s):i.s[x[0]]]):Object.keys(i.s).filter(k=>okv(i.s[k])).map(k=>[k,i.s[k]]);
       const groups={};i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0).forEach(a=>{(groups[a.mk]=groups[a.mk]||[]).push(a);});
-      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(i.d||c.kind)}</div></div><button class="sc-close" type="button" id="scClose">Close</button></div>
+      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div></div><button class="sc-close" type="button" id="scClose">Close</button></div>
         ${i.ph?`<div class="sc-photo"><img src="${esc(i.ph)}" alt="${esc(i.pn)}"></div>`:""}
         <div class="sc-dcart">${cartBtn(i,c,"sc-addcart")}</div>
-        ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(k=>`<dt>${esc(k)}</dt><dd>${esc(i.s[k])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
+        ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(x=>`<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
         ${i.oe.length?`<div class="sc-dsec"><h3>OE numbers</h3><div class="sc-chips">${i.oe.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
         ${i.xr.length?`<div class="sc-dsec"><h3>Cross-references</h3><div class="sc-chips">${i.xr.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
-        <div class="sc-dsec"><h3>Applications (${fmt(i.apps.length)})</h3>${i.apps.length?`<div class="sc-appwrap"><table class="sc-apps"><thead><tr><th>Model and engine</th><th>Years</th></tr></thead><tbody>${Object.keys(groups).map(m=>`<tr class="sc-mkrow"><td colspan="2">${esc(m)}</td></tr>`+groups[m].map(a=>`<tr${(st.mk||st.yr)&&appOk(a,st)?' class="sc-on"':""}><td>${esc(a.mo)}${a.eng?" "+esc(a.eng):""}</td><td>${esc(a.yl)}</td></tr>`).join("")).join("")}</tbody></table></div>`:`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`}</div>`;
+        ${c.vehicles===false?"":`<div class="sc-dsec"><h3>Applications (${fmt(i.apps.length)})</h3>${i.apps.length?`<div class="sc-appwrap"><table class="sc-apps"><thead><tr><th>Model and engine</th><th>Years</th></tr></thead><tbody>${Object.keys(groups).map(m=>`<tr class="sc-mkrow"><td colspan="2">${esc(m)}</td></tr>`+groups[m].map(a=>`<tr${(st.mk||st.yr)&&appOk(a,st)?' class="sc-on"':""}><td>${esc(a.mo)}${a.eng?" "+esc(a.eng):""}</td><td>${esc(a.yl)}</td></tr>`).join("")).join("")}</tbody></table></div>`:`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`}</div>`}`;
       det.scrollTop=0;
       if(open&&matchMedia("(max-width:900px)").matches){det.classList.add("open");document.body.style.overflow="hidden";det.focus();}
       if(window.STV)STV.cartPaint();
