@@ -17,6 +17,7 @@ const PAGE=60;
 // ---------------------------------------------------------------- range configs
 const CATS={
   "ignition-coils":{
+    icon:"bolt",
     title:"Ignition coils", one:"coil", many:"coils", cat:"Ignition Coils", data:"/ignition-coils.json",
     crumbs:[["Our products","#/products"]], hero:"/assets/img/ignition-coils/hero.webp",
     lead:"Find the right Stravik ignition coil by Stravik number, OE or cross-reference number, or vehicle.",
@@ -28,6 +29,7 @@ const CATS={
       s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
   },
   "horns":{
+    icon:"horn",
     title:"Horns", one:"horn", many:"horns", cat:"Horns", data:"/horns.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
     lead:"Disc and trumpet horns, 12 V and 24 V, single or in tone sets. Find the right Stravik horn by Stravik number, Bosch, Fiamm or Hella number.",
@@ -42,6 +44,7 @@ const CATS={
     specs:[["Type","Type"],["Tone","Tone"],["Voltage","Voltage"],["Current","Current"],["Frequency","Frequency"],["Sound level","Sound level"],["Size","Size"]]
   },
   "wiper-blades":{
+    icon:"wiper",
     title:"Wiper blades", one:"wiper blade", many:"wiper blades", cat:"Wiper Blades", data:"/wiper-blades.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
     lead:"Conventional, flat, hybrid, rear and truck and bus wiper blades. Find the right Stravik blade by Stravik number, OE or cross-reference number, or size.",
@@ -59,6 +62,7 @@ const CATS={
     specs:[["Blade type","Blade type"],["Size","Size"],["Length","Length"],["Range / tier","Range"],["Fitting","Fitting"]]
   },
   "water-pumps":{
+    icon:"pump",
     title:"Water pumps", one:"water pump", many:"water pumps", cat:"Water Pumps", data:"/water-pumps.json", engines:true,
     crumbs:[["Our products","#/products"]],
     lead:"Mechanical and electric water pumps. Find the right Stravik pump by Stravik number, OE or cross-reference number, or by vehicle: make, model, year and engine.",
@@ -74,6 +78,7 @@ const CATS={
       ["Pins","Pins"],["Connector","Connector"],["Plug","Plug"],["Pin shape","Pin shape"],["Hose Ø","Hose Ø"],["Dimensions","Dimensions"],["Weight","Weight"]]
   },
   "alternators":{
+    icon:"alternator",
     title:"Alternators", one:"part", many:"parts", cat:"Alternators", data:"/alternators.json", engines:true,
     crumbs:[["Our products","#/products"]],
     lead:"Alternators and alternator parts: bearings, brushes, pulleys, regulators, rotors and stators. Find the part by Stravik, OE or cross-reference number, or vehicle.",
@@ -88,6 +93,7 @@ const CATS={
     specs:[["Component","Component"],["Voltage","Voltage"],["Current","Current"],["Pulley","Pulley"],["Rotation","Rotation",v=>ROT[v]||v],["Terminal / regulator","Terminal / regulator"]]
   },
   "starters":{
+    icon:"starter",
     title:"Starter motors", one:"starter motor", many:"starter motors", cat:"Starters", data:"/starters.json", engines:true,
     crumbs:[["Our products","#/products"]],
     lead:"Starter motors for cars, pickups and light commercials, 12 V and 24 V. Find the right Stravik starter by Stravik number, OE or cross-reference number, or vehicle.",
@@ -99,6 +105,7 @@ const CATS={
     specs:[["Voltage","Voltage"],["Power","Power"],["Teeth","Pinion teeth"],["Rotation","Rotation",v=>ROT[v]||v]]
   },
   "bulbs":{
+    icon:"bulb",
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
     lead:"Halogen, miniature, LED and HID xenon bulbs. Find the right Stravik bulb by Stravik number, bulb (e.g. H4, W5W) or base.",
@@ -130,7 +137,7 @@ function watt(v){v=String(v||"");return !v?"":/W$/i.test(v)?v:v+" W";}
 // ---------------------------------------------------------------- data
 const cache={};
 function load(id){
-  const c=CATS[id];
+  const c=CATS[id];c.id=id;
   const photos=c.img?fetch(c.img+"index.json").then(r=>r.ok?r.json():[]).catch(()=>[]):Promise.resolve([]);
   if(!cache[id])cache[id]=Promise.all([fetch(c.data).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),photos])
     .then(([d,ph])=>{d.photos=new Set(ph);return prep(d,c);}).catch(e=>{delete cache[id];throw e;});
@@ -226,7 +233,7 @@ const IC={
 const makesText=i=>!i.mks.length?"Vehicle list to follow":i.mks.length<=3?i.mks.join(", "):i.mks.slice(0,3).join(", ")+" and "+(i.mks.length-3)+" more";
 function cartBtn(i,c,cls){
   const Cart=window.STV&&STV.Cart,on=Cart&&Cart.has(i.pn);
-  const item={key:i.pn,no:i.pn,cat:c.cat,desc:c.title1?c.title1(i)+(c.rowLine?", "+c.rowLine(i):""):i.d,link:"/#/"+c.id+"?p="+i.pn,kind:"std"};
+  const item=cartItem(i,c);
   return `<button type="button" class="fadd ${cls||""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ In cart":"Add to cart"}</button>`;
 }
 
@@ -379,7 +386,7 @@ function page(app,id,params){
       const okv=v=>v&&v!=="Not specified";
       const specs=c.specs?c.specs.filter(x=>okv(i.s[x[0]])).map(x=>[x[1],x[2]?x[2](i.s[x[0]],i.s):i.s[x[0]]]):Object.keys(i.s).filter(k=>okv(i.s[k])).map(k=>[k,i.s[k]]);
       const groups={};i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0).forEach(a=>{(groups[a.mk]=groups[a.mk]||[]).push(a);});
-      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div></div><button class="sc-close" type="button" id="scClose">Close</button></div>
+      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div><a class="sc-plink" href="/part/${encodeURIComponent(i.pn)}/">Part page →</a></div><button class="sc-close" type="button" id="scClose">Close</button></div>
         ${i.ph?`<div class="sc-photo"><img src="${esc(i.ph)}" alt="${esc(i.pn)}"></div>`:""}
         <div class="sc-dcart">${cartBtn(i,c,"sc-addcart")}</div>
         ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(x=>`<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
@@ -407,5 +414,8 @@ function page(app,id,params){
 let repaint=null;
 document.addEventListener("click",e=>{if(repaint&&e.target.closest&&e.target.closest("button[data-cart-key]"))setTimeout(repaint,0);});
 
-window.StdCat={has:id=>!!CATS[id],page,cats:CATS};
+// shared with Find a part (assets/app.js) and the part pages (tools/build-pages.js)
+const title1=(i,c)=>c.title1?c.title1(i):i.d||c.kind||c.one;
+const cartItem=(i,c)=>({key:i.pn,no:i.pn,cat:c.cat,desc:title1(i,c)+(c.rowLine?", "+c.rowLine(i):""),link:"/part/"+encodeURIComponent(i.pn)+"/",kind:"std"});
+window.StdCat={has:id=>!!CATS[id],page,cats:CATS,load,prep,title1,cartItem,makesText};
 })();

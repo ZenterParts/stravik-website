@@ -2,6 +2,7 @@
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
 //   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json), brakes (brakes.json), batteries (batteries.json) and gas springs (gas-springs.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
+//   /part/<Stravik no.>/    the standard catalogue ranges in assets/stdcat.js (ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
 "use strict";
@@ -398,7 +399,70 @@ ${cantFind}`;
   urls.push(url);
 }
 
+// ================= standard catalogue ranges (assets/stdcat.js) =================
+// the range configs and the data preparation come from the site's own script, so the pages match the catalogue
+const sctx = { window: {}, document: { addEventListener() {} } }; vm.createContext(sctx);
+vm.runInContext(rd("assets/stdcat.js"), sctx);
+const STD = sctx.window.StdCat;
+const stdCounts = [];
+{ const used = new Set(SS.map(i => i.pn).concat(SA.map(i => i.pn), BR.map(i => i.pn), BT.map(i => i.pn), GS.map(i => i.pn)));
+  for (const [id, c] of Object.entries(STD.cats)) {
+    const file = c.data.replace(/^\//, "");
+    if (!fs.existsSync(path.join(ROOT, file))) continue;
+    const d = JSON.parse(rd(file)); d.photos = new Set(); c.id = id; STD.prep(d, c);
+    const clash = d.items.filter(i => used.has(i.pn)).map(i => i.pn);
+    if (clash.length) throw new Error(c.title + " numbers also used in another catalogue: " + clash.slice(0, 5).join(", "));
+    d.items.forEach(i => used.add(i.pn));
+    const byVeh = new Map();
+    d.items.forEach(i => uniq(i.apps.filter(a => !a.any).map(a => a.mk + "|" + a.mo)).forEach(k => { if (!byVeh.has(k)) byVeh.set(k, []); byVeh.get(k).push(i); }));
+    const related = i => { const score = new Map();
+      uniq(i.apps.filter(a => !a.any).map(a => a.mk + "|" + a.mo)).forEach(k => (byVeh.get(k) || []).forEach(x => { if (x !== i) score.set(x, (score.get(x) || 0) + 1); }));
+      return [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]).slice(0, 8); };
+    const t1 = i => STD.title1(i, c), sl = i => (c.specLine ? c.specLine(i.s) : "");
+    const fits = i => i.mks.length ? list(i.mks, 3) : "";
+    const card = x => `<div class="fcell"><a class="fcard" href="/part/${esc(x.pn)}/"><span class="ic">${icon(c.icon)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(t1(x))}</span>${sl(x) ? `<span class="veh">${esc(sl(x))}</span>` : ""}${x.mks.length ? `<span class="veh"><b>Fits</b> ${esc(fits(x))}</span>` : ""}</a></div>`;
+    for (const i of d.items) {
+      const url = `${SITE}/part/${i.pn}/`, name = t1(i);
+      const okv = v => v && v !== "Not specified";
+      const specs = (c.specs ? c.specs.filter(x => okv(i.s[x[0]])).map(x => [x[1], x[2] ? x[2](i.s[x[0]], i.s) : i.s[x[0]]]) : Object.keys(i.s).filter(k => okv(i.s[k])).map(k => [k, i.s[k]]));
+      const rows = [["Stravik number", i.pn], ["Part", name]].concat(specs, [["Model years", i.yrs]]).filter(r => r[1]);
+      const ex = i.apps.filter(a => !a.any), only = uniq(i.apps.filter(a => a.any).map(a => a.mk)).sort();
+      const rich = ex.some(a => a.ver || a.ec || a.code), kw = ex.some(a => a.kw);
+      const byMk = uniq(ex.map(a => a.mk)).sort((a, b) => a.localeCompare(b)).map(m => ({ m, apps: ex.filter(a => a.mk === m).sort((a, b) => a.mo.localeCompare(b.mo) || a.y0 - b.y0) }));
+      const ncol = rich ? 4 + (kw ? 1 : 0) : 2;
+      const appRow = a => rich
+        ? `<tr><td>${esc(a.mo)}${a.code ? ` <span class="mc">${esc(a.code)}</span>` : ""}</td><td>${esc(a.ver || a.eng || "")}${a.body ? `, ${esc(a.body)}` : ""}</td><td class="mc">${esc(a.ec || "")}</td>${kw ? `<td>${esc(a.kw || "")}</td>` : ""}<td class="yr">${esc(a.yl)}</td></tr>`
+        : `<tr><td>${esc(a.mo)}${a.eng ? " " + esc(a.eng) : ""}</td><td class="yr">${esc(a.yl)}</td></tr>`;
+      const head = rich ? `<th>Model</th><th>Version</th><th>Engine</th>${kw ? "<th>kW</th>" : ""}<th>Years</th>` : `<th>Model and engine</th><th>Years</th>`;
+      const mks = uniq(i.apps.map(a => a.mk)), vh = uniq(ex.map(a => a.mo));
+      const title = `Stravik ${i.pn} ${name}${mks.length ? " | " + list(mks.slice(0, 2), 2) : ""}`.slice(0, 120);
+      const desc = `Stravik ${lc1(name)} ${i.pn}.` + (sl(i) ? ` ${sl(i).charAt(0).toUpperCase() + sl(i).slice(1)}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mks.length ? ` Fits ${list(mks, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
+      const rel = related(i);
+      const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], [`/#/${id}`, c.title], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(name))}</p></div></div>
+<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(c.title)}</span><div class="big">${icon(c.icon)}</div></div>
+<div class="info"><div class="type">Stravik ${esc(lc1(name))}</div>
+<dl class="specs">${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
+${i.xr.length ? `<h2 class="nums-h">Cross-reference numbers</h2><div class="chips">${i.xr.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
+<div class="replace"><b>Before you order</b><span>${c.vehicles === false ? "Check the specification against the old part, or send us the OE number and we'll confirm the match." : "Check the vehicle, engine and years below against the original part, or send us the OE number and we'll confirm the fit."}</span></div>
+${buyBox(STD.cartItem(i, c))}
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(c.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this part</a><a class="btn line" href="/#/${id}">More ${esc(c.many)}</a></div>
+</div></div>
+${c.vehicles === false ? "" : `<section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${ex.length} ${ex.length === 1 ? "application" : "applications"}, ${mks.length} ${mks.length === 1 ? "make" : "makes"}</span></h2>
+${ex.length ? `<div class="ftable-wrap"><table class="ctable apps"><thead><tr>${head}</tr></thead><tbody>${byMk.map(g => `<tr class="catrow"><td colspan="${ncol}">${esc(g.m)}</td></tr>` + g.apps.map(appRow).join("")).join("")}</tbody></table></div>` : ""}
+${only.length ? `<p class="sib">${ex.length ? "Also: " : ""}${esc(only.join(", "))}</p>` : ""}
+${!ex.length && !only.length ? `<p class="sib">Vehicle details to follow. Send us the OE number and we'll confirm the match.</p>` : ""}
+</div></section>`}
+${rel.length ? `<section class="block related"><div class="wrap"><h2>Other ${esc(c.many)} for the same vehicles</h2><div class="fgrid">${rel.map(card).join("")}</div></div></section>` : ""}
+${cantFind}`;
+      write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${name} ${i.pn}`, i.pn, c.title, desc, "/assets/og.jpg"), body }));
+      urls.push(url);
+    }
+    stdCounts.push(`${d.items.length} ${c.title.toLowerCase()}`);
+  }
+}
+
 // ================= sitemap and robots =================
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages, ${GS.length} gas spring pages and ${F.items.length} filter pages (${urls.length + 1} URLs in sitemap.xml).`);
+console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages, ${GS.length} gas spring pages, ${F.items.length} filter pages and pages for ${stdCounts.join(", ")} (${urls.length + 1} URLs in sitemap.xml).`);
