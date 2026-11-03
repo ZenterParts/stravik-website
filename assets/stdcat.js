@@ -222,7 +222,7 @@ function appsRich(i,st){
   return `<div class="sc-dsec"><h3>Vehicle fitment${n?` (${fmt(n)})`:""}</h3>
     ${n>12?`<label class="sr" for="scAf">Filter the vehicles</label><input class="sc-afilter" id="scAf" type="search" autocomplete="off" placeholder="Filter: model, engine code, kW or year"><p class="sc-afnone sc-muted" hidden>No vehicle matches the filter.</p>`:""}
     ${n?`<div class="sc-appwrap"><table class="sc-apps sc-apps4"><thead><tr><th>Version</th><th>Engine</th><th>kW</th><th>Years</th></tr></thead>${body}</table></div>`:""}
-    ${mo.length?`<p class="sc-mkonly"><strong>${n?"Also listed for":"Listed for"} ${esc(mo.join(", "))}.</strong> The models aren't in our list yet: send us the vehicle or the OE number and we'll confirm the fitment.</p>`:""}
+    ${mo.length?`<p class="sc-mkonly">${n?"Also: ":""}${esc(mo.join(", "))}</p>`:""}
     ${!n&&!mo.length?`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`:""}</div>`;
 }
 function filterApps(det,v){
