@@ -93,7 +93,7 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-apps4 tr.sc-morow span{font-weight:500;color:var(--muted);margin-left:6px}
 .sc-apps4 td small{display:block;color:var(--muted);font-size:12.5px}
 .sc-apps4 td:nth-child(2){font-size:13px}
-.sc-apps4 td:nth-child(3),.sc-apps4 th:nth-child(3){text-align:right;font-variant-numeric:tabular-nums}
+.sc-apps4.sc-kw td:nth-child(3),.sc-apps4.sc-kw th:nth-child(3){text-align:right;font-variant-numeric:tabular-nums}
 .sc-apps4 tr.sc-on td{background:var(--gold-tint)}
 .sc-apps4 tr.sc-mkrow td,.sc-apps4 tr.sc-morow td{white-space:normal}
 .sc-afilter{width:100%;box-sizing:border-box;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);font:500 14.5px var(--body)}
