@@ -418,6 +418,7 @@ function productsHome(){
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
       ${pc("/assets/img/gas-springs-hero.svg","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`)}
       ${pc("/assets/img/ignition-coils/hero.webp","bolt","Ignition Coils","Ignition coils, coil packs and pencil coils for cars, bakkies and motorcycles, each with its connector, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/ignition-coils">Open the catalogue</a>`)}
+      ${pc("","bulb","Bulbs","Halogen, miniature, LED and HID xenon bulbs, each with its bulb type, base, voltage and wattage.",["",""],`<a class="btn gold" href="#/bulbs">Open the catalogue</a>`)}
       ${pc("/assets/img/batteries/efb_75_eu.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",""],`<a class="btn gold" href="#/batteries">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`)}
     </div>
   </div></section>

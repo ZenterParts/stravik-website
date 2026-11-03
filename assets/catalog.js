@@ -57,6 +57,7 @@ const PADS = [
 ];
 
 const ICONS = {
+  bulb:'<path d="M24 40c0-6-6-9-6-17a14 14 0 0 1 28 0c0 8-6 11-6 17z"/><path d="M25 46h14M26 52h12M29 58h6"/><path d="M28 30l4 6 4-6"/>',
   battery:'<rect x="8" y="18" width="48" height="34" rx="3"/><path d="M16 18v-6h8v6M40 18v-6h8v6M17 35h8M44 31v8M40 35h8"/>',
  pad:'<path d="M8 40c2-15 12-22 24-22s22 7 24 22l-5 5c-6-5-12-7-19-7s-13 2-19 7z"/><path d="M14 34c4-6 10-9 18-9s14 3 18 9"/><circle cx="12" cy="42" r="1.6"/><circle cx="52" cy="42" r="1.6"/>',
  disc:'<circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="10"/><circle cx="32" cy="32" r="3"/><path d="M32 16.5v.1M45.5 26v.1M40 45v.1M24 45v.1M18.5 26v.1" stroke-width="4" stroke-linecap="round"/>',
