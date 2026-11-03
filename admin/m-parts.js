@@ -19,8 +19,19 @@
     stravik_shock_absorbers_full: ['sv_pn', 'description', 'position', 'external_no', 'oe_numbers', 'vehicle_makes'],
     stravik_brakes_full: ['sv_pn', 'description', 'type', 'position', 'size', 'external_no', 'wva_numbers', 'oe_numbers', 'vehicle_makes'],
     stravik_batteries_full: ['sv_pn', 'description', 'type', 'series', 'case_size', 'capacity', 'cca', 'sab_numbers', 'origin', 'prefix', 'vehicle_makes'],
-    stravik_gas_springs_full: ['sv_pn', 'description', 'type', 'position', 'extended_length', 'stroke', 'force', 'lucas_pn', 'oe_numbers', 'cross_references', 'vehicle_makes']
+    stravik_gas_springs_full: ['sv_pn', 'description', 'type', 'position', 'extended_length', 'stroke', 'force', 'lucas_pn', 'oe_numbers', 'cross_references', 'vehicle_makes'],
+    stravik_ignition_coils_full: ['sv_pn', 'description', 'type', 'connector', 'ignition_module', 'vehicle_type', 'lucas_pn', 'oe_numbers', 'cross_references', 'supplier_pn', 'vehicle_makes'],
+    stravik_bulbs_full: ['sv_pn', 'description', 'type', 'bulb', 'bulb_type', 'range', 'voltage', 'wattage', 'base', 'lucas_pn', 'supplier_pn'],
+    stravik_horns_full: ['sv_pn', 'description', 'horn_type', 'voltage', 'tone', 'size', 'lucas_pn', 'cross_references'],
+    stravik_wiper_blades_full: ['sv_pn', 'description', 'type', 'blade_type', 'tier', 'size', 'length', 'lucas_pn', 'old_lucas_numbers', 'oe_numbers', 'cross_references', 'supplier_pn'],
+    stravik_water_pumps_full: ['sv_pn', 'description', 'type', 'drive', 'housing', 'voltage', 'lucas_pn', 'oe_numbers', 'cross_references', 'vehicle_makes'],
+    stravik_alternators_full: ['sv_pn', 'description', 'type', 'voltage', 'current', 'pulley', 'component', 'lucas_pn', 'oe_numbers', 'cross_references', 'supplier_pn', 'vehicle_makes'],
+    stravik_starters_full: ['sv_pn', 'description', 'type', 'voltage', 'power', 'teeth', 'code', 'lucas_pn', 'oe_numbers', 'cross_references', 'supplier_pn', 'vehicle_makes']
   };
+  // Stravik part numbers: SV… (filters, steering & suspension, shock absorbers, brakes, batteries) or S + 4 letters + 4 digits
+  // (gas springs SBGSP0001, ignition coils SEIGC0001, alternators SLALT0001, water pumps SCWPM0001 …), as the database accepts them
+  var PN_OK = /^(SV[A-Z0-9-]{3,}|S[A-Z]{4}[0-9]{4})$/;
+  var PN_RULE = 'SV followed by letters, digits or hyphens (e.g. SVBJ0001L), or S + 4 letters + 4 digits (e.g. SEIGC0001, SBGSP0001)';
   var REGIONS = [['north_africa', 'North Africa'], ['east_africa', 'East Africa'], ['west_africa', 'West Africa'], ['central_africa', 'Central Africa'],
     ['southern_africa', 'Southern Africa'], ['ocean_islands', 'Indian Ocean Islands'], ['gcc', 'GCC'], ['middle_east', 'Middle East']];
   var COSTS = [['c_cons', 'Consolidation'], ['c_finance', 'Finance'], ['c_ship', 'Shipping'], ['c_ins', 'Insurance'], ['c_whs', 'Warehousing'], ['c_war', 'Warranty'],
@@ -260,7 +271,7 @@
     $('aSave').onclick = async function () {
       var pn = L.pnNorm($('aPn').value), cc = L.cat($('aRange').value), d = $('aDesc').value.trim();
       if (!pn || !d) return L.toast('Part number and description are required');
-      if (!/^(SV[A-Z0-9-]{3,}|SBGS\d{4})$/.test(pn)) return L.toast('A Stravik part number starts with SV (letters, digits and hyphens only), or SBGS + 4 digits for gas springs');
+      if (!PN_OK.test(pn)) return L.toast('A Stravik part number is ' + PN_RULE);
       try {
         var ex = L.must(await sb.from('stravik_parts').select('sv_pn').eq('pn_clean', L.clean(pn)).maybeSingle());
         if (ex) { L.toast(ex.sv_pn + ' already exists'); L.closeModal(); return L.openPart(ex.sv_pn); }
@@ -318,7 +329,7 @@
       rows.forEach(function (r) {
         var ex = existing[r.sv_pn], sub = r.cat ? r.cat.subcategory_key : ex ? ex.subcategory : null;
         if (seen[r.sv_pn]) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' appears twice (also row ' + seen[r.sv_pn] + ')'); seen[r.sv_pn] = r.line;
-        if (!ex && !/^(SV[A-Z0-9-]{3,}|SBGS\d{4})$/.test(r.sv_pn)) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is not a Stravik part number (it must start with SV, or SBGS for gas springs)');
+        if (!ex && !PN_OK.test(r.sv_pn)) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is not a Stravik part number (it must be ' + PN_RULE + ')');
         if (r.rangeText && !r.cat) bad.push('Row ' + r.line + ': range "' + r.rangeText + '" is not one of ' + L.CATS.map(function (c) { return c.name; }).join(', '));
         else if (!ex && !r.cat) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is new, so it needs a range');
         else if (!ex && !r.short_desc) bad.push('Row ' + r.line + ': ' + r.sv_pn + ' is new, so it needs a description');
