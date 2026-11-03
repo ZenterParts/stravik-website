@@ -94,18 +94,65 @@ window.LS = (function () {
     return excelP;
   };
   L.download = function (blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
+  // Stravik-branded Excel downloads: logo band (rows 1-4), gold rule (row 5), navy header row with filters, frozen panes.
+  // The logo is pinned to the cells and the sheet is protected for objects only (no password): cells stay editable,
+  // sorting and filtering work, the logo can't be moved or deleted by accident (Review > Unprotect Sheet to change it).
+  var NAVY = 'FF0B203D', GOLD = 'FFB98A45', TINT = 'FFF7EEDF', LINE = 'FFE6DCCB', BAND = 5, BRAND_TAG = 'Stravik export';
+  var logoP;
+  function excelLogo() {
+    if (!logoP) logoP = fetch('/admin/img/stravik-excel-logo.png').then(function (r) { if (!r.ok) throw new Error('logo ' + r.status); return r.arrayBuffer(); })
+      .then(function (b) { return new Uint8Array(b); }).catch(function () { logoP = null; return null; });
+    return logoP;
+  }
+  function exportTitle(name) {
+    return String(name || '').replace(/\.xlsx$/i, '').replace(/^Stravik_/, '').replace(/_\d{4}-\d{2}-\d{2}$/, '').replace(/_/g, ' ').trim().replace(/^[a-z]/, function (c) { return c.toUpperCase(); });
+  }
   L.saveXlsx = async function (sheets, name) {   // [{name, head, rows, top, foot, widths}]
-    var X = await L.loadExcel(), wb = new X.Workbook();
+    var X = await L.loadExcel(), wb = new X.Workbook(), logo = await excelLogo();
+    wb.creator = 'Stravik'; wb.keywords = BRAND_TAG; wb.title = exportTitle(name);
+    var logoId = logo ? wb.addImage({ buffer: logo, extension: 'png' }) : null;
+    var font = { name: 'Arial', size: 10, color: { argb: 'FF1B2430' } }, thin = { style: 'thin', color: { argb: LINE } };
+    var stamp = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     sheets.forEach(function (sh) {
-      var ws = wb.addWorksheet(String(sh.name).slice(0, 30));
-      (sh.top || []).forEach(function (r) { ws.addRow(r); });
-      var hr = ws.addRow(sh.head); hr.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      hr.eachCell(function (c) { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B203D' } }; });
-      sh.rows.forEach(function (r) { ws.addRow(r); });
-      (sh.foot || []).forEach(function (r) { ws.addRow(r).font = { bold: true }; });
-      sh.head.forEach(function (h, i) { ws.getColumn(i + 1).width = Math.min(60, Math.max(10, String(h).length + 4, (sh.widths || [])[i] || 0)); });
-      if (sh.top && sh.top.length) ws.getRow(1).font = { bold: true, size: 14 };
-      ws.views = [{ state: 'frozen', ySplit: (sh.top || []).length + 1 }];
+      var ws = wb.addWorksheet(String(sh.name).slice(0, 30), { properties: { defaultRowHeight: 15 } });
+      var n = Math.max(sh.head.length, 1), wide = Math.max(n, 8);
+      // columns: widths, Arial, unlocked (so the protected sheet stays editable, also in new rows)
+      for (var c = 1; c <= Math.max(n + 20, 40); c++) {
+        var col = ws.getColumn(c);
+        if (c <= n) col.width = Math.min(60, Math.max(10, String(sh.head[c - 1]).length + 4, (sh.widths || [])[c - 1] || 0));
+        col.font = font; col.protection = { locked: false };
+      }
+      // logo band and gold rule
+      for (var r = 1; r <= 4; r++) ws.getRow(r).height = 21;
+      var title = ws.getCell(2, wide), when = ws.getCell(3, wide);
+      title.value = exportTitle(name) + (sheets.length > 1 ? ' · ' + sh.name : ''); title.font = { name: 'Arial', size: 13, bold: true, color: { argb: NAVY } };
+      when.value = stamp; when.font = { name: 'Arial', size: 10, color: { argb: 'FF6B7280' } };
+      [title, when].forEach(function (x) { x.alignment = { horizontal: 'right', vertical: 'middle' }; x.protection = { locked: true }; });
+      var rule = ws.getRow(BAND); rule.height = 4;
+      for (var g = 1; g <= wide; g++) rule.getCell(g).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GOLD } };
+      if (logoId != null) ws.addImage(logoId, { tl: { col: 0.12, row: 0.4 }, ext: { width: 320, height: 71 }, editAs: 'absolute' });
+      // summary lines (inquiries), header, data, totals
+      (sh.top || []).forEach(function (t) { ws.addRow(t); });
+      if (sh.top && sh.top.length) ws.getRow(BAND + 1).font = { name: 'Arial', bold: true, size: 13, color: { argb: NAVY } };
+      var hr = ws.addRow(sh.head); hr.height = 20;
+      hr.eachCell(function (x) {
+        x.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+        x.alignment = { vertical: 'middle', wrapText: true }; x.border = { bottom: { style: 'medium', color: { argb: GOLD } } };
+      });
+      sh.rows.forEach(function (row) { ws.addRow(row).eachCell(function (x) { x.border = { bottom: thin }; }); });
+      (sh.foot || []).forEach(function (f) { ws.addRow(f).font = { name: 'Arial', size: 10, bold: true }; });
+      if (sh.rows.length) ws.autoFilter = { from: { row: hr.number, column: 1 }, to: { row: hr.number + sh.rows.length, column: n } };
+      // banded rows: white, light gold, white … by conditional formatting, so rows added, sorted or filtered later keep the pattern
+      var last = ws.getColumn(n).letter, r0 = hr.number + 1;
+      ws.addConditionalFormatting({ ref: 'A' + r0 + ':' + last + (r0 + Math.max(sh.rows.length, 0) + 2000),
+        rules: [{ type: 'expression', priority: 1, formulae: ['AND(MOD(ROW()-' + hr.number + ',2)=0,COUNTA($A' + r0 + ':$' + last + r0 + ')>0)'],
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: TINT } } } }] });
+      ws.views = [{ state: 'frozen', ySplit: hr.number, showGridLines: false }];
+      ws.pageSetup = { orientation: n > 6 ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: hr.number + ':' + hr.number };
+      // protect the drawing (logo) only: every cell action stays allowed
+      ws.protect('', { selectLockedCells: true, selectUnlockedCells: true, formatCells: true, formatColumns: true, formatRows: true, insertColumns: true, insertRows: true,
+        insertHyperlinks: true, deleteColumns: true, deleteRows: true, sort: true, autoFilter: true, pivotTables: true, objects: false, scenarios: true });
     });
     var buf = await wb.xlsx.writeBuffer();
     L.download(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name);
@@ -126,7 +173,14 @@ window.LS = (function () {
       if (f || cur.length) { cur.push(f); rows.push(cur); }
     } else {
       var X = await L.loadExcel(), wb = new X.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
-      wb.worksheets[0].eachRow({ includeEmpty: false }, function (r) {
+      // our own branded downloads (templates filled in and uploaded again): start at the header row, below the logo band
+      var ws0 = wb.worksheets[0], first = 1;
+      if (String(wb.keywords || '').indexOf(BRAND_TAG) >= 0) {
+        var v = (ws0.views || [])[0];
+        first = v && v.ySplit > BAND ? v.ySplit : BAND + 1;
+      }
+      ws0.eachRow({ includeEmpty: false }, function (r, rn) {
+        if (rn < first) return;
         var a = []; r.eachCell({ includeEmpty: true }, function (c, n) {
           var v = c.value;
           if (v && typeof v === 'object') v = v.result != null ? v.result : v.text != null ? v.text : v.richText ? v.richText.map(function (t) { return t.text; }).join('') : String(v);
