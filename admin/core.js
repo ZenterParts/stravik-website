@@ -123,14 +123,14 @@ window.LS = (function () {
         col.font = font; col.protection = { locked: false };
       }
       // logo band and gold rule
-      for (var r = 1; r <= 4; r++) ws.getRow(r).height = 19;
+      for (var r = 1; r <= 4; r++) ws.getRow(r).height = 21;
       var title = ws.getCell(2, wide), when = ws.getCell(3, wide);
       title.value = exportTitle(name) + (sheets.length > 1 ? ' · ' + sh.name : ''); title.font = { name: 'Arial', size: 13, bold: true, color: { argb: NAVY } };
       when.value = stamp; when.font = { name: 'Arial', size: 10, color: { argb: 'FF6B7280' } };
       [title, when].forEach(function (x) { x.alignment = { horizontal: 'right', vertical: 'middle' }; x.protection = { locked: true }; });
       var rule = ws.getRow(BAND); rule.height = 4;
       for (var g = 1; g <= wide; g++) rule.getCell(g).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GOLD } };
-      if (logoId != null) ws.addImage(logoId, { tl: { col: 0.12, row: 0.45 }, ext: { width: 268, height: 58 }, editAs: 'absolute' });
+      if (logoId != null) ws.addImage(logoId, { tl: { col: 0.12, row: 0.4 }, ext: { width: 320, height: 71 }, editAs: 'absolute' });
       // summary lines (inquiries), header, data, totals
       (sh.top || []).forEach(function (t) { ws.addRow(t); });
       if (sh.top && sh.top.length) ws.getRow(BAND + 1).font = { name: 'Arial', bold: true, size: 13, color: { argb: NAVY } };
