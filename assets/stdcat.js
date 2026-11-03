@@ -73,6 +73,31 @@ const CATS={
       ["Gasket / seal","Gasket / seal"],["Voltage","Voltage"],["Rated power","Rated power"],["Flow rate","Flow rate"],["Control signal","Control signal"],
       ["Pins","Pins"],["Connector","Connector"],["Plug","Plug"],["Pin shape","Pin shape"],["Hose Ø","Hose Ø"],["Dimensions","Dimensions"],["Weight","Weight"]]
   },
+  "alternators":{
+    title:"Alternators", one:"part", many:"parts", cat:"Alternators", data:"/alternators.json", engines:true,
+    crumbs:[["Our products","#/products"]],
+    lead:"Alternators and alternator parts: bearings, brushes, pulleys, regulators, rotors and stators. Find the part by Stravik, OE or cross-reference number, or vehicle.",
+    placeholder:"Stravik no., OE no., cross-reference no., or vehicle (e.g. Hilux 2.5)",
+    prep:i=>{i.s["Part"]=i.t==="ANC"?"Alternator part":"Alternator";if(i.t==="ANC")i.s["Description"]=i.d;},
+    filters:[{k:"Part",h:"Part",any:"All parts",order:["Alternator","Alternator part"]},
+      {k:"Voltage",h:"Voltage",any:"All",sort:"num"},{k:"Current",h:"Current",any:"Any",sort:"num"}],
+    facts:d=>[[d.items.filter(i=>i.t!=="ANC").length,"alternators"],[d.items.filter(i=>i.t==="ANC").length,"alternator parts"],[d.n.makes,"vehicle makes"]],
+    order:(a,b)=>(a.t==="ANC")-(b.t==="ANC")||a.pn.localeCompare(b.pn),
+    title1:i=>i.t==="ANC"?i.d||"Alternator part":"Alternator",
+    specLine:s=>s["Part"]==="Alternator part"?s["Description"]||"":[s["Voltage"],s["Current"],s["Pulley"]?"pulley "+s["Pulley"]:"",ROT_S[s["Rotation"]]].filter(Boolean).join(", "),
+    specs:[["Component","Component"],["Voltage","Voltage"],["Current","Current"],["Pulley","Pulley"],["Rotation","Rotation",v=>ROT[v]||v],["Terminal / regulator","Terminal / regulator"]]
+  },
+  "starters":{
+    title:"Starter motors", one:"starter motor", many:"starter motors", cat:"Starters", data:"/starters.json", engines:true,
+    crumbs:[["Our products","#/products"]],
+    lead:"Starter motors for cars, pickups and light commercials, 12 V and 24 V. Find the right Stravik starter by Stravik number, OE or cross-reference number, or vehicle.",
+    placeholder:"Stravik no., OE no., cross-reference no., or vehicle (e.g. Accord 2.4)",
+    filters:[{k:"Voltage",h:"Voltage",any:"All",sort:"num"},{k:"Power",h:"Power",any:"Any",sort:"num"},{k:"Teeth",h:"Teeth",any:"Any",sort:"num"},
+      {k:"Rotation",h:"Rotation",any:"Any",label:v=>ROT[v]||v}],
+    title1:()=>"Starter motor",
+    specLine:s=>[s["Voltage"],s["Power"],s["Teeth"]?s["Teeth"]+" teeth":"",ROT_S[s["Rotation"]]].filter(Boolean).join(", "),
+    specs:[["Voltage","Voltage"],["Power","Power"],["Teeth","Pinion teeth"],["Rotation","Rotation",v=>ROT[v]||v]]
+  },
   "bulbs":{
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
@@ -91,6 +116,7 @@ const CATS={
     specs:[["Bulb type","Technology",(v)=>BULB_TECH[v]||v],["Bulb","Bulb"],["Range","Range",(v,s)=>bulbRange(s)+(BULB_RANGE[v]||BULB_HID[v]?" ("+v+")":"")],["Voltage","Voltage"],["Wattage","Wattage",watt],["Base","Base"],["Colour temperature","Colour temperature"],["ECE approval","ECE approval"]]
   }
 };
+const ROT={CW:"Clockwise (CW)",CCW:"Anticlockwise (CCW)"},ROT_S={CW:"clockwise",CCW:"anticlockwise"};
 const WB_ORDER=["Conventional","Flat","Hybrid","Rear","Truck & Bus"];
 // bulbs: technology and range code names (as in the Lucas bulb catalogue's "reading the range codes")
 const BULB_ORDER=["HALOGEN","HALOGEN MINI","LED","HID"];
@@ -208,6 +234,7 @@ function cartBtn(i,c,cls){
 function appsRich(i,st){
   const ex=i.apps.filter(a=>!a.any),mo=[...new Set(i.apps.filter(a=>a.any).map(a=>a.mk))].sort((a,b)=>a.localeCompare(b));
   const on=a=>(st.mk||(st.yr&&yrOk(st)))&&appOk(a,st);
+  const n=ex.length,kw=ex.some(a=>a.kw),cols=kw?4:3;
   const g=new Map();
   ex.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0||(a.ver||"").localeCompare(b.ver||"",undefined,{numeric:true}))
     .forEach(a=>{const k=a.mk+"\u0001"+a.mo+"\u0001"+(a.code||"");if(!g.has(k))g.set(k,[]);g.get(k).push(a);});
@@ -215,13 +242,12 @@ function appsRich(i,st){
   // the chosen make first and, within it, the models that match
   if(st.mk)groups.sort((x,y)=>(x[0].mk===st.mk?0:1)-(y[0].mk===st.mk?0:1)||x[0].mk.localeCompare(y[0].mk)||(y.some(on)?1:0)-(x.some(on)?1:0));
   let lastMk="";
-  const body=groups.map(rows=>{const a0=rows[0],mk=a0.mk!==lastMk?`<tbody class="sc-amk" data-mk="${esc(a0.mk)}"><tr class="sc-mkrow"><td colspan="4">${esc(a0.mk)}</td></tr></tbody>`:"";lastMk=a0.mk;
-    return `${mk}<tbody class="sc-ag" data-mk="${esc(a0.mk)}"><tr class="sc-morow"><td colspan="4">${esc(a0.mo)}${a0.code?` <span>${esc(a0.code)}</span>`:""}</td></tr>`
-      +rows.map(a=>`<tr data-t="${esc(lc([a.mk,a.mo,a.code,a.ver,a.body,a.ec,a.kw,a.yl].join(" ")))}"${on(a)?' class="sc-on"':""}><td>${esc(a.ver||a.eng||"")}${a.body?`<small>${esc(a.body)}</small>`:""}</td><td>${esc(a.ec||"")}</td><td>${esc(a.kw||"")}</td><td>${esc(a.yl)}</td></tr>`).join("")+`</tbody>`;}).join("");
-  const n=ex.length;
+  const body=groups.map(rows=>{const a0=rows[0],mk=a0.mk!==lastMk?`<tbody class="sc-amk" data-mk="${esc(a0.mk)}"><tr class="sc-mkrow"><td colspan="${cols}">${esc(a0.mk)}</td></tr></tbody>`:"";lastMk=a0.mk;
+    return `${mk}<tbody class="sc-ag" data-mk="${esc(a0.mk)}"><tr class="sc-morow"><td colspan="${cols}">${esc(a0.mo)}${a0.code?` <span>${esc(a0.code)}</span>`:""}</td></tr>`
+      +rows.map(a=>`<tr data-t="${esc(lc([a.mk,a.mo,a.code,a.ver,a.body,a.ec,a.kw,a.yl].join(" ")))}"${on(a)?' class="sc-on"':""}><td>${a.ver||a.eng?esc(a.ver||a.eng):a.ec?"":`<span class="sc-muted">All</span>`}${a.body?`<small>${esc(a.body)}</small>`:""}</td><td>${esc(a.ec||"")}</td>${kw?`<td>${esc(a.kw||"")}</td>`:""}<td>${esc(a.yl)}</td></tr>`).join("")+`</tbody>`;}).join("");
   return `<div class="sc-dsec"><h3>Vehicle fitment${n?` (${fmt(n)})`:""}</h3>
-    ${n>12?`<label class="sr" for="scAf">Filter the vehicles</label><input class="sc-afilter" id="scAf" type="search" autocomplete="off" placeholder="Filter: model, engine code, kW or year"><p class="sc-afnone sc-muted" hidden>No vehicle matches the filter.</p>`:""}
-    ${n?`<div class="sc-appwrap"><table class="sc-apps sc-apps4"><thead><tr><th>Version</th><th>Engine</th><th>kW</th><th>Years</th></tr></thead>${body}</table></div>`:""}
+    ${n>12?`<label class="sr" for="scAf">Filter the vehicles</label><input class="sc-afilter" id="scAf" type="search" autocomplete="off" placeholder="Filter: model, engine code${kw?", kW":""} or year"><p class="sc-afnone sc-muted" hidden>No vehicle matches the filter.</p>`:""}
+    ${n?`<div class="sc-appwrap"><table class="sc-apps sc-apps4${kw?" sc-kw":""}"><thead><tr><th>Version</th><th>Engine</th>${kw?"<th>kW</th>":""}<th>Years</th></tr></thead>${body}</table></div>`:""}
     ${mo.length?`<p class="sc-mkonly">${n?"Also: ":""}${esc(mo.join(", "))}</p>`:""}
     ${!n&&!mo.length?`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`:""}</div>`;
 }

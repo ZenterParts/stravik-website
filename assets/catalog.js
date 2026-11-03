@@ -57,6 +57,8 @@ const PADS = [
 ];
 
 const ICONS = {
+  alternator:'<circle cx="32" cy="34" r="18"/><circle cx="32" cy="34" r="6"/><path d="M32 16v-6M20 22l-4-4M44 22l4-4M14 34H8M50 34h6"/><path d="M24 34h16M32 26v16"/>',
+  starter:'<rect x="8" y="22" width="30" height="22" rx="4"/><path d="M38 28h10v10H38"/><path d="M48 30h8v6h-8"/><path d="M16 22v-6h14v6"/><path d="M14 33h18"/>',
   pump:'<circle cx="30" cy="32" r="16"/><circle cx="30" cy="32" r="4"/><path d="M30 28V18M33.5 34l8.7 5M26.5 34l-8.7 5"/><path d="M46 28h10v8H46"/><path d="M26 16v-6h8v6"/>',
   wiper:'<path d="M32 52L12 18"/><path d="M10 14l40 8"/><path d="M8 52h48"/><circle cx="32" cy="52" r="3"/><path d="M14 18l-2 4M22 19l-2 4M30 21l-2 4M38 22l-2 4M46 24l-2 4"/>',
   horn:'<path d="M10 26h8l20-12v36L18 38h-8z"/><path d="M18 26v12"/><path d="M46 22c4 3 6 6 6 10s-2 7-6 10M50 15c6 4 9 10 9 17s-3 13-9 17"/>',
