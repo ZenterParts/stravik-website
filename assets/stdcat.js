@@ -29,7 +29,7 @@ const CATS={
   "horns":{
     title:"Horns", one:"horn", many:"horns", cat:"Horns", data:"/horns.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
-    lead:"Disc and trumpet horns for 12 V and 24 V, single or as high and low tone sets. Find the right Stravik horn by Stravik number, Bosch, Fiamm or Hella number, or type.",
+    lead:"Disc and trumpet horns, 12 V and 24 V, single or in tone sets. Find the right Stravik horn by Stravik number, Bosch, Fiamm or Hella number.",
     placeholder:"Stravik no., Bosch / Fiamm / Hella no., or type (e.g. trumpet 24 V)",
     filters:[{k:"Type",h:"Type",any:"All types",order:["Mini Disc Horn","Midi Disc Horn","Trumpet Horn","Super Trumpet Horn"]},
       {k:"Tone",h:"Tone",any:"Any tone",order:["High tone","Low tone","High & low tone set","High & low tone set with relay"]},
@@ -43,7 +43,7 @@ const CATS={
   "bulbs":{
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
-    lead:"Halogen, miniature, LED and HID xenon bulbs. Find the right Stravik bulb by Stravik number, bulb (e.g. H4, W5W, D1S) or base.",
+    lead:"Halogen, miniature, LED and HID xenon bulbs. Find the right Stravik bulb by Stravik number, bulb (e.g. H4, W5W) or base.",
     placeholder:"Stravik no., bulb (e.g. H4, W5W, D1S) or base (e.g. BA15s)",
     exact:["Bulb","Base"],   // a search that is exactly a bulb or base code shows only those
     filters:[{k:"Bulb type",h:"Technology",any:"All",order:["HALOGEN","HALOGEN MINI","LED","HID"],label:v=>BULB_TECH[v]||v},
