@@ -5,7 +5,8 @@
 // stravik_std_catalogue(<range>) and has the standard shape:
 //   { v:1, at, cat, makes:[...], parts:[{ pn, t, d, s:{spec:value}, oe:[...], xr:[...], ap:[[makeIndex, model, years, version, engine code, cc, kW, chassis code]] }] }
 //   (only the first three when nothing more is known; model null = listed for the make only)
-// Part photos (optional): <img>/<Stravik no.>.webp, listed in <img>/index.json.
+// Part photos (optional): <img>/index.json lists them, either as Stravik numbers (photo <img>/<Stravik no.>.webp)
+// or as {"<Stravik no.>": "<file>"} when parts share a photo (bulbs: one photo per bulb type).
 (function(){
 "use strict";
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -106,7 +107,7 @@ const CATS={
   },
   "bulbs":{
     icon:"bulb",
-    title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
+    title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false, img:"/assets/img/bulbs/",
     crumbs:[["Our products","#/products"]],
     lead:"Halogen, miniature, LED and HID xenon bulbs. Find the right Stravik bulb by Stravik number, bulb (e.g. H4, W5W) or base.",
     placeholder:"Stravik no., bulb (e.g. H4, W5W, D1S) or base (e.g. BA15s)",
@@ -140,7 +141,7 @@ function load(id){
   const c=CATS[id];c.id=id;
   const photos=c.img?fetch(c.img+"index.json").then(r=>r.ok?r.json():[]).catch(()=>[]):Promise.resolve([]);
   if(!cache[id])cache[id]=Promise.all([fetch(c.data).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),photos])
-    .then(([d,ph])=>{d.photos=new Set(ph);return prep(d,c);}).catch(e=>{delete cache[id];throw e;});
+    .then(([d,ph])=>{d.photos=photoMap(ph);return prep(d,c);}).catch(e=>{delete cache[id];throw e;});
   return cache[id];
 }
 // model text arrives as e.g. "MERCEDES-BENZ A-CLASS 1.4L / 1.6L" and years as "1997-2004", "2011-" or a "|" list
@@ -162,10 +163,11 @@ function years(y){
   const to=open?9999:(b||a);
   return [a,to,to===9999?a+" on":to!==a?a+"–"+to:String(a)];
 }
+function photoMap(ph){const m={};if(Array.isArray(ph))ph.forEach(pn=>m[pn]=pn+".webp");else if(ph&&typeof ph==="object")Object.assign(m,ph);return m;}
 function prep(d,c){
   const makes=d.makes;d.items=d.parts||d.items||[];
   d.items.forEach((i,ix)=>{
-    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos.has(i.pn)?c.img+i.pn+".webp":"";
+    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos&&d.photos[i.pn]?c.img+d.photos[i.pn]:"";
     i.apps=(i.ap||[]).map(a=>{const mk=makes[a[0]],[mo,eng]=tidyModel(mk,a[1]),[y0,y1,yl]=years(a[2]),o={mk,mo,eng,y0,y1,yl,any:!a[1]};
       if(a.length>3){   // version, body, engine code, kW and chassis code known (e.g. "2.0 TDI, Estate", "CNHA", "103")
         let v=a[3]||"",b="";const k=v.lastIndexOf(", ");if(k>0&&!v.slice(k).includes(")")){b=v.slice(k+2);v=v.slice(0,k);}
@@ -417,5 +419,5 @@ document.addEventListener("click",e=>{if(repaint&&e.target.closest&&e.target.clo
 // shared with Find a part (assets/app.js) and the part pages (tools/build-pages.js)
 const title1=(i,c)=>c.title1?c.title1(i):i.d||c.kind||c.one;
 const cartItem=(i,c)=>({key:i.pn,no:i.pn,cat:c.cat,desc:title1(i,c)+(c.rowLine?", "+c.rowLine(i):""),link:"/part/"+encodeURIComponent(i.pn)+"/",kind:"std"});
-window.StdCat={has:id=>!!CATS[id],page,cats:CATS,load,prep,title1,cartItem,makesText};
+window.StdCat={has:id=>!!CATS[id],page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText};
 })();
