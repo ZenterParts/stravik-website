@@ -40,6 +40,23 @@ const CATS={
     rowRight:i=>i.s["Size"]||"",
     specs:[["Type","Type"],["Tone","Tone"],["Voltage","Voltage"],["Current","Current"],["Frequency","Frequency"],["Sound level","Sound level"],["Size","Size"]]
   },
+  "wiper-blades":{
+    title:"Wiper blades", one:"wiper blade", many:"wiper blades", cat:"Wiper Blades", data:"/wiper-blades.json", vehicles:false,
+    crumbs:[["Our products","#/products"]],
+    lead:"Conventional, flat, hybrid, rear and truck and bus wiper blades. Find the right Stravik blade by Stravik number, OE or cross-reference number, or size.",
+    placeholder:"Stravik no., OE no., Bosch / Denso / Valeo no., or size (e.g. 22)",
+    exact:["Size"],   // a search that is exactly a size (22) shows only those blades
+    filters:[{k:"Blade type",h:"Blade type",any:"All types",order:["Conventional","Flat","Hybrid","Rear","Truck & Bus"]},
+      {k:"Size",h:"Size",any:"All sizes",sort:"num"},
+      {k:"Range / tier",h:"Range",any:"All",order:["Economic","Standard","Competitive","Premium","Universal"]},
+      {k:"Fitting",h:"Fitting",any:"All"}],
+    facts:d=>[[d.n.items,"wiper blades"],[new Set(d.items.map(i=>i.s["Blade type"]).filter(Boolean)).size,"blade types"],[new Set(d.items.map(i=>i.s["Size"]).filter(Boolean)).size,"sizes"]],
+    order:(a,b)=>WB_ORDER.indexOf(a.s["Blade type"])-WB_ORDER.indexOf(b.s["Blade type"])||(parseFloat(a.s["Size"])||0)-(parseFloat(b.s["Size"])||0)||a.pn.localeCompare(b.pn),
+    rowLine:i=>[i.s["Size"]&&i.s["Length"]?i.s["Size"]+" / "+i.s["Length"]:i.s["Size"]||i.s["Length"],i.s["Fitting"]?lc(i.s["Fitting"]):""].filter(Boolean).join(", "),
+    specLine:s=>[s["Blade type"]+(s["Blade type"]==="Rear"||s["Blade type"]==="Truck & Bus"?" wiper blade":" blade"),lc(s["Range / tier"]||"")].filter(Boolean).join(", "),
+    rowRight:i=>i.s["Size"]||"",
+    specs:[["Blade type","Blade type"],["Size","Size"],["Length","Length"],["Range / tier","Range"],["Fitting","Fitting"]]
+  },
   "bulbs":{
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
@@ -58,6 +75,7 @@ const CATS={
     specs:[["Bulb type","Technology",(v)=>BULB_TECH[v]||v],["Bulb","Bulb"],["Range","Range",(v,s)=>bulbRange(s)+(BULB_RANGE[v]||BULB_HID[v]?" ("+v+")":"")],["Voltage","Voltage"],["Wattage","Wattage",watt],["Base","Base"],["Colour temperature","Colour temperature"],["ECE approval","ECE approval"]]
   }
 };
+const WB_ORDER=["Conventional","Flat","Hybrid","Rear","Truck & Bus"];
 // bulbs: technology and range code names (as in the Lucas bulb catalogue's "reading the range codes")
 const BULB_ORDER=["HALOGEN","HALOGEN MINI","LED","HID"];
 const BULB_TECH={HALOGEN:"Halogen","HALOGEN MINI":"Halogen mini",LED:"LED",HID:"HID xenon"};
