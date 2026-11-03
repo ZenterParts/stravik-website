@@ -3,7 +3,8 @@
 // on the left and the selected part's details on the right (full screen on phones).
 // A range is a config in CATS. The data file is written by the publish workflow from the database function
 // stravik_std_catalogue(<range>) and has the standard shape:
-//   { v:1, at, cat, makes:[...], parts:[{ pn, t, d, s:{spec:value}, oe:[...], xr:[...], ap:[[makeIndex, model, years]] }] }
+//   { v:1, at, cat, makes:[...], parts:[{ pn, t, d, s:{spec:value}, oe:[...], xr:[...], ap:[[makeIndex, model, years, version, engine code, cc, kW, chassis code]] }] }
+//   (only the first three when nothing more is known; model null = listed for the make only)
 // Part photos (optional): <img>/<Stravik no.>.webp, listed in <img>/index.json.
 (function(){
 "use strict";
@@ -56,6 +57,21 @@ const CATS={
     specLine:s=>[s["Blade type"]+(s["Blade type"]==="Rear"||s["Blade type"]==="Truck & Bus"?" wiper blade":" blade"),lc(s["Range / tier"]||"")].filter(Boolean).join(", "),
     rowRight:i=>i.s["Size"]||"",
     specs:[["Blade type","Blade type"],["Size","Size"],["Length","Length"],["Range / tier","Range"],["Fitting","Fitting"]]
+  },
+  "water-pumps":{
+    title:"Water pumps", one:"water pump", many:"water pumps", cat:"Water Pumps", data:"/water-pumps.json", engines:true,
+    crumbs:[["Our products","#/products"]],
+    lead:"Mechanical and electric water pumps. Find the right Stravik pump by Stravik number, OE or cross-reference number, or by vehicle: make, model, year and engine.",
+    placeholder:"Stravik no., OE no., cross-reference no., engine code or vehicle (e.g. Golf 1.4 TSI)",
+    prep:(i,d)=>{const t=(d.types||[]).find(x=>x[0]===i.t);if(t)i.s["Pump type"]=t[0]==="WPE"?"Electric":"Mechanical";delete i.s["Mode"];},
+    filters:[{k:"Pump type",h:"Pump type",any:"All pumps",order:["Mechanical","Electric"]},{k:"Drive",h:"Drive",any:"Any drive"},
+      {k:"Housing material",h:"Housing",any:"Any"}],
+    title1:i=>(i.s["Pump type"]||"")+" water pump",
+    specLine:s=>[s["Pump type"]?s["Pump type"]+" water pump":"",lc(s["Drive"]||s["Function"]||""),s["Voltage"]].filter(Boolean).join(", "),
+    specs:[["Pump type","Pump type"],["Function","Function"],["Drive","Drive"],["Impeller","Impeller",v=>v.replace(/\s*\(varies by brand\)/gi,"")],["Impeller Ø","Impeller Ø"],["Blades","Blades"],
+      ["Housing material","Housing material"],["Housing","Housing"],["Pulley fitted","Pulley fitted"],["Pulley Ø","Pulley Ø"],["Teeth","Teeth"],["Ribs","Ribs"],
+      ["Gasket / seal","Gasket / seal"],["Voltage","Voltage"],["Rated power","Rated power"],["Flow rate","Flow rate"],["Control signal","Control signal"],
+      ["Pins","Pins"],["Connector","Connector"],["Plug","Plug"],["Pin shape","Pin shape"],["Hose Ø","Hose Ø"],["Dimensions","Dimensions"],["Weight","Weight"]]
   },
   "bulbs":{
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
@@ -117,14 +133,20 @@ function prep(d,c){
   const makes=d.makes;d.items=d.parts||d.items||[];
   d.items.forEach((i,ix)=>{
     i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos.has(i.pn)?c.img+i.pn+".webp":"";
-    i.apps=(i.ap||[]).map(a=>{const mk=makes[a[0]],[mo,eng]=tidyModel(mk,a[1]),[y0,y1,yl]=years(a[2]);return {mk,mo,eng,y0,y1,yl};});
+    i.apps=(i.ap||[]).map(a=>{const mk=makes[a[0]],[mo,eng]=tidyModel(mk,a[1]),[y0,y1,yl]=years(a[2]),o={mk,mo,eng,y0,y1,yl,any:!a[1]};
+      if(a.length>3){   // version, body, engine code, kW and chassis code known (e.g. "2.0 TDI, Estate", "CNHA", "103")
+        let v=a[3]||"",b="";const k=v.lastIndexOf(", ");if(k>0&&!v.slice(k).includes(")")){b=v.slice(k+2);v=v.slice(0,k);}
+        o.ver=v;o.body=b;o.ec=(a[4]||"").replace(/,(?=\S)/g,", ");o.kw=a[6]&&a[6]!=="0"?a[6]:"";o.code=a[7]||"";
+        o.en=[v.replace(/\s*\([^)]*\)/g,"").trim(),o.kw?o.kw+" kW":""].filter(Boolean).join(" – ");}
+      return o;});
     i.mks=[...new Set(i.apps.map(a=>a.mk))];
     // model years: the part's "Year from" / "Year to" specs (no "Year to" = still current), else worked out from the vehicles
     const yf=parseInt(i.s["Year from"],10),yt=parseInt(i.s["Year to"],10);delete i.s["Year from"];delete i.s["Year to"];
     if(yf)i.yrs=!yt?yf+" on":yt!==yf?yf+"–"+yt:String(yf);
     else{const ys=i.apps.filter(a=>a.y0),y0=ys.length?Math.min(...ys.map(a=>a.y0)):0,y1=ys.length?Math.max(...ys.map(a=>a.y1)):0;
       i.yrs=!y0?"":y1===9999?y0+" on":y1!==y0?y0+"–"+y1:String(y0);}
-    i.text=lc([i.pn,i.d,Object.values(i.s).join(" "),i.apps.map(a=>a.mk+" "+a.mo+" "+a.eng).join(" ")].join(" "));
+    if(c.prep)c.prep(i,d);
+    i.text=lc([i.pn,i.d,Object.values(i.s).join(" "),i.apps.map(a=>[a.mk,a.mo,a.eng,a.ver,a.ec,a.code].filter(Boolean).join(" ")).join(" ")].join(" "));
     i.codes=(c.exact||[]).flatMap(k=>String(i.s[k]||"").split(/\s*,\s*/)).map(clean).filter(Boolean);
   });
   const mkCount={};d.items.forEach(i=>i.mks.forEach(m=>mkCount[m]=(mkCount[m]||0)+1));
@@ -135,13 +157,13 @@ function prep(d,c){
 
 // ---------------------------------------------------------------- state <-> url
 function readState(params,c){
-  const st={q:params.get("q")||"",mk:params.get("mk")||"",mo:params.get("mo")||"",yr:params.get("yr")||"",p:params.get("p")||"",f:{}};
+  const st={q:params.get("q")||"",mk:params.get("mk")||"",mo:params.get("mo")||"",yr:params.get("yr")||"",en:params.get("en")||"",p:params.get("p")||"",f:{}};
   c.filters.forEach(f=>{const v=params.get("f."+f.k);if(v)st.f[f.k]=v;});
   return st;
 }
 function writeState(id,st){
   const p=new URLSearchParams();
-  ["q","mk","mo","yr"].forEach(k=>{if(st[k])p.set(k,st[k]);});
+  ["q","mk","mo","yr","en"].forEach(k=>{if(st[k])p.set(k,st[k]);});
   Object.keys(st.f).forEach(k=>{if(st.f[k])p.set("f."+k,st.f[k]);});
   if(st.p)p.set("p",st.p);
   const qs=p.toString();history.replaceState(null,"","#/"+id+(qs?"?"+qs:""));
@@ -153,13 +175,19 @@ function numHit(i,q){const c=clean(q);if(c.length<3)return null;
   const o=i.oe.find(n=>clean(n).includes(c));if(o)return {k:"OE",v:o};
   const x=i.xr.find(n=>clean(n).includes(c));if(x)return {k:"Cross-reference",v:x};return null;}
 function textHit(i,q){const w=lc(q).split(/\s+/).filter(Boolean);return w.length&&w.every(t=>i.text.includes(t));}
-function appOk(a,st){return (!st.mk||a.mk===st.mk)&&(!st.mo||a.mo===st.mo)&&(!st.yr||(+st.yr>=a.y0&&+st.yr<=a.y1));}
 const yrOk=st=>!st.yr||/^\d{4}$/.test(st.yr);
+const yrIn=(a,st)=>!st.yr||!yrOk(st)||(+st.yr>=a.y0&&+st.yr<=a.y1);
+function appOk(a,st){return (!st.mk||a.mk===st.mk)&&(!st.mo||a.mo===st.mo)&&(!st.en||a.en===st.en)&&yrIn(a,st);}
+// listed for the make only (no model): kept, after the exact matches, when a model or engine is chosen
+const appMake=(a,st)=>a.any&&a.mk===st.mk&&yrIn(a,st);
 function pass(i,st,exactQ){
-  i._hit=null;
+  i._hit=null;i._fit=0;
   if(exactQ){if(!i.codes.includes(exactQ)&&!clean(i.pn).includes(exactQ))return false;}
   else if(st.q&&!(i._hit=numHit(i,st.q))&&!textHit(i,st.q))return false;
-  if((st.mk||(st.yr&&yrOk(st)))&&!i.apps.some(a=>appOk(a,st)))return false;
+  if(st.mk||(st.yr&&yrOk(st))){
+    if(i.apps.some(a=>appOk(a,st)))i._fit=2;
+    else if((st.mo||st.en)&&i.apps.some(a=>appMake(a,st)))i._fit=1;
+    else return false;}
   for(const k in st.f){const v=st.f[k];if(v&&i.s[k]!==v)return false;}
   return true;
 }
@@ -174,6 +202,36 @@ function cartBtn(i,c,cls){
   const Cart=window.STV&&STV.Cart,on=Cart&&Cart.has(i.pn);
   const item={key:i.pn,no:i.pn,cat:c.cat,desc:c.title1?c.title1(i)+(c.rowLine?", "+c.rowLine(i):""):i.d,link:"/#/"+c.id+"?p="+i.pn,kind:"std"};
   return `<button type="button" class="fadd ${cls||""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ In cart":"Add to cart"}</button>`;
+}
+
+// applications with version, engine code and power: make > model (chassis code) > one row per version
+function appsRich(i,st){
+  const ex=i.apps.filter(a=>!a.any),mo=[...new Set(i.apps.filter(a=>a.any).map(a=>a.mk))].sort((a,b)=>a.localeCompare(b));
+  const on=a=>(st.mk||(st.yr&&yrOk(st)))&&appOk(a,st);
+  const g=new Map();
+  ex.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0||(a.ver||"").localeCompare(b.ver||"",undefined,{numeric:true}))
+    .forEach(a=>{const k=a.mk+"\u0001"+a.mo+"\u0001"+(a.code||"");if(!g.has(k))g.set(k,[]);g.get(k).push(a);});
+  let groups=[...g.values()];
+  // the chosen make first and, within it, the models that match
+  if(st.mk)groups.sort((x,y)=>(x[0].mk===st.mk?0:1)-(y[0].mk===st.mk?0:1)||x[0].mk.localeCompare(y[0].mk)||(y.some(on)?1:0)-(x.some(on)?1:0));
+  let lastMk="";
+  const body=groups.map(rows=>{const a0=rows[0],mk=a0.mk!==lastMk?`<tbody class="sc-amk" data-mk="${esc(a0.mk)}"><tr class="sc-mkrow"><td colspan="4">${esc(a0.mk)}</td></tr></tbody>`:"";lastMk=a0.mk;
+    return `${mk}<tbody class="sc-ag" data-mk="${esc(a0.mk)}"><tr class="sc-morow"><td colspan="4">${esc(a0.mo)}${a0.code?` <span>${esc(a0.code)}</span>`:""}</td></tr>`
+      +rows.map(a=>`<tr data-t="${esc(lc([a.mk,a.mo,a.code,a.ver,a.body,a.ec,a.kw,a.yl].join(" ")))}"${on(a)?' class="sc-on"':""}><td>${esc(a.ver||a.eng||"")}${a.body?`<small>${esc(a.body)}</small>`:""}</td><td>${esc(a.ec||"")}</td><td>${esc(a.kw||"")}</td><td>${esc(a.yl)}</td></tr>`).join("")+`</tbody>`;}).join("");
+  const n=ex.length;
+  return `<div class="sc-dsec"><h3>Vehicle fitment${n?` (${fmt(n)})`:""}</h3>
+    ${n>12?`<label class="sr" for="scAf">Filter the vehicles</label><input class="sc-afilter" id="scAf" type="search" autocomplete="off" placeholder="Filter: model, engine code, kW or year"><p class="sc-afnone sc-muted" hidden>No vehicle matches the filter.</p>`:""}
+    ${n?`<div class="sc-appwrap"><table class="sc-apps sc-apps4"><thead><tr><th>Version</th><th>Engine</th><th>kW</th><th>Years</th></tr></thead>${body}</table></div>`:""}
+    ${mo.length?`<p class="sc-mkonly"><strong>${n?"Also listed for":"Listed for"} ${esc(mo.join(", "))}.</strong> The models aren't in our list yet: send us the vehicle or the OE number and we'll confirm the fitment.</p>`:""}
+    ${!n&&!mo.length?`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`:""}</div>`;
+}
+function filterApps(det,v){
+  const w=lc(v).split(/\s+/).filter(Boolean);let any=false;
+  const mks=new Set();
+  det.querySelectorAll(".sc-apps4 tbody.sc-ag").forEach(tb=>{let k=0;
+    tb.querySelectorAll("tr[data-t]").forEach(r=>{const ok=w.every(t=>r.dataset.t.includes(t));r.hidden=!ok;if(ok)k++;});tb.hidden=!k;if(k){any=true;mks.add(tb.dataset.mk);}});
+  det.querySelectorAll(".sc-apps4 tbody.sc-amk").forEach(tb=>tb.hidden=!mks.has(tb.dataset.mk));
+  const none=det.querySelector(".sc-afnone");if(none)none.hidden=any;
 }
 
 function page(app,id,params){
@@ -195,10 +253,11 @@ function page(app,id,params){
   <div class="sc-bar" id="scBar"><div class="sc-in">
     <label class="sr" for="scQ">Search ${esc(c.many)}</label>
     <form class="sc-q" role="search" id="scForm">${IC.search}<input id="scQ" type="search" autocomplete="off" spellcheck="false" placeholder="${esc(c.placeholder)}" value="${esc(st.q)}"><button type="button" class="sc-clearq" id="scClearQ"${st.q?"":" hidden"}>Clear</button></form>
-    <div class="sc-filters">
+    <div class="sc-filters${c.engines?" sc-tight":""}">
       <span class="sc-veh"${c.vehicles===false?" hidden":""}><label>Make<select id="scMk"><option value="">All makes</option></select></label>
       <label>Model<select id="scMo" disabled><option value="">All models</option></select></label>
-      <label>Model year<input id="scYr" inputmode="numeric" maxlength="4" placeholder="e.g. 2015" value="${esc(st.yr)}"></label></span>
+      <label>Model year<input id="scYr" inputmode="numeric" maxlength="4" placeholder="e.g. 2015" value="${esc(st.yr)}"></label>
+      ${c.engines?`<label>Engine<select id="scEn" disabled><option value="">All engines</option></select></label>`:""}</span>
       ${c.filters.map((f,k)=>`<label>${esc(f.h)}<select data-f="${k}"><option value="">${esc(f.any)}</option></select></label>`).join("")}
       <button type="button" class="sc-reset" id="scReset">Reset</button>
     </div>
@@ -219,14 +278,21 @@ function page(app,id,params){
     $("#scFacts").innerHTML=facts.map(f=>`<span><strong>${fmt(f[0])}</strong>${esc(f[1])}</span>`).join("");
     if(c.order)d.items.sort(c.order);
     const allCodes=new Set(d.items.flatMap(i=>i.codes));
-    const q=$("#scQ"),mkSel=$("#scMk"),moSel=$("#scMo"),yr=$("#scYr");
+    const q=$("#scQ"),mkSel=$("#scMk"),moSel=$("#scMo"),yr=$("#scYr"),enSel=$("#scEn");
     mkSel.insertAdjacentHTML("beforeend",d.mkList.map(m=>`<option>${esc(m)}</option>`).join(""));mkSel.value=st.mk;
     const fillModels=()=>{
       const set=new Set();d.items.forEach(i=>i.apps.forEach(a=>{if(a.mk===st.mk)set.add(a.mo);}));
       moSel.innerHTML=`<option value="">All models</option>`+[...set].sort((a,b)=>a.localeCompare(b)).map(m=>`<option>${esc(m)}</option>`).join("");
       moSel.disabled=!st.mk;moSel.value=st.mo;if(moSel.value!==st.mo)st.mo="";
     };
-    fillModels();
+    // engines (version and power) of the chosen model, in that model year if one is given
+    const fillEngines=()=>{if(!enSel)return;
+      const set=new Set();if(st.mo)d.items.forEach(i=>i.apps.forEach(a=>{if(a.en&&a.mk===st.mk&&a.mo===st.mo&&yrIn(a,st))set.add(a.en);}));
+      enSel.innerHTML=`<option value="">All engines</option>`+[...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(m=>`<option>${esc(m)}</option>`).join("");
+      enSel.disabled=!set.size;enSel.value=st.en;if(enSel.value!==st.en)st.en="";
+    };
+    fillModels();fillEngines();
+    if(enSel)enSel.onchange=()=>{st.en=enSel.value;update(true);};
     // spec drop-downs: values from the whole range, most common first (or by number)
     app.querySelectorAll("select[data-f]").forEach(sel=>{const f=c.filters[sel.dataset.f],cnt={};
       d.items.forEach(i=>{const v=i.s[f.k];if(v)cnt[v]=(cnt[v]||0)+1;});
@@ -239,11 +305,11 @@ function page(app,id,params){
     q.oninput=()=>{$("#scClearQ").hidden=!q.value;clearTimeout(t);t=setTimeout(()=>{st.q=q.value.trim();update(true);},150);};
     $("#scForm").onsubmit=e=>{e.preventDefault();st.q=q.value.trim();update(true);};
     $("#scClearQ").onclick=()=>{q.value="";st.q="";$("#scClearQ").hidden=true;q.focus();update(true);};
-    mkSel.onchange=()=>{st.mk=mkSel.value;st.mo="";fillModels();update(true);};
-    moSel.onchange=()=>{st.mo=moSel.value;update(true);};
-    yr.oninput=()=>{const v=yr.value.replace(/\D/g,"").slice(0,4);if(v!==yr.value)yr.value=v;if(!v||v.length===4){st.yr=v;update(true);}};
-    $("#scReset").onclick=()=>{st.q=st.mk=st.mo=st.yr="";st.f={};q.value=yr.value="";mkSel.value="";$("#scClearQ").hidden=true;
-      app.querySelectorAll("select[data-f]").forEach(s=>s.value="");fillModels();update(true);};
+    mkSel.onchange=()=>{st.mk=mkSel.value;st.mo=st.en="";fillModels();fillEngines();update(true);};
+    moSel.onchange=()=>{st.mo=moSel.value;st.en="";fillEngines();update(true);};
+    yr.oninput=()=>{const v=yr.value.replace(/\D/g,"").slice(0,4);if(v!==yr.value)yr.value=v;if(!v||v.length===4){st.yr=v;fillEngines();update(true);}};
+    $("#scReset").onclick=()=>{st.q=st.mk=st.mo=st.yr=st.en="";st.f={};q.value=yr.value="";mkSel.value="";$("#scClearQ").hidden=true;
+      app.querySelectorAll("select[data-f]").forEach(s=>s.value="");fillModels();fillEngines();update(true);};
     const setBarH=()=>app.querySelector(".sc").style.setProperty("--barh",($("#scBar").offsetHeight+74+16)+"px");setBarH();addEventListener("resize",setBarH);
 
     let list=[],shown=PAGE,cur=null;
@@ -253,15 +319,19 @@ function page(app,id,params){
       const cq=clean(st.q),exactQ=cq&&allCodes.has(cq)?cq:"";
       list=d.items.filter(i=>pass(i,st,exactQ));
       if(st.q)list.sort((a,b)=>(b._hit?1:0)-(a._hit?1:0)||a.pn.localeCompare(b.pn));
-      const veh=[st.mk,st.mo,yrOk(st)?st.yr:""].filter(Boolean).join(" ");
-      $("#scCount").textContent=!list.length?`No ${c.many} found`:(list.length===d.items.length?`All ${fmt(list.length)} ${c.many}`:`${fmt(list.length)} ${list.length===1?c.one:c.many}`+(veh?` for ${veh}`:st.q?` for “${st.q}”`:""));
+      list.sort((a,b)=>b._fit-a._fit);   // exact vehicle matches before the ones listed for the make only
+      const veh=[st.mk,st.mo,yrOk(st)?st.yr:"",st.en].filter(Boolean).join(" ");
+      const part=list.filter(i=>i._fit===1).length,full=list.length-part;
+      $("#scCount").textContent=!list.length?`No ${c.many} found`:(list.length===d.items.length?`All ${fmt(list.length)} ${c.many}`:`${fmt(full)} ${full===1?c.one:c.many}`+(veh?` for ${veh}`:st.q?` for “${st.q}”`:""))
+        +(part?` + ${fmt(part)} listed for ${st.mk} (model not given)`:"");
       paint();
       if(!cur||!list.includes(cur)){const p=st.p&&list.find(i=>i.pn===st.p);show(p||list[0]||null,false);}
       else markCurrent();
       writeState(id,st);
     }
     function row(i){
-      const h=st.q&&i._hit&&i._hit.v?`<span class="sc-hit">${esc(i._hit.k)} ${esc(i._hit.v)}</span>`:"";
+      const h=(st.q&&i._hit&&i._hit.v?`<span class="sc-hit">${esc(i._hit.k)} ${esc(i._hit.v)}</span>`:"")
+        +(i._fit===1?`<span class="sc-hit sc-warn">Listed for ${esc(st.mk)}, model not given: check the fitment</span>`:"");
       const inCart=window.STV&&STV.Cart.has(i.pn);
       return `<li><button class="sc-row" type="button" data-pn="${esc(i.pn)}" aria-current="false">
         ${i.ph?`<span class="sc-tile"><img src="${esc(i.ph)}" alt="" loading="lazy"></span>`:""}
@@ -289,8 +359,9 @@ function page(app,id,params){
         ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(x=>`<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
         ${i.oe.length?`<div class="sc-dsec"><h3>OE numbers</h3><div class="sc-chips">${i.oe.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
         ${i.xr.length?`<div class="sc-dsec"><h3>Cross-references</h3><div class="sc-chips">${i.xr.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
-        ${c.vehicles===false?"":`<div class="sc-dsec"><h3>Applications (${fmt(i.apps.length)})</h3>${i.apps.length?`<div class="sc-appwrap"><table class="sc-apps"><thead><tr><th>Model and engine</th><th>Years</th></tr></thead><tbody>${Object.keys(groups).map(m=>`<tr class="sc-mkrow"><td colspan="2">${esc(m)}</td></tr>`+groups[m].map(a=>`<tr${(st.mk||st.yr)&&appOk(a,st)?' class="sc-on"':""}><td>${esc(a.mo)}${a.eng?" "+esc(a.eng):""}</td><td>${esc(a.yl)}</td></tr>`).join("")).join("")}</tbody></table></div>`:`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`}</div>`}`;
+        ${c.engines?appsRich(i,st):c.vehicles===false?"":`<div class="sc-dsec"><h3>Applications (${fmt(i.apps.length)})</h3>${i.apps.length?`<div class="sc-appwrap"><table class="sc-apps"><thead><tr><th>Model and engine</th><th>Years</th></tr></thead><tbody>${Object.keys(groups).map(m=>`<tr class="sc-mkrow"><td colspan="2">${esc(m)}</td></tr>`+groups[m].map(a=>`<tr${(st.mk||st.yr)&&appOk(a,st)?' class="sc-on"':""}><td>${esc(a.mo)}${a.eng?" "+esc(a.eng):""}</td><td>${esc(a.yl)}</td></tr>`).join("")).join("")}</tbody></table></div>`:`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`}</div>`}`;
       det.scrollTop=0;
+      const af=det.querySelector(".sc-afilter");if(af)af.oninput=()=>filterApps(det,af.value);
       if(open&&matchMedia("(max-width:900px)").matches){det.classList.add("open");document.body.style.overflow="hidden";det.focus();}
       if(window.STV)STV.cartPaint();
       if(open)writeState(id,st);

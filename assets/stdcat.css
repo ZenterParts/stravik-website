@@ -35,6 +35,7 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-filters label{display:flex;flex-direction:column;font-size:12.5px;font-weight:600;color:var(--muted);gap:3px}
 .sc-filters select,.sc-filters input{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:8px 8px;font:500 14.5px var(--body);min-width:130px;max-width:220px}
 .sc-filters select:disabled{opacity:.55}
+.sc-filters.sc-tight select{max-width:180px}
 .sc-filters input{width:104px;min-width:0}
 .sc-reset{border:1px solid var(--gold);background:transparent;color:var(--gold-deep);border-radius:5px;padding:8px 16px;cursor:pointer;font:600 14.5px var(--body)}
 .sc-reset:hover{background:var(--gold-tint)}
@@ -87,6 +88,18 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-apps td:last-child{white-space:nowrap}
 .sc-apps tr.sc-mkrow td{font-weight:700;color:var(--gold-deep);background:var(--gold-tint)}
 .sc-apps tr.sc-on td{font-weight:700}
+/* water pumps: make > model (chassis code) > version rows */
+.sc-apps4 tr.sc-morow td{font-weight:700;padding-top:10px;border-bottom:1px solid var(--ink)}
+.sc-apps4 tr.sc-morow span{font-weight:500;color:var(--muted);margin-left:6px}
+.sc-apps4 td small{display:block;color:var(--muted);font-size:12.5px}
+.sc-apps4 td:nth-child(2){font-size:13px}
+.sc-apps4 td:nth-child(3),.sc-apps4 th:nth-child(3){text-align:right;font-variant-numeric:tabular-nums}
+.sc-apps4 tr.sc-on td{background:var(--gold-tint)}
+.sc-apps4 tr.sc-mkrow td,.sc-apps4 tr.sc-morow td{white-space:normal}
+.sc-afilter{width:100%;box-sizing:border-box;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);font:500 14.5px var(--body)}
+.sc-afilter:focus{outline:0;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-tint)}
+.sc-mkonly{margin:10px 0 0;font-size:14.5px;line-height:1.45;color:var(--ink)}
+.sc-hit.sc-warn{background:var(--sc-tint);color:var(--ink);font-weight:500}
 
 @media (max-width:1000px){.sc-hero-g{grid-template-columns:minmax(0,1fr);height:auto;padding:10px 0 28px}.sc-art{display:none}.sc-hero h1{font-size:clamp(34px,8vw,52px)}.sc-lead{-webkit-line-clamp:unset;display:block}}
 @media (max-width:900px){

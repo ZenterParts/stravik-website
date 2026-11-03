@@ -421,6 +421,7 @@ function productsHome(){
       ${pc("","bulb","Bulbs","Halogen, miniature, LED and HID xenon bulbs, each with its bulb type, base, voltage and wattage.",["",""],`<a class="btn gold" href="#/bulbs">Open the catalogue</a>`)}
       ${pc("","horn","Horns","Disc and trumpet horns for 12 V and 24 V, single or as high and low tone sets, with their Bosch, Fiamm and Hella numbers.",["",""],`<a class="btn gold" href="#/horns">Open the catalogue</a>`)}
       ${pc("","wiper","Wiper Blades","Conventional, flat, hybrid, rear and truck and bus wiper blades from 10\" to 40\", with their OE and Bosch, Denso and Valeo numbers.",["",""],`<a class="btn gold" href="#/wiper-blades">Open the catalogue</a>`)}
+      ${pc("","pump","Water Pumps","Mechanical and electric water pumps, with vehicle fitment by make, model, year and engine, and their OE and cross-reference numbers.",["",""],`<a class="btn gold" href="#/water-pumps">Open the catalogue</a>`)}
       ${pc("/assets/img/batteries/efb_75_eu.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",""],`<a class="btn gold" href="#/batteries">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`)}
     </div>
   </div></section>

@@ -103,6 +103,7 @@ jobs:
           read_one stravik_std_catalogue bulbs.json parts Bulbs bulbs '{"p_sub":"Bulbs"}'
           read_one stravik_std_catalogue horns.json parts Horns horns '{"p_sub":"Horns"}' 10
           read_one stravik_std_catalogue wiper-blades.json parts "Wiper blades" wipers '{"p_sub":"Wiper Blades"}'
+          read_one stravik_std_catalogue water-pumps.json parts "Water pumps" waterpumps '{"p_sub":"Water Pumps"}'
 
       - uses: actions/setup-node@v4
         if: steps.go.outputs.run == 'yes'
@@ -114,7 +115,7 @@ jobs:
         if: steps.go.outputs.run == 'yes'
         run: |
           node tools/build-pages.js
-          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json batteries.json gas-springs.json ignition-coils.json bulbs.json horns.json wiper-blades.json
+          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json batteries.json gas-springs.json ignition-coils.json bulbs.json horns.json wiper-blades.json water-pumps.json
           if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_OUTPUT"; else echo "pages=yes" >> "$GITHUB_OUTPUT"; fi
 
       - name: Commit and publish
@@ -125,7 +126,7 @@ jobs:
         run: |
           git config user.name "Stravik catalogue publisher"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}, brakes ${{ steps.read.outputs.brakes }}, batteries ${{ steps.read.outputs.batteries }}, gas springs ${{ steps.read.outputs.gassprings }}, ignition coils ${{ steps.read.outputs.coils }}, bulbs ${{ steps.read.outputs.bulbs }}, horns ${{ steps.read.outputs.horns }}, wiper blades ${{ steps.read.outputs.wipers }}"
+          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}, brakes ${{ steps.read.outputs.brakes }}, batteries ${{ steps.read.outputs.batteries }}, gas springs ${{ steps.read.outputs.gassprings }}, ignition coils ${{ steps.read.outputs.coils }}, bulbs ${{ steps.read.outputs.bulbs }}, horns ${{ steps.read.outputs.horns }}, wiper blades ${{ steps.read.outputs.wipers }}, water pumps ${{ steps.read.outputs.waterpumps }}"
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages build will start from the push"
@@ -137,6 +138,6 @@ jobs:
           if [ "$S" = "success" ]; then if [ "${{ steps.build.outputs.pages }}" = "yes" ]; then ST=published; else ST=no_changes; fi; fi
           if [ "${{ steps.go.outputs.reported }}" != "yes" ] && [ "$ST" = "no_changes" ]; then exit 0; fi   # quiet hourly runs are not logged
           jq -n --arg st "$ST" --arg src "${{ steps.tok.outputs.source }}" --arg sha "${{ steps.push.outputs.sha }}" \
-            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" --arg b "${{ steps.read.outputs.brakes }}" --arg t "${{ steps.read.outputs.batteries }}" --arg g "${{ steps.read.outputs.gassprings }}" --arg c "${{ steps.read.outputs.coils }}" --arg u "${{ steps.read.outputs.bulbs }}" --arg h "${{ steps.read.outputs.horns }}" --arg wb "${{ steps.read.outputs.wipers }}" \
-            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, brakes:$b, batteries:$t, gas_springs:$g, ignition_coils:$c, bulbs:$u, horns:$h, wiper_blades:$wb, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
+            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" --arg b "${{ steps.read.outputs.brakes }}" --arg t "${{ steps.read.outputs.batteries }}" --arg g "${{ steps.read.outputs.gassprings }}" --arg c "${{ steps.read.outputs.coils }}" --arg u "${{ steps.read.outputs.bulbs }}" --arg h "${{ steps.read.outputs.horns }}" --arg wb "${{ steps.read.outputs.wipers }}" --arg wp "${{ steps.read.outputs.waterpumps }}" \
+            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, brakes:$b, batteries:$t, gas_springs:$g, ignition_coils:$c, bulbs:$u, horns:$h, wiper_blades:$wb, water_pumps:$wp, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
           curl -sS -X POST "$FN" -H "Authorization: Bearer $(cat "$RUNNER_TEMP/tok")" -H 'Content-Type: application/json' -d @"$RUNNER_TEMP/report.json" || true

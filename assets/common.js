@@ -25,7 +25,8 @@ const MENU=[
   {name:"Ignition coils",icon:"bolt",href:"/#/ignition-coils",kids:[]},
   {name:"Bulbs",icon:"bulb",href:"/#/bulbs",kids:[]},
   {name:"Horns",icon:"horn",href:"/#/horns",kids:[]},
-  {name:"Wiper blades",icon:"wiper",href:"/#/wiper-blades",kids:[]}];
+  {name:"Wiper blades",icon:"wiper",href:"/#/wiper-blades",kids:[]},
+  {name:"Water pumps",icon:"pump",href:"/#/water-pumps",kids:[]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const megaCol=(items,lvl)=>`<ul class="mcol" data-lvl="${lvl}">${items.map((it,k)=>`<li${it.kids&&it.kids.length?' class="has"':""} data-k="${k}"><a href="${it.href}">${esc(it.name)}</a>${it.kids&&it.kids.length?`<span class="chev">${CHEV}</span>`:""}</li>`).join("")}</ul>`;
 ddMenu.classList.add("mega");
