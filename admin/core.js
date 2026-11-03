@@ -97,7 +97,7 @@ window.LS = (function () {
   // Stravik-branded Excel downloads: logo band (rows 1-4), gold rule (row 5), navy header row with filters, frozen panes.
   // The logo is pinned to the cells and the sheet is protected for objects only (no password): cells stay editable,
   // sorting and filtering work, the logo can't be moved or deleted by accident (Review > Unprotect Sheet to change it).
-  var NAVY = 'FF0B203D', GOLD = 'FFB98A45', LINE = 'FFD9DDE3', BAND = 5, BRAND_TAG = 'Stravik export';
+  var NAVY = 'FF0B203D', GOLD = 'FFB98A45', TINT = 'FFF7EEDF', LINE = 'FFE6DCCB', BAND = 5, BRAND_TAG = 'Stravik export';
   var logoP;
   function excelLogo() {
     if (!logoP) logoP = fetch('/admin/img/stravik-excel-logo.png').then(function (r) { if (!r.ok) throw new Error('logo ' + r.status); return r.arrayBuffer(); })
@@ -143,6 +143,11 @@ window.LS = (function () {
       sh.rows.forEach(function (row) { ws.addRow(row).eachCell(function (x) { x.border = { bottom: thin }; }); });
       (sh.foot || []).forEach(function (f) { ws.addRow(f).font = { name: 'Arial', size: 10, bold: true }; });
       if (sh.rows.length) ws.autoFilter = { from: { row: hr.number, column: 1 }, to: { row: hr.number + sh.rows.length, column: n } };
+      // banded rows: white, light gold, white … by conditional formatting, so rows added, sorted or filtered later keep the pattern
+      var last = ws.getColumn(n).letter, r0 = hr.number + 1;
+      ws.addConditionalFormatting({ ref: 'A' + r0 + ':' + last + (r0 + Math.max(sh.rows.length, 0) + 2000),
+        rules: [{ type: 'expression', priority: 1, formulae: ['AND(MOD(ROW()-' + hr.number + ',2)=0,COUNTA($A' + r0 + ':$' + last + r0 + ')>0)'],
+          style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: TINT } } } }] });
       ws.views = [{ state: 'frozen', ySplit: hr.number, showGridLines: false }];
       ws.pageSetup = { orientation: n > 6 ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: hr.number + ':' + hr.number };
       // protect the drawing (logo) only: every cell action stays allowed
