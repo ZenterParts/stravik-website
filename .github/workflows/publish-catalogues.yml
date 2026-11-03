@@ -79,14 +79,14 @@ jobs:
         id: read
         if: steps.go.outputs.run == 'yes'
         run: |
-          read_one() {   # $1 function, $2 file, $3 list key, $4 label, $5 output name, $6 arguments (JSON, optional)
+          read_one() {   # $1 function, $2 file, $3 list key, $4 label, $5 output name, $6 arguments (JSON, optional), $7 smallest size allowed (default 50)
             # a cold database can take longer than the public key's 3-second limit; the retry is fast
             curl -sS --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 -X POST "$SUPABASE_URL/rest/v1/rpc/$1" -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d "${6:-{\}}" -o "$RUNNER_TEMP/$2"
             N=$(jq ".$3 | length" "$RUNNER_TEMP/$2")
             OLD=$( [ -f "$2" ] && jq ".$3 | length" "$2" || echo 0 )
             echo "$4: $N in the database (website now: $OLD)"
             # safety: never publish an empty or badly shrunk catalogue
-            if [ "$N" -lt 50 ] || [ "$N" -lt $(( OLD * 8 / 10 )) ]; then echo "::error::$4: only $N (was $OLD). Not publishing."; exit 3; fi
+            if [ "$N" -lt "${7:-50}" ] || [ "$N" -lt $(( OLD * 8 / 10 )) ]; then echo "::error::$4: only $N (was $OLD). Not publishing."; exit 3; fi
             jq -cS 'del(.at)' "$RUNNER_TEMP/$2" > "$RUNNER_TEMP/new.cmp"
             if [ -f "$2" ]; then jq -cS 'del(.at)' "$2" > "$RUNNER_TEMP/old.cmp"; else : > "$RUNNER_TEMP/old.cmp"; fi
             if cmp -s "$RUNNER_TEMP/new.cmp" "$RUNNER_TEMP/old.cmp"; then echo "  no changes"; else jq -c . "$RUNNER_TEMP/$2" > "$2"; echo "  updated"; echo "changed=yes" >> "$GITHUB_OUTPUT"; fi
@@ -101,6 +101,7 @@ jobs:
           # standard e-catalogue ranges (assets/stdcat.js)
           read_one stravik_std_catalogue ignition-coils.json parts "Ignition coils" coils '{"p_sub":"Ignition Coils"}'
           read_one stravik_std_catalogue bulbs.json parts Bulbs bulbs '{"p_sub":"Bulbs"}'
+          read_one stravik_std_catalogue horns.json parts Horns horns '{"p_sub":"Horns"}' 10
 
       - uses: actions/setup-node@v4
         if: steps.go.outputs.run == 'yes'
@@ -112,7 +113,7 @@ jobs:
         if: steps.go.outputs.run == 'yes'
         run: |
           node tools/build-pages.js
-          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json batteries.json gas-springs.json ignition-coils.json bulbs.json
+          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json batteries.json gas-springs.json ignition-coils.json bulbs.json horns.json
           if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_OUTPUT"; else echo "pages=yes" >> "$GITHUB_OUTPUT"; fi
 
       - name: Commit and publish
@@ -123,7 +124,7 @@ jobs:
         run: |
           git config user.name "Stravik catalogue publisher"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}, brakes ${{ steps.read.outputs.brakes }}, batteries ${{ steps.read.outputs.batteries }}, gas springs ${{ steps.read.outputs.gassprings }}, ignition coils ${{ steps.read.outputs.coils }}, bulbs ${{ steps.read.outputs.bulbs }}"
+          git commit -q -m "Publish Stravik catalogues (${{ steps.tok.outputs.source }}): filters ${{ steps.read.outputs.filters }}, steering ${{ steps.read.outputs.steering }}, shock absorbers ${{ steps.read.outputs.shock }}, brakes ${{ steps.read.outputs.brakes }}, batteries ${{ steps.read.outputs.batteries }}, gas springs ${{ steps.read.outputs.gassprings }}, ignition coils ${{ steps.read.outputs.coils }}, bulbs ${{ steps.read.outputs.bulbs }}, horns ${{ steps.read.outputs.horns }}"
           for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages build will start from the push"
@@ -135,6 +136,6 @@ jobs:
           if [ "$S" = "success" ]; then if [ "${{ steps.build.outputs.pages }}" = "yes" ]; then ST=published; else ST=no_changes; fi; fi
           if [ "${{ steps.go.outputs.reported }}" != "yes" ] && [ "$ST" = "no_changes" ]; then exit 0; fi   # quiet hourly runs are not logged
           jq -n --arg st "$ST" --arg src "${{ steps.tok.outputs.source }}" --arg sha "${{ steps.push.outputs.sha }}" \
-            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" --arg b "${{ steps.read.outputs.brakes }}" --arg t "${{ steps.read.outputs.batteries }}" --arg g "${{ steps.read.outputs.gassprings }}" --arg c "${{ steps.read.outputs.coils }}" --arg u "${{ steps.read.outputs.bulbs }}" \
-            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, brakes:$b, batteries:$t, gas_springs:$g, ignition_coils:$c, bulbs:$u, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
+            --arg f "${{ steps.read.outputs.filters }}" --arg s "${{ steps.read.outputs.steering }}" --arg a "${{ steps.read.outputs.shock }}" --arg b "${{ steps.read.outputs.brakes }}" --arg t "${{ steps.read.outputs.batteries }}" --arg g "${{ steps.read.outputs.gassprings }}" --arg c "${{ steps.read.outputs.coils }}" --arg u "${{ steps.read.outputs.bulbs }}" --arg h "${{ steps.read.outputs.horns }}" \
+            '{action:"report", status:$st, source:$src, sha:(if $sha == "" then null else $sha end), summary:{filters:$f, steering:$s, shock:$a, brakes:$b, batteries:$t, gas_springs:$g, ignition_coils:$c, bulbs:$u, horns:$h, run:"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > "$RUNNER_TEMP/report.json"
           curl -sS -X POST "$FN" -H "Authorization: Bearer $(cat "$RUNNER_TEMP/tok")" -H 'Content-Type: application/json' -d @"$RUNNER_TEMP/report.json" || true

@@ -26,6 +26,20 @@ const CATS={
     specLine:s=>[s["Connector"]&&s["Connector"]!=="Not specified"?s["Connector"]+" connector":"Connector to be confirmed",
       s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
   },
+  "horns":{
+    title:"Horns", one:"horn", many:"horns", cat:"Horns", data:"/horns.json", vehicles:false,
+    crumbs:[["Our products","#/products"]],
+    lead:"Disc and trumpet horns for 12 V and 24 V, single or as high and low tone sets. Find the right Stravik horn by Stravik number, Bosch, Fiamm or Hella number, or type.",
+    placeholder:"Stravik no., Bosch / Fiamm / Hella no., or type (e.g. trumpet 24 V)",
+    filters:[{k:"Type",h:"Type",any:"All types",order:["Mini Disc Horn","Midi Disc Horn","Trumpet Horn","Super Trumpet Horn"]},
+      {k:"Tone",h:"Tone",any:"Any tone",order:["High tone","Low tone","High & low tone set","High & low tone set with relay"]},
+      {k:"Voltage",h:"Voltage",any:"All",sort:"num"}],
+    facts:d=>[[d.n.items,"horns"],[new Set(d.items.map(i=>i.s["Type"]).filter(Boolean)).size,"horn types"],[d.items.reduce((n,i)=>n+i.xr.length,0),"cross-references"]],
+    rowLine:i=>[i.s["Voltage"],i.s["Frequency"],i.s["Current"]].filter(Boolean).join(", "),
+    specLine:s=>[s["Type"],lc(s["Tone"]||"")].filter(Boolean).join(", "),
+    rowRight:i=>i.s["Size"]||"",
+    specs:[["Type","Type"],["Tone","Tone"],["Voltage","Voltage"],["Current","Current"],["Frequency","Frequency"],["Sound level","Sound level"],["Size","Size"]]
+  },
   "bulbs":{
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
