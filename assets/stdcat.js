@@ -124,6 +124,9 @@ const CATS={
     specs:[["Bulb type","Technology",(v)=>BULB_TECH[v]||v],["Bulb","Bulb"],["Range","Range",(v,s)=>bulbRange(s)+(BULB_RANGE[v]||BULB_HID[v]?" ("+v+")":"")],["Voltage","Voltage"],["Wattage","Wattage",watt],["Base","Base"],["Colour temperature","Colour temperature"],["ECE approval","ECE approval"]]
   }
 };
+// browser tab titles, worded like the other catalogues ("Brake catalogue")
+const TAB={"ignition-coils":"Ignition coil catalogue","bulbs":"Bulb catalogue","horns":"Horn catalogue","wiper-blades":"Wiper blade catalogue",
+  "water-pumps":"Water pump catalogue","alternators":"Alternator catalogue","starters":"Starter motor catalogue"};
 const ROT={CW:"Clockwise (CW)",CCW:"Anticlockwise (CCW)"},ROT_S={CW:"clockwise",CCW:"anticlockwise"};
 const WB_ORDER=["Conventional","Flat","Hybrid","Rear","Truck & Bus"];
 // bulbs: technology and range code names (as in the Lucas bulb catalogue's "reading the range codes")
@@ -272,7 +275,7 @@ function filterApps(det,v){
 function page(app,id,params){
   const c=CATS[id];c.id=id;
   const st=readState(params,c);
-  document.title=c.title+" catalogue | Stravik";
+  document.title=(TAB[id]||c.title+" catalogue")+" | Stravik";
   app.innerHTML=`<div class="sc">
   <section class="sc-hero"><div class="sc-in">
     <nav class="sc-crumbs" aria-label="Breadcrumb"><a href="#/">Home</a>${c.crumbs.map(x=>`<span>/</span><a href="${x[1]}">${esc(x[0])}</a>`).join("")}<span>/</span><span aria-current="page">${esc(c.title)}</span></nav>
