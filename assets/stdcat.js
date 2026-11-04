@@ -124,6 +124,10 @@ const CATS={
     specs:[["Bulb type","Technology",(v)=>BULB_TECH[v]||v],["Bulb","Bulb"],["Range","Range",(v,s)=>bulbRange(s)+(BULB_RANGE[v]||BULB_HID[v]?" ("+v+")":"")],["Voltage","Voltage"],["Wattage","Wattage",watt],["Base","Base"],["Colour temperature","Colour temperature"],["ECE approval","ECE approval"]]
   }
 };
+// ranges with their own data file and converter (assets/stdcat-ranges.js): shown with this page, but kept out of
+// CATS so Find a part and tools/build-pages.js keep using their own code for them
+const OWN={};
+const cfg=id=>CATS[id]||OWN[id];
 // browser tab titles, worded like the other catalogues ("Brake catalogue")
 const TAB={"ignition-coils":"Ignition coil catalogue","bulbs":"Bulb catalogue","horns":"Horn catalogue","wiper-blades":"Wiper blade catalogue",
   "water-pumps":"Water pump catalogue","alternators":"Alternator catalogue","starters":"Starter motor catalogue"};
@@ -141,10 +145,10 @@ function watt(v){v=String(v||"");return !v?"":/W$/i.test(v)?v:v+" W";}
 // ---------------------------------------------------------------- data
 const cache={};
 function load(id){
-  const c=CATS[id];c.id=id;
+  const c=cfg(id);c.id=id;
   const photos=c.img?fetch(c.img+"index.json").then(r=>r.ok?r.json():[]).catch(()=>[]):Promise.resolve([]);
   if(!cache[id])cache[id]=Promise.all([fetch(c.data).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),photos])
-    .then(([d,ph])=>{d.photos=photoMap(ph);return prep(d,c);}).catch(e=>{delete cache[id];throw e;});
+    .then(([d,ph])=>{if(c.adapt)d=c.adapt(d);d.photos=photoMap(ph);return prep(d,c);}).catch(e=>{delete cache[id];throw e;});
   return cache[id];
 }
 // model text arrives as e.g. "MERCEDES-BENZ A-CLASS 1.4L / 1.6L" and years as "1997-2004", "2011-" or a "|" list
@@ -273,9 +277,9 @@ function filterApps(det,v){
 }
 
 function page(app,id,params){
-  const c=CATS[id];c.id=id;
+  const c=cfg(id);c.id=id;
   const st=readState(params,c);
-  document.title=(TAB[id]||c.title+" catalogue")+" | Stravik";
+  document.title=(TAB[id]||c.tab||c.title+" catalogue")+" | Stravik";
   app.innerHTML=`<div class="sc">
   <section class="sc-hero"><div class="sc-in">
     <nav class="sc-crumbs" aria-label="Breadcrumb"><a href="#/">Home</a>${c.crumbs.map(x=>`<span>/</span><a href="${x[1]}">${esc(x[0])}</a>`).join("")}<span>/</span><span aria-current="page">${esc(c.title)}</span></nav>
@@ -391,11 +395,11 @@ function page(app,id,params){
       const okv=v=>v&&v!=="Not specified";
       const specs=c.specs?c.specs.filter(x=>okv(i.s[x[0]])).map(x=>[x[1],x[2]?x[2](i.s[x[0]],i.s):i.s[x[0]]]):Object.keys(i.s).filter(k=>okv(i.s[k])).map(k=>[k,i.s[k]]);
       const groups={};i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0).forEach(a=>{(groups[a.mk]=groups[a.mk]||[]).push(a);});
-      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div><a class="sc-plink" href="/part/${encodeURIComponent(i.pn)}/">Part page →</a></div><button class="sc-close" type="button" id="scClose">Close</button></div>
+      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div><a class="sc-plink" href="${esc(partHref(i,c))}">Part page →</a></div><button class="sc-close" type="button" id="scClose">Close</button></div>
         ${i.ph?`<div class="sc-photo"><img src="${esc(i.ph)}" alt="${esc(i.pn)}"></div>`:""}
         <div class="sc-dcart">${cartBtn(i,c,"sc-addcart")}</div>
         ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(x=>`<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
-        ${i.oe.length?`<div class="sc-dsec"><h3>OE numbers</h3><div class="sc-chips">${i.oe.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
+        ${i.oe.length?`<div class="sc-dsec"><h3>${esc(c.oeTitle||"OE numbers")}</h3><div class="sc-chips">${i.oe.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
         ${i.xr.length?`<div class="sc-dsec"><h3>Cross-references</h3><div class="sc-chips">${i.xr.map(o=>`<button class="sc-chip" type="button" data-q="${esc(o)}" title="Search for ${esc(o)}">${esc(o)}</button>`).join("")}</div></div>`:""}
         ${c.engines?appsRich(i,st):c.vehicles===false?"":`<div class="sc-dsec"><h3>Applications (${fmt(i.apps.length)})</h3>${i.apps.length?`<div class="sc-appwrap"><table class="sc-apps"><thead><tr><th>Model and engine</th><th>Years</th></tr></thead><tbody>${Object.keys(groups).map(m=>`<tr class="sc-mkrow"><td colspan="2">${esc(m)}</td></tr>`+groups[m].map(a=>`<tr${(st.mk||st.yr)&&appOk(a,st)?' class="sc-on"':""}><td>${esc(a.mo)}${a.eng?" "+esc(a.eng):""}</td><td>${esc(a.yl)}</td></tr>`).join("")).join("")}</tbody></table></div>`:`<p class="sc-muted">Vehicle list to follow. Ask us and we'll check the fitment.</p>`}</div>`}`;
       det.scrollTop=0;
@@ -420,7 +424,8 @@ let repaint=null;
 document.addEventListener("click",e=>{if(repaint&&e.target.closest&&e.target.closest("button[data-cart-key]"))setTimeout(repaint,0);});
 
 // shared with Find a part (assets/app.js) and the part pages (tools/build-pages.js)
+const partHref=(i,c)=>c.partUrl?c.partUrl(i):"/part/"+encodeURIComponent(i.pn)+"/";
 const title1=(i,c)=>c.title1?c.title1(i):i.d||c.kind||c.one;
-const cartItem=(i,c)=>({key:i.pn,no:i.pn,cat:c.cat,desc:title1(i,c)+(c.rowLine?", "+c.rowLine(i):""),link:"/part/"+encodeURIComponent(i.pn)+"/",kind:"std"});
-window.StdCat={has:id=>!!CATS[id],page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText};
+const cartItem=(i,c)=>({key:i.pn,no:i.pn,cat:c.cat,desc:title1(i,c)+(c.rowLine?", "+c.rowLine(i):""),link:partHref(i,c),kind:"std"});
+window.StdCat={has:id=>!!cfg(id),register:(id,c)=>{OWN[id]=c;},page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText};
 })();
