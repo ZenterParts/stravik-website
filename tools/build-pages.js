@@ -300,7 +300,7 @@ for (const i of BT) {
 <div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span>${ph ? `<img class="bphoto" src="${ph}" alt="Stravik ${esc(btLc(T.one))}, ${esc(i.ser)}">` : `<div class="big">${icon("battery")}</div>`}</div>
 <div class="info"><div class="type">Stravik ${esc(btLc(T.one))}</div>
 <dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
-${ph && !BAT_PHOTO.exact[i.pn] ? `<p class="sib">The photo shows a battery from the same range; labels differ by size.</p>` : ""}
+${/\/mock_/.test(ph) ? `<p class="sib">The picture shows the ${esc(i.ser)} SMF label design; the case size and shape depend on the battery.</p>` : ""}
 <div class="replace"><b>Before you order</b><span>Check the SAB number, case size, terminal layout and hold-down against the old battery, or send us the vehicle and we'll confirm the fit.</span></div>
 ${buyBox(item)}
 <div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/#/batteries/${T.slug}">More ${esc(btLc(T.many))}</a></div>
