@@ -358,8 +358,8 @@ function page(app,id,params){
     const listEl=$("#scList"),det=$("#scDetail");
     function update(reset){
       if(reset)shown=PAGE;
-      const cq=clean(st.q),exactQ=cq&&allCodes.has(cq)?cq:"";
-      list=d.items.filter(i=>pass(i,st,exactQ));
+      const qq=typeof pnRenamed==="function"&&pnRenamed(st.q)||st.q,cq=clean(qq),exactQ=cq&&allCodes.has(cq)?cq:"",stq=qq===st.q?st:Object.assign({},st,{q:qq});
+      list=d.items.filter(i=>pass(i,stq,exactQ));
       if(st.q)list.sort((a,b)=>(b._hit?1:0)-(a._hit?1:0)||a.pn.localeCompare(b.pn));
       list.sort((a,b)=>b._fit-a._fit);   // exact vehicle matches before the ones listed for the make only
       const veh=[st.mk,st.mo,yrOk(st)?st.yr:"",st.en].filter(Boolean).join(" ");
