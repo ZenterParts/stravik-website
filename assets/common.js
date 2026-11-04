@@ -15,20 +15,33 @@ const catNode=c=>{const kids=c.types.length===1
     ?c.types[0].subs.map(s=>({name:s[0],href:"/#/product/"+slug(s[0])}))
     :c.types.map(t=>({name:t.name,href:`/#/products/${c.id}/${slug(t.name)}`,kids:t.subs.map(s=>({name:s[0],href:"/#/product/"+slug(s[0])}))}));
   return kids;};
+// Grouped to match the Zenter Parts product categories: category > subcategory > part type
+const SS_SLUG=c=>{const t=SS_TYPES.find(x=>x[0]===c);return t?{name:t[2],href:"/#/steering/"+slug(t[2])}:null;};
+const brType=c=>{const t=BR_TYPES.find(x=>x[0]===c);return {name:t[2],href:"/#/brakes/"+slug(t[2])};};
+const BRK=CATALOG.find(c=>c.id==="braking-system");
 const MENU=[
-  {name:"Braking",icon:"disc",href:"/#/products/braking-system",kids:[{name:"Brake catalogue",href:"/#/brakes",kids:BR_TYPES.map(t=>({name:t[2],href:"/#/brakes/"+slug(t[2])})).concat([{name:"Search the catalogue",href:"/#/brakes"}])}].concat(catNode(CATALOG.find(c=>c.id==="braking-system")))},
-  {name:"Steering & suspension",icon:"ball",href:"/#/products/steering-suspension",kids:["Suspension","Steering","Mountings"].map(g=>({name:g,href:"/#/steering",kids:SS_TYPES.filter(t=>t[3]===g).map(t=>({name:t[2],href:"/#/steering/"+slug(t[2])}))})).concat([{name:"Search the catalogue",href:"/#/steering"}])},
+  {name:"Braking systems",icon:"disc",href:"/#/products/braking-system",kids:[
+    brType("PAD"),brType("CVP"),brType("DSC"),
+    {name:"Brake calipers",href:"/#/product/brake-calipers"},
+    brType("SHO"),
+    {name:"Brake drums",href:"/#/product/brake-drums"},
+    {name:"Brake hoses",href:"/#/product/brake-hose-flexible"},
+    {name:"More braking parts",href:"/#/products/braking-system",kids:BRK.types.map(t=>({name:t.name,href:`/#/products/braking-system/${slug(t.name)}`}))},
+    {name:"Search the catalogue",href:"/#/brakes"}]},
+  {name:"Suspension & steering",icon:"ball",href:"/#/products/steering-suspension",kids:
+    ["CA","TE","BS","SL","BJ","RE","IA","SR","DL","SM","EM","IS","OS"].map(SS_SLUG).filter(Boolean).concat([{name:"Search the catalogue",href:"/#/steering"}])},
   {name:"Shock absorbers",icon:"shock",href:"/#/products/shock-absorbers",kids:SA_TYPES.map(t=>({name:t[2],href:"/#/shock-absorbers/"+slug(t[2])})).concat([{name:"Search the catalogue",href:"/#/shock-absorbers"}])},
-  {name:"Filtration",icon:"f_oil",href:"/#/products/filters",kids:[["air-filters","Air filters"],["oil-filters","Oil filters"],["fuel-filters","Fuel filters"],["cabin-filters","Cabin filters"],["filter-kits","Filter kits"],["coolant-filters","Coolant filters"],["filter-housings","Filter housings"]].map(f=>({name:f[1],href:"/#/filters/"+f[0]})).concat([{name:"Search the catalogue",href:"/#/filters"}])},
-  {name:"Gas springs",icon:"sa_gas",href:"/#/products/gas-springs",kids:GS_TYPES.map(t=>({name:t[2],href:"/#/gas-springs/"+t[3]})).concat([{name:"Search the catalogue",href:"/#/gas-springs"}])},
+  {name:"Filters",icon:"f_oil",href:"/#/products/filters",kids:[["air-filters","Air filters"],["fuel-filters","Fuel filters"],["oil-filters","Oil filters"],["cabin-filters","Cabin filters"],["filter-kits","Filter kits"],["coolant-filters","Coolant filters"],["filter-housings","Filter housings"]].map(f=>({name:f[1],href:"/#/filters/"+f[0]})).concat([{name:"Search the catalogue",href:"/#/filters"}])},
+  {name:"Electrical",icon:"bolt",href:"/#/products",kids:[
+    {name:"Alternators",href:"/#/alternators"},
+    {name:"Bulbs",href:"/#/bulbs"},
+    {name:"Horns",href:"/#/horns"},
+    {name:"Starter motors",href:"/#/starters"},
+    {name:"Ignition coils",href:"/#/ignition-coils"}]},
   {name:"Batteries",icon:"battery",href:"/#/products/batteries",kids:BAT_TYPES.map(t=>({name:t[2],href:"/#/batteries/"+slug(t[2])})).concat([{name:"Search the catalogue",href:"/#/batteries"}])},
-  {name:"Ignition coils",icon:"bolt",href:"/#/ignition-coils",kids:[]},
-  {name:"Bulbs",icon:"bulb",href:"/#/bulbs",kids:[]},
-  {name:"Horns",icon:"horn",href:"/#/horns",kids:[]},
-  {name:"Wiper blades",icon:"wiper",href:"/#/wiper-blades",kids:[]},
-  {name:"Water pumps",icon:"pump",href:"/#/water-pumps",kids:[]},
-  {name:"Alternators",icon:"alternator",href:"/#/alternators",kids:[]},
-  {name:"Starter motors",icon:"starter",href:"/#/starters",kids:[]}];
+  {name:"Engine cooling",icon:"pump",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
+  {name:"Wiper systems",icon:"wiper",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]},
+  {name:"Body & panel",icon:"sa_gas",href:"/#/products/gas-springs",kids:[{name:"Gas springs",href:"/#/products/gas-springs",kids:GS_TYPES.map(t=>({name:t[2],href:"/#/gas-springs/"+t[3]})).concat([{name:"Search the catalogue",href:"/#/gas-springs"}])}]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const megaCol=(items,lvl)=>`<ul class="mcol" data-lvl="${lvl}">${items.map((it,k)=>`<li${it.kids&&it.kids.length?' class="has"':""} data-k="${k}"><a href="${it.href}">${esc(it.name)}</a>${it.kids&&it.kids.length?`<span class="chev">${CHEV}</span>`:""}</li>`).join("")}</ul>`;
 ddMenu.classList.add("mega");
