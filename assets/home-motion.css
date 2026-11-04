@@ -1,0 +1,93 @@
+/* Homepage motion (assets/home-motion.js adds body.hm on the homepage only):
+   sticky video hero that the page slides over, scroll reveals, lit 3D product cards,
+   a numbers band that counts up, side dot navigation and a scroll progress bar.
+   Everything is switched off for visitors who ask for reduced motion. */
+
+/* scroll progress bar */
+.hm-progress{position:fixed;top:0;left:0;right:0;height:3px;z-index:60;pointer-events:none;transform-origin:0 50%;transform:scaleX(var(--hp,0));background:linear-gradient(90deg,#8a6326,#a97c42 40%,#d3a864)}
+
+/* hero: headline lines rise in, video stays put while the page slides over it */
+@keyframes hmUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+body.hm .hero.hvid h1 span,body.hm .hero.hvid .lede,body.hm .hero.hvid .actions{opacity:0;animation:hmUp .85s cubic-bezier(.2,.7,.2,1) forwards}
+body.hm .hero.hvid h1 span:nth-child(1){animation-delay:.08s}
+body.hm .hero.hvid h1 span:nth-child(2){animation-delay:.22s}
+body.hm .hero.hvid h1 span:nth-child(3){animation-delay:.36s}
+body.hm .hero.hvid .lede{animation-delay:.52s}
+body.hm .hero.hvid .actions{animation-delay:.66s}
+body.hm .hero.hvid h1 span:nth-child(3){color:#d3a864}
+.hero.hvid .hm-dim{position:absolute;inset:0;background:#06111f;opacity:0;pointer-events:none}
+@media (min-width:901px){
+  body.hm .hero.hvid{position:sticky;z-index:0}
+  body.hm #app>section:not(.hero),body.hm footer.site{position:relative;z-index:1}
+  body.hm #app>section.intro{background:var(--white);border-radius:28px 28px 0 0;margin-top:-28px;box-shadow:0 -34px 60px -24px rgba(4,12,28,.6)}
+  body.hm .hero.hvid .copy{opacity:calc(1 - var(--hs,0) * .9);transform:translateY(calc(var(--hs,0) * -50px)) scale(calc(1 - var(--hs,0) * .05));transform-origin:0 50%}
+  body.hm .hero.hvid .hvideo{transform:scale(calc(1 + var(--hs,0) * .08))}
+  body.hm .hero.hvid .hm-dim{opacity:calc(var(--hs,0) * .6)}
+}
+
+/* gold buttons: light sweep on hover */
+body.hm .btn.gold{position:relative;overflow:hidden;isolation:isolate;transition:background .15s,color .15s,transform .2s,box-shadow .25s}
+body.hm .btn.gold::after{content:"";position:absolute;top:0;bottom:0;left:-70%;width:45%;z-index:-1;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-20deg);transition:left .65s ease}
+body.hm .btn.gold:hover{transform:translateY(-2px);box-shadow:0 12px 26px -12px rgba(169,124,66,.9)}
+body.hm .btn.gold:hover::after{left:125%}
+
+/* scroll reveals: separate translate/scale so the hover tilt (transform) never fights them */
+body.hm [data-rv]{opacity:0;transition-property:opacity,translate,scale;transition-duration:.8s,.95s,.95s;transition-timing-function:ease,cubic-bezier(.2,.7,.2,1),cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
+body.hm [data-rv="up"]{translate:0 44px}
+body.hm [data-rv="left"]{translate:-60px 0}
+body.hm [data-rv="right"]{translate:70px 0;scale:.94}
+body.hm [data-rv="zoom"]{translate:0 50px;scale:.8}
+body.hm [data-rv].in{opacity:1;translate:0 0;scale:1}
+
+/* intro picture: slow zoom on hover */
+body.hm .intro-pic{overflow:hidden;border-radius:12px}
+body.hm .intro-pic img{transition:transform 1.2s cubic-bezier(.2,.7,.2,1)}
+body.hm .intro-pic:hover img{transform:scale(1.06)}
+
+/* product family cards: lift, tilt toward the pointer, bronze glow that follows the pointer */
+body.hm .fam{position:relative;transform:perspective(1000px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition-property:opacity,translate,scale,transform,box-shadow,border-color;transition-duration:.8s,.95s,.95s,.35s,.35s,.35s;transition-timing-function:ease,cubic-bezier(.2,.7,.2,1),cubic-bezier(.2,.7,.2,1),cubic-bezier(.2,.7,.2,1),ease,ease}
+body.hm .fam::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(380px circle at var(--mx,50%) var(--my,30%),rgba(211,168,100,.30),transparent 50%)}
+body.hm .fam:hover{transform:perspective(1000px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(-8px);border-color:#a97c42;box-shadow:0 30px 60px -26px rgba(11,32,61,.6),0 0 0 1px #a97c42,0 0 40px -8px rgba(211,168,100,.6)}
+body.hm .fam:hover::after{opacity:1}
+body.hm .fam-pic{overflow:hidden}
+body.hm .fam-pic::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 62%,rgba(211,168,100,.55),#0b203d 72%);opacity:0;transition:opacity .45s}
+body.hm .fam-pic img,body.hm .fam-pic .ic{position:relative;z-index:1;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+body.hm .fam-soon{z-index:2}
+body.hm .fam:hover .fam-pic::before{opacity:1}
+body.hm .fam:hover .fam-pic img{transform:scale(1.12) translateY(-6px) rotate(-2deg)}
+body.hm .fam:hover .fam-pic .ic{transform:scale(1.1)}
+body.hm .fam h3{transition:color .25s}
+body.hm .fam:hover h3{color:var(--gold-deep)}
+body.hm .fam-cat{transition:background .25s,color .25s,padding-left .25s}
+body.hm .fam:hover .fam-cat{background:#0b203d;color:#d3a864;padding-left:30px}
+
+/* numbers band */
+@keyframes hmSheen{from{transform:translateX(-55%)}to{transform:translateX(55%)}}
+.hm-stats{position:relative;z-index:1;background:#0b203d;color:#fff;overflow:hidden;border-bottom:4px solid #a97c42}
+.hm-stats::before{content:"";position:absolute;inset:-50% -20%;background:linear-gradient(115deg,transparent 42%,rgba(211,168,100,.16) 50%,transparent 58%);animation:hmSheen 8s linear infinite alternate;pointer-events:none}
+.hm-stats .wrap{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px;padding-block:60px}
+.hm-stat{border-left:3px solid #a97c42;padding-left:20px}
+.hm-stat b{display:block;font-family:var(--display);font-weight:700;font-size:clamp(36px,4.2vw,58px);line-height:1;color:#fff;font-variant-numeric:tabular-nums}
+.hm-stat span{display:block;margin-top:10px;color:#d3a864;font-family:var(--display);font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:13px}
+@media (max-width:760px){.hm-stats .wrap{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 18px;padding-block:44px}}
+
+/* side dot navigation (wide screens only) */
+.hm-dots{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:45;display:flex;flex-direction:column;gap:4px;padding:10px 6px;border-radius:999px;background:rgba(11,32,61,.42);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.hm-dots button{all:unset;position:relative;width:20px;height:20px;display:grid;place-items:center;cursor:pointer}
+.hm-dots button::before{content:"";width:5px;height:5px;background:#fff;transition:background .25s,transform .25s}
+.hm-dots button::after{content:"";position:absolute;inset:3px;border:1.5px solid #d3a864;opacity:0;transform:scale(.3) rotate(45deg);transition:opacity .3s,transform .3s}
+.hm-dots button:hover::before{transform:scale(1.4)}
+.hm-dots button[aria-current="true"]::before{background:#d3a864}
+.hm-dots button[aria-current="true"]::after{opacity:1;transform:none}
+.hm-dots button:focus-visible{outline:2px solid #d3a864;outline-offset:2px;border-radius:3px}
+.hm-dots span{position:absolute;right:30px;white-space:nowrap;background:#0b203d;color:#fff;font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border-radius:4px;opacity:0;transform:translateX(6px);transition:opacity .2s,transform .2s;pointer-events:none}
+.hm-dots button:hover span,.hm-dots button:focus-visible span{opacity:1;transform:none}
+@media (max-width:900px){.hm-dots{display:none}}
+
+/* reduced motion: show everything at once, no movement */
+body.hm-still .hero.hvid h1 span,body.hm-still .hero.hvid .lede,body.hm-still .hero.hvid .actions{opacity:1;animation:none}
+body.hm-still [data-rv]{opacity:1;translate:0 0;scale:1;transition:none}
+body.hm-still .hero.hvid .copy,body.hm-still .hero.hvid .hvideo{transform:none}
+body.hm-still .hm-stats::before{animation:none}
+body.hm-still .fam,body.hm-still .fam:hover{transform:none}
+@media print{.hm-progress,.hm-dots{display:none}}
