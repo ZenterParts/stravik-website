@@ -302,7 +302,7 @@ function requestPage(params){
 // ---------- New to range (edit NEWS to add entries, newest first) ----------
 const NEWS=[
   {when:"2026",title:"Stravik gas springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, searchable by Stravik, OE or cross-reference number, by vehicle, or by length, stroke and force.",href:"#/gas-springs",cta:"Search the catalogue",img:"/assets/img/gas-springs-hero.svg"},
-  {when:"2026",title:"Stravik batteries",text:"SMF, EFB, AGM and heavy duty starter batteries, searchable by Stravik or SAB number, case, capacity or vehicle, with case drawings.",href:"#/batteries",cta:"Search the catalogue",img:"/assets/img/batteries/gold_smf_80_tr.webp"},
+  {when:"2026",title:"Stravik batteries",text:"SMF, EFB, AGM and heavy duty starter batteries, searchable by Stravik or SAB number, case, capacity or vehicle, with case drawings.",href:"#/batteries",cta:"Search the catalogue",img:"/assets/img/batteries/mock_gold.webp"},
   {when:"2026",title:"Brake catalogue",text:"Brake pads, discs, shoes and commercial vehicle pads, each with its Stravik number, external number, OE numbers, size and the vehicles it fits.",href:"#/brakes",cta:"Search the catalogue",img:"/assets/img/braking-box.webp"},
   {when:"2026",title:"Steering and suspension catalogue",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references and the vehicles it fits.",href:"#/steering",cta:"Search the catalogue",img:"/assets/img/ss-box.webp",count:"ss"},
   {when:"2026",title:"Stravik filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment, searchable by OE or cross-reference number.",href:"#/filters",cta:"Search the catalogue",icon:"f_oil",count:"fl"},
@@ -1306,6 +1306,9 @@ function batcard(d,i,q,v){
     `<span class="veh"><b>SAB</b> ${batSab(i,q)||"–"} · ${esc(batOrigin(i.org))}</span>`+
     `<span class="veh sa-fits"><b>Fits</b> ${batFits(d,i,v,2)}</span></a>${batCartBtn(i)}</div>`;
 }
+// SMF label artwork (Stravik battery e-catalogue 2026): series, colour band, battery mock-up, front label
+const BAT_LABELS=[["Platinum Series","Blue band","mock_plat","art_front_plat"],["Gold Series","Bronze band","mock_gold","art_front_gold"],["Silver Series","Grey band","mock_silver","art_front_silver"]];
+const BAT_TOPS=[["art_top_115","Top label · 115 × 65 mm","Barcode and rating, installation date, charge indicator and warnings. Same on every series.",470],["art_top_55","Top label · 55 × 65 mm","SMF battery, sealed maintenance free (EN, FR, PT, AR). Same on every series.",240]];
 function batOverview(){
   app.innerHTML=`<div class="pagehead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Batteries</span></div>
@@ -1329,7 +1332,10 @@ function batOverview(){
         <figure><img src="/assets/img/batteries/terminal-layouts.png" alt="Terminal layouts 0, 1, 3, 4 and 6 seen from above" loading="lazy"><figcaption><b>Terminal layout</b> Position of the positive (+) and negative (−) terminals seen from above. "0 / 1" means the battery comes in both layouts.</figcaption></figure>
         <figure><img src="/assets/img/batteries/terminal-types.png" alt="Terminal types 1 and 3 with dimensions" loading="lazy"><figcaption><b>Terminal types</b> Terminal types 1 and 3, dimensions in mm.</figcaption></figure>
         <figure><img src="/assets/img/batteries/holddowns.png" alt="Hold-down base ledges B01, B03, B13 and B14" loading="lazy"><figcaption><b>Hold-down</b> Base ledges used to clamp the battery in the vehicle, dimensions in mm.</figcaption></figure>
-        <figure><img src="/assets/img/batteries/holddown-b00.png" alt="Hold-down B00, no base ledge" loading="lazy"><figcaption><b>Hold-down B00</b> No base ledge: the battery is clamped from the top.</figcaption></figure></div></div>`;
+        <figure><img src="/assets/img/batteries/holddown-b00.png" alt="Hold-down B00, no base ledge" loading="lazy"><figcaption><b>Hold-down B00</b> No base ledge: the battery is clamped from the top.</figcaption></figure></div></div>`+
+      `<div class="group" style="margin:40px 0 0"><h2>Label artwork<span>SMF batteries</span></h2><p class="pp-note">Platinum, Gold and Silver series share one label layout: the colour band and the SMF tab show the series.</p>
+        <div class="blabels">${BAT_LABELS.map(l=>`<figure class="blab"><img class="bmock" src="/assets/img/batteries/${l[2]}.webp" alt="Stravik ${esc(l[0])} SMF battery" loading="lazy"><figcaption><b>${esc(l[0])}</b><span>${esc(l[1])}</span></figcaption><a href="/assets/img/batteries/labels/${l[3]}.webp" target="_blank" rel="noopener"><img src="/assets/img/batteries/labels/${l[3]}.webp" alt="${esc(l[0])} front label" loading="lazy"></a><small>Front label · 267 × 100 mm</small></figure>`).join("")}</div>
+        <div class="btops">${BAT_TOPS.map(l=>`<figure class="btop" style="max-width:${l[3]}px"><a href="/assets/img/batteries/labels/${l[0]}.webp" target="_blank" rel="noopener"><img src="/assets/img/batteries/labels/${l[0]}.webp" alt="${esc(l[1])}" loading="lazy"></a><figcaption><b>${esc(l[1])}</b> ${esc(l[2])}</figcaption></figure>`).join("")}</div></div>`;
   }).catch(err=>{app.querySelector("#bov-body").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
 }
 function batPage(slugT,params){
