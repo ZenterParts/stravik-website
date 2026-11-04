@@ -118,6 +118,7 @@ function vehicleMatch(ix,mk,mo,yr){
 // ---------- universal number search ----------
 function numScore(c,vals){let best=0,hit="";vals.forEach(v=>{const k=fclean(v);if(!k)return;const s=k===c?3:k.startsWith(c)?2:(c.length>=4&&k.includes(c))?1:0;if(s>best){best=s;hit=v;}});return [best,hit];}
 function searchAll(q){
+  q=pnRenamed(q)||q;   // renumbered parts: an old Stravik number finds the part under its new number
   return Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS(),loadStd()]).then(([ss,fl,sa,br,bt,gs,stdR])=>{
     const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[],B=[],T=[],G=[],std=[];
     if(num){
@@ -1634,7 +1635,7 @@ function route(){
   else if(parts[0]==="brakes"){key="brakes";brPage(parts[1],params);}
   else if(parts[0]==="batteries"){key="batteries";batPage(parts[1],params);}
   else if(parts[0]==="gas-springs"){key="gassprings";gsPage(parts[1],params);}
-  else if(parts[0]==="part"&&parts[1]){location.replace(partUrl(decodeURIComponent(parts[1])));return;}
+  else if(parts[0]==="part"&&parts[1]){const pn=decodeURIComponent(parts[1]);location.replace(partUrl(pnRenamed(pn)||pn));return;}
   else if(window.StdCat&&StdCat.has(parts[0])){key="stdcat";StdCat.page(app,parts[0],params);}
   else notFound();
   document.querySelectorAll("nav.main a").forEach(a=>{if(a.dataset.nav===key)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});

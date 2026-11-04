@@ -14,7 +14,7 @@ const rd = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 // ---- shared constants from the site's own catalogue script
 const ctx = { window: {} }; vm.createContext(ctx);
 vm.runInContext(rd("assets/catalog.js").replace(/^const /gm, "var "), ctx);
-const { ICONS, FICON, SS_TYPES, SA_TYPES, MKL } = ctx;
+const { ICONS, FICON, SS_TYPES, SA_TYPES, MKL, PN_RENAMED } = ctx;
 const icon = k => '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[k] || ICONS.kit) + "</svg>";
 const slug = s => s.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -464,7 +464,20 @@ ${cantFind}`;
   }
 }
 
+// ================= renumbered parts: /part/<old number>/ forwards to the new page =================
+// (Stravik prefixes changed to 4 characters on 4 Nov 2026; the 4 digits stay the same). Not in the sitemap.
+let forwards = 0;
+{ const back = {}; Object.entries(PN_RENAMED || {}).forEach(([o, n]) => back[n] = o);
+  for (const f of fs.readdirSync(path.join(ROOT, "part"))) {
+    const m = /^(S[A-Z]{3})(\d{4})$/.exec(f); if (!m || !back[m[1]]) continue;
+    const old = back[m[1]] + m[2], to = `/part/${f}/`;
+    write(`part/${old}`, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Stravik ${old} is now ${f}</title><meta name="robots" content="noindex">` +
+      `<link rel="canonical" href="${SITE}${to}"><meta http-equiv="refresh" content="0; url=${to}"></head><body><p>Stravik ${old} is now <a href="${to}">${f}</a>.</p></body></html>\n`);
+    forwards++;
+  }
+}
+
 // ================= sitemap and robots =================
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages, ${GS.length} gas spring pages, ${F.items.length} filter pages and pages for ${stdCounts.join(", ")} (${urls.length + 1} URLs in sitemap.xml).`);
+console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages, ${GS.length} gas spring pages, ${F.items.length} filter pages and pages for ${stdCounts.join(", ")} (${urls.length + 1} URLs in sitemap.xml), ${forwards} forwards from old part numbers.`);
