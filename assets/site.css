@@ -992,6 +992,8 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 /* buyer accounts (dealer.js): sign in, registration, account, prices, order requests to the fulfilment centre */
 .dprice{display:inline-block;margin-right:8px;padding:3px 8px;border-radius:5px;background:var(--gold-tint);color:var(--gold-deep);font-family:var(--display);font-weight:700;font-size:14.5px;white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
 .dprice.big{font-size:20px;padding:6px 12px;margin:0 12px 0 0;align-self:flex-end}
+.dprice small{display:block;font-family:var(--body,inherit);font-weight:500;font-size:11px;line-height:1.2;color:var(--gold-deep);opacity:.85;margin-top:1px}
+.dprice.big small{font-size:12.5px}
 .dwrap{padding:36px 0 90px}
 .dauth{max-width:520px;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:10px;padding:22px}
 .dwrap:has(.dside){display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:40px;align-items:start}
