@@ -254,7 +254,7 @@ async function account(app,c,me){
   else if(d.status==="Suspended")body=`<div class="dstat bad"><h2>Your account is on hold</h2><p>Ordering is paused for now. Please <a href="#/contact">contact us</a> if you have questions.</p></div>`;
   else{
     const n=S.prices?S.prices.map.size:0;
-    const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="/batteries/">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
+    const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="/batteries/catalogue/">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
     body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}) show next to each part in the catalogue${VAT()?`; ${Math.round(VAT()*100)}% VAT is added in your cart`:""}${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }

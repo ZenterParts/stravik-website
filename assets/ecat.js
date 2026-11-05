@@ -592,8 +592,10 @@ document.addEventListener("stravik-prices",prices);
 syncView();
 const P=new URLSearchParams(location.search);
 const TSLUG={"smf-batteries":"SMF","efb-batteries":"EFB","agm-batteries":"AGM","heavy-duty-batteries":"HDB"};
-const ty=P.get("type");const tc=ty&&(TSLUG[ty]||String(ty).toUpperCase());
-if(tc&&TYPES.some(t=>t[0]===tc)){st.types.add(tc);$$("#types .tchip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.t?st.types.has(x.dataset.t):false));}
+// type=SMF (or a list: type=SMF,EFB), app=car (SMF, EFB and AGM) or app=cv (heavy duty, commercial vehicles)
+const APP={car:"SMF,EFB,AGM",cv:"HDB"};
+const tys=String(APP[P.get("app")]||P.get("type")||"").split(",").map(x=>TSLUG[x]||x.trim().toUpperCase()).filter(x=>TYPES.some(t=>t[0]===x));
+if(tys.length){tys.forEach(x=>st.types.add(x));$$("#types .tchip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.t?st.types.has(x.dataset.t):false));}
 if(P.get("series")&&uniq("series").includes(P.get("series"))){st.ser=P.get("series");$("#f-ser").value=st.ser;}
 if(P.get("box")&&uniq("box").includes(P.get("box"))){st.box=P.get("box");$("#f-box").value=st.box;}
 if(P.get("q")){q.value=P.get("q");$("#qx").hidden=false;}

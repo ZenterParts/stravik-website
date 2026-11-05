@@ -215,7 +215,7 @@ const FAMILIES=[
   {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
   {id:"gs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs-hero.svg",href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
-  {id:"bat",name:"Batteries",icon:"battery",img:"/assets/img/batteries/efb_75_eu.webp",href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/",catText:"Search the catalogue"}];
+  {id:"bat",name:"Batteries",icon:"battery",img:"/assets/img/batteries/efb_75_eu.webp",href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/catalogue/",catText:"Search the catalogue"}];
 const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
 function home(){
   app.innerHTML=`
@@ -303,7 +303,7 @@ function requestPage(params){
 // ---------- New to range (edit NEWS to add entries, newest first) ----------
 const NEWS=[
   {when:"2026",title:"Stravik gas springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, searchable by Stravik, OE or cross-reference number, by vehicle, or by length, stroke and force.",href:"#/gas-springs",cta:"Search the catalogue",img:"/assets/img/gas-springs-hero.svg"},
-  {when:"2026",title:"Stravik batteries",text:"SMF, EFB, AGM and heavy duty starter batteries, searchable by Stravik or SAB number, case, capacity or vehicle, with case drawings.",href:"/batteries/",cta:"Search the catalogue",img:"/assets/img/batteries/mock_gold.webp"},
+  {when:"2026",title:"Stravik batteries",text:"SMF, EFB, AGM and heavy duty starter batteries, searchable by Stravik or SAB number, case, capacity or vehicle, with case drawings.",href:"/batteries/catalogue/",cta:"Search the catalogue",img:"/assets/img/batteries/mock_gold.webp"},
   {when:"2026",title:"Brake catalogue",text:"Brake pads, discs, shoes and commercial vehicle pads, each with its Stravik number, external number, OE numbers, size and the vehicles it fits.",href:"#/brakes",cta:"Search the catalogue",img:"/assets/img/braking-box.webp"},
   {when:"2026",title:"Steering and suspension catalogue",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references and the vehicles it fits.",href:"#/steering",cta:"Search the catalogue",img:"/assets/img/ss-box.webp",count:"ss"},
   {when:"2026",title:"Stravik filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment, searchable by OE or cross-reference number.",href:"#/filters",cta:"Search the catalogue",icon:"f_oil",count:"fl"},
@@ -380,7 +380,7 @@ function about(){
       <div><h3>What we offer</h3><p>Our range offers extensive vehicle coverage, giving workshops, distributors and retailers one reliable source for the parts they need.</p></div>
       <div><h3>Serving markets worldwide</h3><p>We supply customers across a wide range of markets in over 60 countries. Whatever the region, we understand the vehicles on its roads and the parts its customers need, so you get a range that fits your market.</p></div>
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
-        <p class="links"><a href="#/brakes">Brake catalogue</a><a href="/batteries/">Battery catalogue</a><a href="#/gas-springs">Gas spring catalogue</a><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
+        <p class="links"><a href="#/brakes">Brake catalogue</a><a href="/batteries/catalogue/">Battery catalogue</a><a href="#/gas-springs">Gas spring catalogue</a><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
     </div>
   </div></section>
   <section class="block paper"><div class="wrap">
@@ -449,7 +449,7 @@ function productsHome(){
       ${pc("","pump","Water Pumps","Mechanical and electric water pumps, with vehicle fitment by make, model, year and engine, and their OE and cross-reference numbers.",["",""],`<a class="btn gold" href="#/water-pumps">Open the catalogue</a>`)}
       ${pc("","alternator","Alternators","Alternators and alternator parts (bearings, brushes, pulleys, regulators, rotors, stators), with vehicle fitment and OE numbers.",["",""],`<a class="btn gold" href="#/alternators">Open the catalogue</a>`)}
       ${pc("","starter","Starter Motors","12 V and 24 V starter motors for cars, pickups and light commercials, with vehicle fitment and OE numbers.",["",""],`<a class="btn gold" href="#/starters">Open the catalogue</a>`)}
-      ${pc("/assets/img/batteries/efb_75_eu.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",""],`<a class="btn gold" href="/batteries/">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`)}
+      ${pc("/assets/img/batteries/efb_75_eu.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",""],`<a class="btn gold" href="/batteries/catalogue/">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`)}
     </div>
   </div></section>
 
@@ -464,7 +464,7 @@ function products(catId,typeId,q){
   if(catId==="filters"){filtersOverview();return;}
   if(catId==="steering-suspension"){ssOverview();return;}
   if(catId==="shock-absorbers"){saOverview();return;}
-  if(catId==="batteries"){location.replace("/batteries/");return;}   // the battery e-catalogue page (assets/ecat.js)
+  if(catId==="batteries"){location.replace("/batteries/");return;}   // the batteries page (landing; the e-catalogue is /batteries/catalogue/)
   if(catId==="gas-springs"){gsOverview();return;}
   const cat=CATALOG.find(c=>c.id===catId);
   const cats=cat?[cat]:CATALOG;
@@ -484,7 +484,7 @@ function products(catId,typeId,q){
       </div>
       <nav aria-label="Part types">${cats.map(c=>`<h4>${esc(c.name)}</h4>${c.types.map(t=>`<a href="#/products/${c.id}/${t.id}">${esc(t.name)}</a>`).join("")}<div style="height:18px"></div>`).join("")}</nav>
     </aside>
-    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="/batteries/"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
+    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="/batteries/catalogue/"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
   </div>`;
   if(!cat)loadGS().then(d=>{const e=app.querySelector("#cc-gs");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" gas springs with OE numbers and vehicles";}).catch(()=>{});
   if(!cat)loadBAT().then(d=>{const e=app.querySelector("#cc-bt");if(e)e.textContent=d.items.length+" batteries with SAB numbers and vehicles";}).catch(()=>{});
@@ -1431,7 +1431,7 @@ function batResults(d,list,q,max,v){
   if(!list.length)return "";const shown=list.slice(0,max);v=v||{mk:-1,mo:"",yr:0};
   return `<div class="rgroup"><h2>Batteries <span>${list.length} ${list.length===1?"battery":"batteries"}</span></h2>
   <div class="ftable-wrap"><table class="ftable sa bat"><thead><tr><th>Stravik no.</th><th>Type and series</th><th>Case and size</th><th>Ah and CCA</th><th>SAB and origin</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>batrow(d,x.i,q,v)).join("")}</tbody></table></div>
-  ${list.length>max?`<p class="rmore"><a class="btn line" href="/batteries/?q=${encodeURIComponent(q)}">See all ${list.length} in the battery catalogue</a></p>`:""}</div>`;
+  ${list.length>max?`<p class="rmore"><a class="btn line" href="/batteries/catalogue/?q=${encodeURIComponent(q)}">See all ${list.length} in the battery catalogue</a></p>`:""}</div>`;
 }
 
 // ---------- gas spring catalogue ----------
@@ -1616,7 +1616,7 @@ function notFound(){app.innerHTML=`<div class="pagehead"><div class="wrap"><h1>P
 function batRedirect(typeSlug,params){const p=new URLSearchParams();const T=typeSlug&&BAT_TYPES.find(t=>BTI[t[0]].slug===typeSlug);if(T)p.set("type",T[0]);
   ["q","series","dwg"].forEach(k=>{if(params.get(k))p.set(k,params.get(k));});
   if(params.get("make")){p.set("tab","vehicles");p.set("make",params.get("make"));if(params.get("model"))p.set("model",params.get("model"));}
-  location.replace("/batteries/"+(p.toString()?"?"+p:""));}
+  location.replace("/batteries/catalogue/"+(p.toString()?"?"+p:""));}
 function route(){
   const raw=location.hash.replace(/^#/,"")||"/";
   const [path,qs]=raw.split("?");const params=new URLSearchParams(qs||"");

@@ -288,15 +288,43 @@ const btEan = i => { if (!BT_SUP[i.org] || !/^[A-Z0-9]{8}$/.test(i.pn)) return "
   const s = "12" + [...i.pn].map(c => /\d/.test(c) ? c : KEYPAD[c.charCodeAt(0) - 65]).join("") + BT_SUP[i.org];
   let t = 0; for (let k = 0; k < 12; k++) t += +s[k] * (k % 2 ? 3 : 1); return s + (10 - t % 10) % 10; };
 { const seen = new Map(); BT.forEach(i => { const e = btEan(i); if (e && seen.has(e)) throw new Error(`Battery barcode ${e} is used by ${seen.get(e)} and ${i.pn}`); seen.set(e, i.pn); }); }
-// warranty registration: the QR code on the battery opens the battery's page; this block closes the page
-const btWarranty = i => `<aside class="cantfind wreg" id="warranty"><div><h3>Battery warranty registration</h3><p>Bought this Stravik battery? Register it for warranty with the battery number, the date you bought it and where you bought it. Keep your invoice as proof of purchase.</p></div><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register this battery</a></aside>`;
 const btCard = x => { const T = BTT[x.t] || { one: "Battery" }, ph = btPhoto(x);
   return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(x.pn)}/"><span class="bph">${ph ? `<img src="${ph}" alt="" loading="lazy">` : `<span class="ic">${icon("battery")}</span>`}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(T.one)}, ${esc(x.ser)}</span><span class="veh"><b>${esc(x.ah)} Ah · ${esc(x.cca)} A (EN)</b> · case ${esc(x.box)} · made in ${esc(btOrigin(x.org))}</span></a></div>`; };
 const SEG_ORDER = ["Passenger Cars & SUVs", "Light Commercial Vehicles", "Commercial Vehicles", "Tractors & Fork Lifts"];
+// texts from the Stravik Battery e-Catalogue 2026 (the same words as /batteries/catalogue/)
+const BT_TYPEINFO = {
+  SMF: "A sealed maintenance free (SMF) battery with calcium-alloy grids. Water loss is very low, so it never needs topping up, and it holds its charge well when the vehicle is parked. Designed for vehicles without start-stop.",
+  EFB: "An enhanced flooded battery (EFB) built for start-stop vehicles. Reinforced plates and carbon additives give fast charge acceptance and a much higher cycle life than a standard battery, for reliable engine restarts in traffic.",
+  AGM: "An absorbent glass mat (AGM) battery. The electrolyte is held in glass-fibre mats, making the battery spill-proof, vibration resistant and capable of the highest cycling performance. Designed for advanced start-stop systems with brake energy recovery.",
+  HDB: "A heavy duty battery for trucks, buses, agricultural and construction equipment. Robust plates and case are designed for high cranking loads, constant vibration and long operating hours." };
+const BT_SERINFO = { "Platinum Series": "Platinum Series, the flagship Stravik range (blue label band).", "Gold Series": "Gold Series, the Stravik performance range (bronze label band).", "Silver Series": "Silver Series, the Stravik value range (grey label band).",
+  "EFB-II Start-Stop": "EFB-II Start-Stop range of enhanced flooded batteries.", "EFB Start-Stop": "EFB Start-Stop range of enhanced flooded batteries.", "AGM Start-Stop": "AGM Start-Stop range of absorbent glass mat batteries." };
+const BT_SERCOL = { "Platinum Series": "#1d4f8f", "Gold Series": "#A97C42", "Silver Series": "#8f96a3", "EFB-II Start-Stop": "#2c6db5", "EFB Start-Stop": "#2c6db5", "AGM Start-Stop": "#1d6b3a" };
+const BT_TECH = { SMF: "SMF technology", EFB: "EFB technology", AGM: "AGM technology", HDB: "Heavy duty" };
+const BT_IC = { shield: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>', bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>', cycle: '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/>',
+  drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M4 4l16 16"/>', wave: '<path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/><path d="M2 18c2-4 4-4 6 0s4 4 6 0 4-4 6 0" opacity=".5"/>',
+  plug: '<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v5"/>', truck: '<path d="M2 6h11v9H2zM13 9h4l4 4v2h-8z"/><circle cx="6" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  car: '<path d="M3 16v-3l2-5a2 2 0 0 1 2-1.3h10A2 2 0 0 1 19 8l2 5v3"/><path d="M3 13h18M3 16h18v2H3z"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/>' };
+const btIco = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${BT_IC[n]}</svg>`;
+const BT_FEAT = {
+  SMF: [["shield", "Maintenance free", "Sealed design with calcium technology. Never needs topping up."], ["bolt", "Strong starting power", "Reliable cranking in hot and cold climates."], ["clock", "Low self-discharge", "Holds its charge well when the vehicle stands unused."], ["cycle", "Long service life", "Corrosion-resistant calcium-alloy grids."]],
+  EFB: [["cycle", "Start-stop ready", "Built for the frequent restarts of start-stop systems."], ["plug", "Fast charge acceptance", "Recharges quickly on short trips and in traffic."], ["bolt", "High cycle life", "Withstands far more charge and discharge cycles than a standard battery."], ["shield", "Maintenance free", "Sealed construction, no topping up."]],
+  AGM: [["cycle", "Advanced start-stop", "For start-stop with brake energy recovery and high electrical loads."], ["drop", "Spill-proof", "Electrolyte held in glass-fibre mats; valve-regulated design."], ["bolt", "Highest cycle life", "The best cycling performance in the Stravik range."], ["wave", "Vibration resistant", "Tightly packed plates withstand rough roads."]],
+  HDB: [["truck", "Built for commercial duty", "For trucks, buses, tractors and construction equipment."], ["bolt", "High cranking power", "Starts large diesel engines in demanding conditions."], ["wave", "Vibration resistant", "Robust plates and case for constant vibration."], ["clock", "Long operating hours", "High capacity for heavy electrical loads."]] };
+const btFeat = i => (i.t === "HDB" && /EFB/.test(i.ser)) ? [BT_FEAT.EFB[0], BT_FEAT.EFB[2], BT_FEAT.HDB[0], BT_FEAT.HDB[2]] : BT_FEAT[i.t] || [];
+const btCase = i => /DIN/.test(i.grp) ? `${i.box} is a standard European DIN case (EN 50342-2)` + (i.h <= 176 ? ", in the low 175 mm height for vehicles with limited space under the bonnet." : ", 190 mm high.")
+  : /JIS/.test(i.grp) ? `${i.box} is a Japanese Industrial Standard (JIS) case, used in many Asian vehicles. The number shows the approximate length in centimetres.` : `${i.box} is a heavy duty case for commercial and off-road vehicles.`;
+const btLayout = l => { l = String(l); if (l.startsWith("0 /")) return "Supplied for layout 0 or 1. Confirm the terminal position before fitting.";
+  if (l.startsWith("0")) return "Layout 0: with the terminals on the side nearest to you, the positive (+) terminal is on the right.";
+  if (l.startsWith("1")) return "Layout 1: with the terminals on the side nearest to you, the positive (+) terminal is on the left.";
+  return `Layout ${l}: heavy duty layout. Layouts 3 and 4 are mirror images, so compare the positive (+) terminal position with the old battery or the technical drawing.`; };
+const btHd = h => /^B0+$/.test(String(h)) ? `Hold-down ${h}: no ledge at the base of the case. The battery is secured by a top frame or clamp.` : `Hold-down ${h}: the ledge at the base of the case that the vehicle clamp grips (EN 50342-2). Match it to the original battery so the battery is held firmly.`;
+const btApp = i => i.t === "HDB" ? "Commercial vehicle battery" : "Car battery";
+const BT_DISCLAIMER = `<p>Specifications are declared values from the manufacturers' technical data and may change without notice.</p><p>Where the picture shows a representative battery of the series, the case size, shape and terminal position depend on the battery: check the technical specifications and the case drawing.</p><p>Vehicle applications are matched by SAB size from the South African battery application guide (SABAT 2019) and are a guide only. Always confirm the case, terminal layout and hold-down against the battery being replaced or the vehicle handbook before installation.</p>`;
 for (const i of BT) {
-  const T = BTT[i.t] || { one: "Battery", many: "Batteries", icon: "battery", slug: "" };
+  const T = BTT[i.t] || { one: "Battery", many: "Batteries", icon: "battery", slug: "", code: "" };
   const url = `${SITE}/part/${i.pn}/`, mk = btMakes(i), ph = btPhoto(i), D = BAT_DWG[i.dwg];
-  const rows = [["Stravik number", i.pn], ["Battery type", T.one], ["Series", i.ser], ["Voltage", "12 V"], ["Capacity", i.ah + " Ah"], ["Cold cranking amps", i.cca + " A (EN)"],
+  const rows = [["Stravik number", i.pn], ["Battery type", T.one], ["Series", i.ser], ["Voltage", "12 V"], ["Capacity", i.ah + " Ah (C20)"], ["Cold cranking amps", i.cca + " A (EN)"],
     ["Case", i.box + (BT_GRP[i.grp] ? ", " + BT_GRP[i.grp] : "")], ["Dimensions (L × W × H)", `${i.l} × ${i.w} × ${i.h} mm`], ["Terminal layout", i.lay], ["Hold-down", i.hd],
     ["SAB number", i.sab.join(" / ")], ["Case drawing", D ? `${i.dwg} (${D[0]})` : ""], ["Origin", "Made in " + btOrigin(i.org)], ["Barcode (EAN-13)", btEan(i)]].filter(r => r[1]);
   const alts = uniq(i.sab.flatMap(s => (btBySab.get(s) || []).filter(x => x !== i).map(x => x.pn))).map(pn => BT.find(x => x.pn === pn)).slice(0, 8);
@@ -305,22 +333,38 @@ for (const i of BT) {
   const title = `Stravik ${i.pn} ${btDesc(i)} | ${i.box} case`.slice(0, 120);
   const desc = `Stravik ${btLc(btDesc(i))}, ${i.ser}, case ${i.box} (${i.l} × ${i.w} × ${i.h} mm).` + (i.sab.length ? ` SAB ${i.sab.join(" / ")}.` : "") + (mk.length ? ` Fits ${list(mk, 4)}.` : "");
   const item = { key: i.pn, no: i.pn, cat: "Batteries", desc: btDesc(i).replace(" 12V", "") + ", " + i.box + " case", link: `/part/${i.pn}/`, kind: "bat" };
-  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/batteries/", "Batteries"], [`/batteries/?type=${T.code}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(btLc(btDesc(i)))}, ${esc(i.ser)}</p></div></div>
-<div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span>${ph ? `<img class="bphoto" src="${ph}" alt="Stravik ${esc(btLc(T.one))}, ${esc(i.ser)}">` : `<div class="big">${icon("battery")}</div>`}</div>
-<div class="info"><div class="type">Stravik ${esc(btLc(T.one))}</div>
-<dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
-${/\/mock_/.test(ph) ? `<p class="sib">The picture shows the ${esc(i.ser)} SMF label design; the case size and shape depend on the battery.</p>` : ""}
-<div class="replace"><b>Before you order</b><span>Check the SAB number, case size, terminal layout and hold-down against the old battery, or send us the vehicle and we'll confirm the fit.</span></div>
+  const ss = i.t === "EFB" || i.t === "AGM" || /Start-Stop/.test(i.ser);
+  const tabs = [["description", "Description"], ["features", "Features & benefits"], ["specifications", "Technical specifications"], ["vehicles", `Vehicles${i.apps.length ? ` (${nApps + nAlt})` : ""}`], ["warranty", "Warranty"], ["disclaimer", "Disclaimer"]];
+  const vehicles = (i.apps.length ? `<p class="pp-note">Matched by SAB size: the battery fits vehicles whose recommended battery size is SAB ${esc(i.sab.join(" / "))}${nAlt ? ", and can be used where it is the alternative size" : ""}. ${nApps} ${nApps === 1 ? "vehicle" : "vehicles"}, ${mk.length} ${mk.length === 1 ? "make" : "makes"}${nAlt ? `, plus ${nAlt} as the alternative size` : ""} (South African applications, SABAT).</p>` +
+    segs.map((g, k) => `<details class="segd"${k === 0 ? " open" : ""}><summary class="segh">${esc(g.sg)} <span>${g.apps.filter(a => a.rec).length}${g.apps.some(a => !a.rec) ? ` + ${g.apps.filter(a => !a.rec).length} alternative` : ""}</span></summary><div class="ftable-wrap"><table class="ctable apps"><thead><tr><th>Make</th><th>Model</th><th>Years</th><th>Battery size</th><th>Fit</th></tr></thead><tbody>${g.apps.map(a => `<tr><td>${esc(a.mk)}</td><td>${esc(a.mo)}</td><td class="yr">${esc(a.yr)}</td><td class="mc">${esc(a.sb)}</td><td>${a.rec ? "Recommended" : "Alternative size"}</td></tr>`).join("")}</tbody></table></div></details>`).join("")
+    : `<p class="sib">No vehicles in the South African list take SAB ${esc(i.sab.join(" / "))} yet. Send us the vehicle and we'll confirm the fit.</p>`);
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/batteries/", "Batteries"], [`/batteries/catalogue/?type=${T.code}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(btLc(btDesc(i)))}, ${esc(i.ser)}</p></div></div>
+<div class="wrap detail fdetail bdetail"><div class="visual"><span class="tag">${esc(btApp(i))}</span>${ph ? `<img class="bphoto" src="${ph}" alt="Stravik ${esc(btLc(T.one))}, ${esc(i.ser)}">` : `<div class="big">${icon("battery")}</div>`}</div>
+<div class="info">
+<div class="bchips"><span class="bchip ser" style="--c:${BT_SERCOL[i.ser] || "#15264a"}">${esc(i.ser)}</span><span class="bchip">${esc(BT_TECH[i.t] || T.one)}</span><span class="bchip">12 V</span><span class="bchip">${esc(i.box)} case</span><span class="bchip">Made in ${esc(btOrigin(i.org))}</span></div>
+<p class="blede">${esc(BT_SERINFO[i.ser] || i.ser)} ${esc((BT_TYPEINFO[i.t] || "").split(". ")[0])}.</p>
+<div class="bstats"><div><b>${esc(i.ah)}</b><span>Ah</span></div><div><b>${esc(i.cca)}</b><span>CCA (EN)</span></div><div><b>${esc(i.box)}</b><span>Case</span></div><div><b>${esc(String(i.lay).split(" ")[0])}</b><span>Layout</span></div></div>
 ${buyBox(item)}
-<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/batteries/?type=${T.code}">More ${esc(btLc(T.many))}</a><a class="btn line" href="#warranty">Warranty registration</a></div>
-${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}
+<div class="actions"><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register warranty</a><a class="btn line" href="#vehicles">Vehicles it fits</a><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a></div>
+${/\/mock_/.test(ph) ? `<p class="sib">The picture shows the ${esc(i.ser)} SMF label design; the case size and shape depend on the battery.</p>` : ""}
 </div></div>
-<section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${nApps} ${nApps === 1 ? "vehicle" : "vehicles"}, ${mk.length} ${mk.length === 1 ? "make" : "makes"}${nAlt ? `, plus ${nAlt} as the alternative size` : ""} (South African applications, SABAT)</span></h2>
-<p class="pp-note">Matched by SAB size: the battery fits vehicles whose recommended battery size is SAB ${esc(i.sab.join(" / "))}, and can be used where it is the alternative size.</p>
-${i.apps.length ? segs.map((g, k) => `<details class="segd"${k === 0 ? " open" : ""}><summary class="segh">${esc(g.sg)} <span>${g.apps.filter(a => a.rec).length}${g.apps.some(a => !a.rec) ? ` + ${g.apps.filter(a => !a.rec).length} alternative` : ""}</span></summary><div class="ftable-wrap"><table class="ctable apps"><thead><tr><th>Make</th><th>Model</th><th>Years</th><th>Battery size</th><th>Fit</th></tr></thead><tbody>${g.apps.map(a => `<tr><td>${esc(a.mk)}</td><td>${esc(a.mo)}</td><td class="yr">${esc(a.yr)}</td><td class="mc">${esc(a.sb)}</td><td>${a.rec ? "Recommended" : "Alternative size"}</td></tr>`).join("")}</tbody></table></div></details>`).join("") : `<p class="sib">No vehicles in the South African list take SAB ${esc(i.sab.join(" / "))} yet. Send us the vehicle and we'll confirm the fit.</p>`}
+<section class="ptabs" id="details"><nav class="ptabbar" aria-label="Battery information"><div class="wrap">${tabs.map(([k, t]) => `<a href="#${k}" data-tab="${k}">${esc(t)}</a>`).join("")}</div></nav><div class="wrap">
+<div class="ppanel" id="description" data-panel="description"><h2>Description</h2><p class="gsub">${esc(i.pn)} · ${esc(BT_SERINFO[i.ser] || i.ser)}</p><p>${esc(BT_TYPEINFO[i.t] || "")}</p>
+<h3>Capacity and starting power</h3><p>${esc(i.ah)} Ah capacity (20-hour rate) and ${esc(i.cca)} A cold cranking current (EN, at −18 °C). Choose values equal to or higher than the original battery.</p>
+<h3>Case and fitting</h3><p>${esc(btCase(i))} Size ${i.l} × ${i.w} × ${i.h} mm.</p><p>${esc(btLayout(i.lay))}</p><p>${esc(btHd(i.hd))}</p>
+${ss ? `<p class="bss"><b>Start-stop vehicles:</b> replace like for like (AGM with AGM, EFB with EFB or AGM) and register the new battery with the vehicle's battery management system after fitting.</p>` : ""}
+<div class="replace"><b>Before you order</b><span>Check the SAB number, case size, terminal layout and hold-down against the old battery, or send us the vehicle and we'll confirm the fit.</span></div>
+<p style="margin-top:18px"><a class="btn line" href="/batteries/catalogue/?tab=guide">Read the battery guide</a></p></div>
+<div class="ppanel" id="features" data-panel="features"><h2>Features &amp; benefits</h2><div class="bfeat">${btFeat(i).map(f => `<div><span class="fi">${btIco(f[0])}</span><b>${esc(f[1])}</b><p>${esc(f[2])}</p></div>`).join("")}</div></div>
+<div class="ppanel" id="specifications" data-panel="specifications"><h2>Technical specifications</h2><div class="bspec"><dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}</div></div>
+<div class="ppanel" id="vehicles" data-panel="vehicles"><h2>Vehicles it fits</h2>${vehicles}</div>
+<div class="ppanel" id="warranty" data-panel="warranty"><h2>Warranty</h2><div class="bwar"><div><h3>Register your battery warranty</h3><p>Register this battery after installation so that any warranty claim is handled quickly. You need the battery number and the barcode number from the label on top of the battery, the date you bought it, where you bought it and your proof of purchase. Keep your invoice with the vehicle documents.</p>
+<dl><dt>Battery number</dt><dd>${esc(i.pn)}</dd><dt>Battery</dt><dd>${esc(btDesc(i))}</dd>${btEan(i) ? `<dt>Barcode</dt><dd>${btEan(i)}</dd>` : ""}</dl></div><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register this battery</a></div></div>
+<div class="ppanel" id="disclaimer" data-panel="disclaimer"><h2>Disclaimer</h2>${BT_DISCLAIMER}</div>
 </div></section>
 ${alts.length ? `<section class="block related"><div class="wrap"><h2>Other Stravik batteries in the same size</h2><p class="pp-note">Batteries with the same SAB number, in other series and origins.</p><div class="fgrid">${alts.map(btCard).join("")}</div></div></section>` : ""}
-${cantFind.replace("</aside>", "</aside>" + btWarranty(i))}`;
+${cantFind}`;
   write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${btDesc(i)} ${i.pn}`, i.pn, T.one, desc, ph || "/assets/og.jpg"), body }));
   urls.push(url);
 }
@@ -355,12 +399,45 @@ ${cantFind.replace("</aside>", "</aside>" + btWarranty(i))}`;
   urls.push(url);
 }
 
-// ================= battery e-catalogue page =================
-// /batteries/: the layout of the Stravik Battery e-Catalogue 2026 (assets/ecat.js draws it from batteries.json; styles in assets/ecat.css).
-// The light DOM keeps a plain list of the batteries for search engines and for visitors without JavaScript.
-{ const url = `${SITE}/batteries/`, title = "Stravik batteries | Battery e-catalogue 2026", desc = `All ${BT.length} Stravik SMF, EFB, AGM and heavy duty batteries: search by part number, SAB number, case, capacity or vehicle, with the battery guide, technical drawings and label artwork.`;
+// ================= batteries: landing page and e-catalogue =================
+// /batteries/            landing page: choose by application (car or commercial vehicle), by range, or open the full catalogue
+// /batteries/catalogue/  the layout of the Stravik Battery e-Catalogue 2026 (assets/ecat.js draws it from batteries.json; styles in assets/ecat.css)
+{ const url = `${SITE}/batteries/catalogue/`, title = "Stravik battery e-catalogue 2026 | All batteries", desc = `All ${BT.length} Stravik SMF, EFB, AGM and heavy duty batteries: search by part number, SAB number, case, capacity or vehicle, with the battery guide, technical drawings and label artwork.`;
+  // the light DOM keeps a plain list of the batteries for search engines and for visitors without JavaScript
   const body = `<div id="ecat" data-css="${V["ecat.css"]}"><noscript><div class="wrap" style="padding:30px 0"><h1>Stravik batteries</h1><ul>${BT.map(i => `<li><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a> ${esc(btDesc(i))}, ${esc(i.box)} case</li>`).join("")}</ul></div></noscript></div>`;
-  write("batteries", page({ url, title, desc, type: "website", scripts: ["ecat.js"], jsonld: { "@context": "https://schema.org", "@type": "CollectionPage", name: "Stravik battery e-catalogue", url, description: desc }, body }));
+  write("batteries/catalogue", page({ url, title, desc, type: "website", scripts: ["ecat.js"], jsonld: { "@context": "https://schema.org", "@type": "CollectionPage", name: "Stravik battery e-catalogue", url, description: desc }, body }));
+  urls.push(url);
+}
+{ const url = `${SITE}/batteries/`, title = "Stravik batteries | Car and commercial vehicle batteries", desc = `Stravik SMF, EFB, AGM and heavy duty starter batteries for cars, SUVs, bakkies, trucks, buses and tractors, in Platinum, Gold and Silver series. ${BT.length} batteries with SAB numbers and vehicle applications.`;
+  const CAT = "/batteries/catalogue/";
+  const car = BT.filter(i => i.t !== "HDB"), cv = BT.filter(i => i.t === "HDB");
+  const TORD = { SMF: 0, EFB: 1, AGM: 2, HDB: 3 };
+  const card = i => { const ph = btPhoto(i), T = BTT[i.t] || { one: "Battery" };
+    return `<a class="brc" href="/part/${esc(i.pn)}/" style="--c:${BT_SERCOL[i.ser] || "#15264a"}"><span class="brk">${esc(btApp(i))}</span><span class="brp">${ph ? `<img src="${ph}" alt="" loading="lazy">` : `<span class="ic">${icon("battery")}</span>`}</span><b class="brn">${esc(i.pn)}</b><span class="brs">${esc(i.ser)}</span><span class="brt">${esc(BT_TECH[i.t] || T.one)} · 12 Volt</span><span class="brv">${esc(i.ah)} Ah · ${esc(i.cca)} A · ${esc(i.box)}</span><span class="brb">View battery</span></a>`; };
+  const RANGES = [["platinum", "Platinum Series", i => i.ser === "Platinum Series", "?series=" + encodeURIComponent("Platinum Series")], ["gold", "Gold Series", i => i.ser === "Gold Series", "?series=" + encodeURIComponent("Gold Series")],
+    ["silver", "Silver Series", i => i.ser === "Silver Series", "?series=" + encodeURIComponent("Silver Series")], ["efb", "EFB Start-Stop", i => i.t === "EFB", "?type=EFB"], ["agm", "AGM Start-Stop", i => i.t === "AGM", "?type=AGM"]]
+    .map(([k, n, f, q]) => { const l = BT.filter(f).sort((a, b) => TORD[a.t] - TORD[b.t] || a.ah - b.ah || a.pn.localeCompare(b.pn)); return { k, n, l, q, techs: uniq(l.map(i => BT_TECH[i.t])) }; }).filter(r => r.l.length);
+  const makes = uniq(BT.flatMap(i => i.apps.map(a => a.mk))).sort((a, b) => a.localeCompare(b));
+  const app = (ic, h, sub, list, q) => `<div class="bapp"><span class="bai">${btIco(ic)}</span><h2>${h}</h2><p>${sub}</p><p class="ban">${list.length} batteries · ${esc(uniq(list.map(i => (BTT[i.t] || {}).many || "")).join(", "))}</p><a class="btn gold" href="${CAT}${q}">Explore batteries</a></div>`;
+  const body = `<script>(function(){var s=location.search,h=location.hash;if(/[?&](type|q|tab|pn|series|box|make|dwg|app)=/.test(s)||/^#SV[A-Z0-9]{6}$/i.test(h))location.replace("/batteries/catalogue/"+s+h);})();</script>
+<section class="bhero"><div class="wrap bhero-in"><div class="bht">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["", "Batteries"]])}
+<p class="eyebrow">Stravik batteries</p><h1>Starting power for every vehicle</h1><p class="bhl">SMF, EFB, AGM and heavy duty starter batteries for cars, SUVs, bakkies, trucks, buses and tractors, in the Platinum, Gold and Silver series.</p>
+<div class="bhb"><a class="btn gold" href="${CAT}">View the full catalogue</a><a class="btn bline" href="${CAT}?tab=vehicles">Find by vehicle</a><a class="btn bline" href="/warranty/battery/">Register a warranty</a></div>
+<div class="bapps">${app("car", "Car batteries", "Passenger cars · SUVs · Bakkies", car, "?app=car")}${app("truck", "Commercial vehicle batteries", "Trucks · Buses · Tractors · Fork lifts", cv, "?app=cv")}</div></div>
+<div class="bhimg" aria-hidden="true"><img src="/assets/img/batteries/gold_hd_225_tr.webp" alt=""><img src="/assets/img/batteries/efb_75_eu.webp" alt=""><img src="/assets/img/batteries/efb_60_eu_jis.webp" alt=""></div></div></section>
+<section class="bfind"><div class="wrap bfind-in">
+<form action="${CAT}" method="get" role="search"><label for="bq">Search the catalogue</label><div class="field"><input id="bq" name="q" type="search" autocomplete="off" placeholder="Stravik or SAB no., case, Ah or vehicle (e.g. 646, L3, Corolla)"><button type="submit" class="btn gold">Search</button></div></form>
+<form action="${CAT}" method="get"><input type="hidden" name="tab" value="vehicles"><label for="bmk">Find by vehicle make</label><div class="field"><select id="bmk" name="make"><option value="">Select make</option>${makes.map(m => `<option>${esc(m)}</option>`).join("")}</select><button type="submit" class="btn ink">Show batteries</button></div></form>
+</div></section>
+<section class="ptabs brange" id="ranges"><div class="wrap"><h2 class="bsh">Stravik battery ranges</h2></div><nav class="ptabbar" aria-label="Battery ranges"><div class="wrap">${RANGES.map(r => `<a href="#${r.k}" data-tab="${r.k}">${esc(r.n)}</a>`).join("")}</div></nav><div class="wrap">
+${RANGES.map(r => `<div class="ppanel" id="${r.k}" data-panel="${r.k}"><div class="brh"><div><h2><span style="color:${BT_SERCOL[r.n] || BT_SERCOL[r.l[0].ser] || "#15264a"}">${esc(r.n)}</span> batteries</h2><p>${esc(r.techs.join(" · "))} · 12 volts · ${r.l.length} batteries</p></div><a class="btn line" href="${CAT}${r.q}">View all ${r.l.length}</a></div>
+<div class="brgrid">${r.l.slice(0, 10).map(card).join("")}</div>${r.l.length > 10 ? `<p class="brmore"><a class="btn line" href="${CAT}${r.q}">View all ${r.l.length} ${esc(r.n)} batteries in the catalogue</a></p>` : ""}</div>`).join("")}
+</div></section>
+<section class="block paper"><div class="wrap"><h2 class="bsh">Battery technologies</h2><div class="btech">${[["SMF", "Sealed maintenance free", "Conventional cars, SUVs and light commercial vehicles without start-stop."], ["EFB", "Enhanced flooded battery", "Entry-level start-stop, heavy electrical loads and short trips."], ["AGM", "Absorbent glass mat", "Advanced start-stop with brake energy recovery, and vehicles fitted with AGM at the factory."], ["HDB", "Heavy duty", "Trucks, buses, tractors, construction and agricultural equipment."]]
+    .map(([c, h, t]) => `<a class="btc ${c.toLowerCase()}" href="${CAT}?type=${c}"><span>${c === "HDB" ? "HD" : c}</span><b>${h}</b><p>${t}</p><em>${BT.filter(i => i.t === c).length} batteries ›</em></a>`).join("")}</div>
+<p style="margin-top:20px"><a class="btn line" href="${CAT}?tab=guide">Read the battery guide</a></p></div></section>
+<section class="block"><div class="wrap"><aside class="cantfind"><div><h3>Battery warranty registration</h3><p>Bought a Stravik battery? Register it with the battery number on the label, the date you bought it and where you bought it. Scanning the QR code on the battery opens its page with the same link.</p></div><a class="btn gold" href="/warranty/battery/">Register a battery</a></aside></div></section>`;
+  write("batteries", page({ url, title, desc, type: "website", jsonld: { "@context": "https://schema.org", "@type": "CollectionPage", name: "Stravik batteries", url, description: desc }, body }));
   urls.push(url);
 }
 
