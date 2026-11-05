@@ -318,15 +318,16 @@ window.LS = (function () {
   // =====================================================================
   // apps and the shell
   // =====================================================================
-  // app: { key, name, color, icon (svg path markup), menus: [{label, href | children:[...], editor, action}], route: fn(r) }
+  // app: { key, name, color, icon (svg path markup), menus: [{label, href | children:[...], editor, show: fn, action}], route: fn(r) }
   L.register = function (app) { L.apps.push(app); };
   function appByKey(k) { return L.apps.find(function (a) { return a.key === k; }); }
   function icon(app, size) { return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + app.icon + '</svg>'; }
 
   function menuHtml(m) {
     if (m.editor && !L.isEditor()) return '';
+    if (m.show && !m.show()) return '';
     if (m.children) {
-      var kids = m.children.filter(function (c) { return !c.editor || L.isEditor(); });
+      var kids = m.children.filter(function (c) { return (!c.editor || L.isEditor()) && (!c.show || c.show()); });
       if (!kids.length) return '';
       return '<div class="o-menu"><button type="button" class="o-menu-btn" data-dd>' + esc(m.label) + ' <span class="caret">▾</span></button><div class="o-dropdown" hidden>' +
         kids.map(function (c) { return c.href ? '<a href="' + c.href + '">' + esc(c.label) + '</a>' : '<button type="button" data-action="' + esc(c.action) + '">' + esc(c.label) + '</button>'; }).join('') + '</div></div>';
@@ -340,6 +341,13 @@ window.LS = (function () {
     $('navApp').href = app ? L.href(app.key) : '#/';
     $('navMenus').innerHTML = app ? (app.menus || []).map(menuHtml).join('') : '';
   }
+  // highlight the menu whose link is the longest match of the current address
+  function highlight() {
+    var best = null, h = location.hash.split('?')[0];
+    document.querySelectorAll('#navMenus [data-menu]').forEach(function (a) { var m = a.dataset.menu.split('?')[0]; if (h.indexOf(m) === 0 && (!best || m.length > best.dataset.menu.split('?')[0].length)) best = a; });
+    document.querySelectorAll('#navMenus [data-menu]').forEach(function (a) { a.classList.toggle('on', a === best); });
+  }
+  L.refreshNav = function () { if (current) { setNav(current); highlight(); } };   // after an app has loaded what decides its menus (menu.show)
   // close dropdowns when clicking elsewhere; open on click
   document.addEventListener('click', function (e) {
     var t = e.target.closest('[data-dd]');
@@ -481,10 +489,7 @@ window.LS = (function () {
     var app = appByKey(r.app);
     if (!app) return home();
     setNav(app);
-    // highlight the menu whose link is the longest match of the current address
-    var best = null, h = location.hash.split('?')[0];
-    document.querySelectorAll('#navMenus [data-menu]').forEach(function (a) { var m = a.dataset.menu.split('?')[0]; if (h.indexOf(m) === 0 && (!best || m.length > best.dataset.menu.split('?')[0].length)) best = a; });
-    document.querySelectorAll('#navMenus [data-menu]').forEach(function (a) { a.classList.toggle('on', a === best); });
+    highlight();
     try { app.route(r); } catch (e) { L.fail(e); }
     document.title = app.name + ' · Stravik Admin';
   }

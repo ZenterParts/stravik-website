@@ -13,8 +13,10 @@
   var STATUSES = ['Pending', 'Approved', 'Rejected', 'Suspended'];
   var STAGES = ['Sales approval', 'Pricing approval', 'Final approval'];
   var stage = function (d) { return d.status !== 'Pending' ? d.status : !d.sales_approved_at ? 'Sales approval' : !d.pricing_approved_at ? 'Pricing approval' : 'Final approval'; };
-  var gopt = function (g) { return (/^T\d$/.test(g.code) ? g.code + ' · ' : '') + g.name + (g.categories ? ' (' + g.categories.join(', ') + ' only)' : ''); };
+  var gopt = function (g) { return (/^T\d$/.test(g.code) && g.name.indexOf(g.code) < 0 ? g.code + ' · ' : '') + g.name + (g.categories ? ' (' + g.categories.join(', ') + ' only)' : ''); };
   var GROUPS = [];
+  // orders are in the order's currency: ZAR (excl. VAT, VAT added) for South African tier customers, USD for the older groups
+  var omoney = function (v, cur) { return v == null || v === '' ? '' : (cur || 'USD') + ' ' + L.money(v); };
   async function groups() { if (!GROUPS.length) GROUPS = L.must(await sb.from('stravik_group_price_counts').select('*').order('sort')); return GROUPS; }
   var gname = function (code) { var g = GROUPS.find(function (x) { return x.code === code; }); return g ? g.name : (code || ''); };
   async function mail(body) {
@@ -178,7 +180,7 @@
     try {
       GROUPS = []; await groups();
       L.cp({ crumbs: [['Customers', DB], ['Prices']], buttons: '<button type="button" class="btn editor-only" id="pUp">Upload prices</button><button type="button" class="btn ghost" id="pTpl">Download price list</button>' });
-      L.content('<p class="muted" style="max-width:820px">Each approved customer sees the prices of their group, in US dollars, next to the parts in the catalogue. Preferred distributors see batteries only. A part without a price for the group shows “on request” and can still be ordered. ' +
+      L.content('<p class="muted" style="max-width:820px"><b>South African customers on T1–T5 or Retail</b> see their tier\'s price in rand from the <a href="#/pricing">Pricing</a> price lists, excl. and incl. 15% VAT, and order in rand. The USD prices below are for the battery preferred distributors (batteries only), and for tier customers outside a priced region. A part without a price for the group shows “on request” and can still be ordered. ' +
         'Download the list, fill in or change the prices per group, and upload it again. An empty cell leaves the price as it is; type <b>0</b> only for a free part, or <b>-</b> to remove a price.</p>' +
         '<div class="o-list"><table class="grid compact"><thead><tr><th>Group</th><th>Ranges</th><th class="num">Parts with a price</th><th class="num">Approved accounts</th></tr></thead><tbody>' +
         GROUPS.map(function (g) { return '<tr><td><b>' + esc(g.name) + '</b>' + (g.description ? '<div class="small muted">' + esc(g.description) + '</div>' : '') + '</td><td>' + esc(g.categories ? g.categories.join(', ') : 'All ranges') + '</td><td class="num">' + Number(g.priced_parts).toLocaleString() + '</td><td class="num">' + g.approved_accounts + '</td></tr>'; }).join('') +
@@ -293,7 +295,7 @@
         { label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>' + (o.is_test ? ' ' + L.pill('Test', 'warn') : ''); } }, { label: 'Date', render: function (o) { return '<span class="small">' + esc(L.dt(o.created_at)) + '</span>'; } },
         { label: 'Customer', render: function (o) { return esc(o.company_name) + '<div class="small muted">' + esc(gname(o.price_group)) + '</div>'; } }, { label: 'Status', render: function (o) { return pill(o.status); } },
         { label: 'PO', render: function (o) { return esc(o.po_ref || ''); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Units', num: true, render: function (o) { return o.units; } },
-        { label: 'Total USD', num: true, render: function (o) { return L.money(o.total_usd); } }, { label: 'Email', render: function (o) { return o.email_status === 'sent' ? '<span class="ok">Sent</span>' : '<span class="flag">' + esc(o.email_status) + '</span>'; } },
+        { label: 'Total', num: true, render: function (o) { var t = o.total != null ? o.total : o.total_usd; return t == null ? '' : esc(omoney(t, o.currency)) + (o.vat_amount ? '<div class="small muted">incl. VAT</div>' : ''); } }, { label: 'Email', render: function (o) { return o.email_status === 'sent' ? '<span class="ok">Sent</span>' : '<span class="flag">' + esc(o.email_status) + '</span>'; } },
         { label: 'DPW invoice', render: function (o) { return esc(o.invoice_no || '') + (o.invoice_amount != null ? ' <span class="small muted">' + L.money(o.invoice_amount) + '</span>' : ''); } }
       ], rows, function (o) { return L.href('orders', [o.order_no]); });
     } catch (e) { L.fail(e); }
@@ -301,11 +303,11 @@
   async function oExcel() {
     try {
       var os = await L.fetchAll(function () { return oQuery(); });
-      var items = await L.fetchAll(function () { return sb.from('stravik_order_items').select('order_id,line,sv_pn,description,qty,unit_price_usd,line_total_usd').order('order_id').order('line'); });
+      var items = await L.fetchAll(function () { return sb.from('stravik_order_items').select('order_id,line,sv_pn,description,qty,unit_price,line_total,unit_price_usd,line_total_usd').order('order_id').order('line'); });
       var byId = {}; os.forEach(function (o) { byId[o.id] = o; });
       await L.saveXlsx([
-        { name: 'Orders', head: ['Order', 'Date', 'Customer', 'Price group', 'Status', 'PO', 'Lines', 'Units', 'Total USD', 'Email', 'DPW invoice', 'Invoice amount', 'Waybill', 'Test'], rows: os.map(function (o) { return [o.order_no, L.dt(o.created_at), o.company_name, gname(o.price_group), o.status, o.po_ref || '', o.lines, o.units, o.total_usd == null ? '' : Number(o.total_usd), o.email_status, o.invoice_no || '', o.invoice_amount == null ? '' : Number(o.invoice_amount), o.waybill_no || '', o.is_test ? 'Yes' : '']; }) },
-        { name: 'Order lines', head: ['Order', 'Customer', 'Line', 'Stravik PN', 'Description', 'Qty', 'Unit USD', 'Total USD'], rows: items.filter(function (i) { return byId[i.order_id]; }).map(function (i) { var o = byId[i.order_id]; return [o.order_no, o.company_name, i.line, i.sv_pn, i.description, i.qty, i.unit_price_usd == null ? '' : Number(i.unit_price_usd), i.line_total_usd == null ? '' : Number(i.line_total_usd)]; }) }
+        { name: 'Orders', head: ['Order', 'Date', 'Customer', 'Price group', 'Status', 'PO', 'Lines', 'Units', 'Currency', 'Subtotal excl. VAT', 'VAT', 'Total', 'Email', 'DPW invoice', 'Invoice amount', 'Waybill', 'Test'], rows: os.map(function (o) { return [o.order_no, L.dt(o.created_at), o.company_name, gname(o.price_group), o.status, o.po_ref || '', o.lines, o.units, o.currency || 'USD', o.subtotal != null ? Number(o.subtotal) : o.total_usd == null ? '' : Number(o.total_usd), o.vat_amount == null ? '' : Number(o.vat_amount), o.total != null ? Number(o.total) : o.total_usd == null ? '' : Number(o.total_usd), o.email_status, o.invoice_no || '', o.invoice_amount == null ? '' : Number(o.invoice_amount), o.waybill_no || '', o.is_test ? 'Yes' : '']; }) },
+        { name: 'Order lines', head: ['Order', 'Customer', 'Line', 'Stravik PN', 'Description', 'Qty', 'Currency', 'Unit price excl. VAT', 'Line total excl. VAT'], rows: items.filter(function (i) { return byId[i.order_id]; }).map(function (i) { var o = byId[i.order_id]; return [o.order_no, o.company_name, i.line, i.sv_pn, i.description, i.qty, o.currency || 'USD', (i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '' : Number(i.unit_price != null ? i.unit_price : i.unit_price_usd), (i.line_total != null ? i.line_total : i.line_total_usd) == null ? '' : Number(i.line_total != null ? i.line_total : i.line_total_usd)]; }) }
       ], 'Stravik_orders_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
@@ -326,9 +328,10 @@
           '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Email to DP World SA and us: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
           '<div class="o-groups">' + L.group('Order', [['Customer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['Company reg. no.', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
           L.group('From DP World SA', [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
-          L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit USD</th><th class="num">Total USD</th></tr></thead><tbody>' +
-            items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + (i.unit_price_usd == null ? '<span class="muted">on request</span>' : L.money(i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total_usd) + '</td></tr>'; }).join('') +
-            '</tbody><tfoot><tr><td colspan="4">' + o.lines + ' lines</td><td class="num">' + o.units + '</td><td></td><td class="num">' + L.money(o.total_usd) + '</td></tr></tfoot></table>' }])
+          L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th><th class="num">Total ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th></tr></thead><tbody>' +
+            items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + ((i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '<span class="muted">on request</span>' : L.money(i.unit_price != null ? i.unit_price : i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total != null ? i.line_total : i.line_total_usd) + '</td></tr>'; }).join('') +
+            '</tbody><tfoot>' + (o.vat_rate ? '<tr><td colspan="6">Subtotal excl. VAT</td><td class="num">' + L.money(o.subtotal) + '</td></tr><tr><td colspan="6">VAT ' + Math.round(o.vat_rate * 100) + '%</td><td class="num">' + L.money(o.vat_amount) + '</td></tr>' : '') +
+            '<tr><td colspan="4">' + o.lines + ' lines</td><td class="num">' + o.units + '</td><td>' + (o.vat_rate ? 'Total incl. VAT' : '') + '</td><td class="num"><b>' + esc(omoney(o.total != null ? o.total : o.total_usd, o.currency)) + '</b></td></tr></tfoot></table>' }])
       });
       if (!ed) return;
       $('oSave').onclick = async function () {
