@@ -352,7 +352,7 @@ function page(app,id,params){
     yr.oninput=()=>{const v=yr.value.replace(/\D/g,"").slice(0,4);if(v!==yr.value)yr.value=v;if(!v||v.length===4){st.yr=v;fillEngines();update(true);}};
     $("#scReset").onclick=()=>{st.q=st.mk=st.mo=st.yr=st.en="";st.f={};q.value=yr.value="";mkSel.value="";$("#scClearQ").hidden=true;
       app.querySelectorAll("select[data-f]").forEach(s=>s.value="");fillModels();fillEngines();update(true);};
-    const setBarH=()=>app.querySelector(".sc").style.setProperty("--barh",($("#scBar").offsetHeight+74+16)+"px");setBarH();addEventListener("resize",setBarH);
+    const setBarH=()=>{const sc=app.querySelector(".sc"),bar=$("#scBar");if(!sc||!bar){removeEventListener("resize",setBarH);return;}sc.style.setProperty("--barh",(bar.offsetHeight+74+16)+"px");};setBarH();addEventListener("resize",setBarH);   // the listener removes itself once the page is left
 
     let list=[],shown=PAGE,cur=null;
     const listEl=$("#scList"),det=$("#scDetail");
@@ -378,7 +378,7 @@ function page(app,id,params){
       return `<li><button class="sc-row" type="button" data-pn="${esc(i.pn)}" aria-current="false">
         ${i.ph?`<span class="sc-tile"><img src="${esc(i.ph)}" alt="" loading="lazy"></span>`:""}
         <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(c.rowLine?c.rowLine(i):makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
-        <span class="sc-yr">${esc(c.rowRight?c.rowRight(i):i.yrs)}</span></button></li>`;
+        <span class="sc-yr">${esc(c.rowRight?c.rowRight(i):i.yrs)}<span class="sc-price" data-price-pn="${esc(i.pn)}"></span></span></button></li>`;
     }
     function paint(){
       if(!list.length){listEl.innerHTML=`<li class="sc-empty"><strong>No ${esc(c.many)} match${st.q?` “${esc(st.q)}”`:""}.</strong><br>Check the number for typing errors, try fewer characters, or reset the filters. You can also <a href="#/request${st.q?"?q="+encodeURIComponent(st.q):""}">request the part</a> and we'll check it for you.</li>`;$("#scMore").hidden=true;return;}
