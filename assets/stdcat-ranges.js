@@ -52,7 +52,7 @@ const BRAKES={
 const SST={};SS_TYPES.forEach(t=>SST[t[0]]=t);
 const STEERING={
   icon:"ball",title:"Steering & suspension",tab:"Steering & suspension catalogue",one:"part",many:"parts",cat:"Steering & Suspension",data:"/steering-suspension.json",
-  crumbs:crumbs("Suspension & steering","#/products/steering-suspension"),hero:"/assets/img/ss-box.webp",
+  crumbs:crumbs("Steering & suspension","#/products/steering-suspension"),hero:"/assets/img/ss-box.webp",
   lead:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts. Find the right Stravik part by Stravik, CTR or OE number, or vehicle.",
   placeholder:"Stravik, CTR or OE no., or vehicle and model code (e.g. Hilux KUN25)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:SS_TYPES.map(t=>t[1])},
@@ -123,7 +123,7 @@ const GST={};GS_TYPES.forEach(t=>GST[t[0]]=t);
 const gsShort=t=>((GST[t]||[])[1]||"Gas spring").replace(/ gas spring$/i,"");
 const GAS={
   icon:"sa_gas",title:"Gas springs",tab:"Gas spring catalogue",one:"gas spring",many:"gas springs",cat:"Gas Springs",data:"/gas-springs.json",
-  crumbs:crumbs("Body & panel","#/products/gas-springs"),hero:"/assets/img/gas-springs-hero.svg",
+  crumbs:crumbs("Shock absorbers","#/products/shock-absorbers"),hero:"/assets/img/gas-springs-hero.svg",
   lead:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force. Search by Stravik, OE or cross-reference number, vehicle, or size (e.g. 373 mm).",
   placeholder:"Stravik, OE or cross-reference no., vehicle, or length (e.g. 373 mm)",
   filters:[{k:"Fitting",h:"Fitting",any:"All fittings",order:GS_TYPES.map(t=>t[1].replace(/ gas spring$/i,""))},
