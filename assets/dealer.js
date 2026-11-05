@@ -80,7 +80,7 @@ function paintPrices(root){
     const t=pn&&tag(pn);if(!t)return;
     const prev=b.previousElementSibling;
     if(prev&&prev.classList.contains("dprice")){if(prev.innerHTML!==t)prev.innerHTML=t;return;}
-    const s=document.createElement("span");s.className="dprice"+(b.dataset.addQty?" big":"");s.innerHTML=t;s.title="Your price ("+S.prices.group_name+", "+curName(CUR())+", "+vatTxt()+")";
+    const s=document.createElement("span");s.className="dprice"+(b.dataset.addQty?" big":"");s.innerHTML=t;s.title="Your price, "+curName(CUR())+", "+vatTxt();
     b.parentNode.insertBefore(s,b);
   });
 }
@@ -254,13 +254,13 @@ async function account(app,c,me){
   else{
     const n=S.prices?S.prices.map.size:0;
     const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="#/batteries">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
-    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>Your price list: <b>${esc(d.group_name)}</b>${cats?` (${esc(cats.join(", "))})`:""}. Your prices (${esc(curName(CUR()))}, ${esc(vatTxt())}${VAT()?", with the price incl. VAT":""}) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
+    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}, ${esc(vatTxt())}${VAT()?", with the price incl. VAT":""}) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
     <div>${body}</div>
     <aside class="dcard"><span class="dbadge ${esc(d.status.toLowerCase())}">${esc(badge)}</span>
-      <dl><dt>Company</dt><dd>${esc(d.company_name)}</dd>${d.cipc_no?`<dt>${isSA(d.country)?"CIPC":"Reg. no."}</dt><dd>${esc(d.cipc_no)}</dd>`:""}<dt>Contact</dt><dd>${esc(d.contact_name)}</dd><dt>Email</dt><dd>${esc(d.email)}</dd><dt>Mobile</dt><dd>${esc(d.mobile||"")}</dd><dt>Location</dt><dd>${esc([d.city,d.province,isSA(d.country)?"":d.country].filter(Boolean).join(", "))}</dd>${d.group_name?`<dt>Price list</dt><dd>${esc(d.group_name)}</dd>`:""}</dl>
+      <dl><dt>Company</dt><dd>${esc(d.company_name)}</dd>${d.cipc_no?`<dt>${isSA(d.country)?"CIPC":"Reg. no."}</dt><dd>${esc(d.cipc_no)}</dd>`:""}<dt>Contact</dt><dd>${esc(d.contact_name)}</dd><dt>Email</dt><dd>${esc(d.email)}</dd><dt>Mobile</dt><dd>${esc(d.mobile||"")}</dd><dt>Location</dt><dd>${esc([d.city,d.province,isSA(d.country)?"":d.country].filter(Boolean).join(", "))}</dd></dl>
       <button class="btn line" type="button" id="dout">Sign out</button></aside></div></div>`;
   app.querySelector("#dout").onclick=()=>signOut(c);
   const box=app.querySelector("#dord");if(!box)return;
@@ -291,14 +291,14 @@ async function cart(app){
   const by={};chk.forEach(x=>by[x.pn]=x);
   const ok=items.filter(i=>by[i.no]&&by[i.no].allowed),no=items.filter(i=>!(by[i.no]&&by[i.no].allowed));
   const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
-  sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2><span class="muted">${esc(d.group_name)} · ${esc(CUR())}</span></div>
+  sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2></div>
     ${ok.length?`<table class="ctable dot"><thead><tr><th>Part</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="dotb"></tbody><tfoot id="dotf"></tfoot></table>`:""}
     ${no.length?`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(i=>i.no).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`:""}
     ${ok.length?`<form class="enq" id="dof" novalidate>
       <div><label for="o_po">Your order / PO reference</label><input id="o_po" maxlength="60"></div>
       <div><label for="o_cn">Contact name</label><input id="o_cn" value="${esc(d.contact_name)}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_ph">Contact phone</label><input id="o_ph" type="tel" value="${esc(d.mobile||d.phone||"")}" required><div class="err">Required.</div></div>
-      <div class="full"><label for="o_ad">Deliver to</label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
+      <div class="full"><label for="o_ad">Deliver to <span class="lhint">(your registered delivery address: change it only if this order goes somewhere else)</span></label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
       <div class="full"><label for="o_no">Notes for the fulfilment centre (optional)</label><textarea id="o_no" rows="2"></textarea></div>
       <div class="full"><button class="btn gold" type="submit" id="o_go">Send order request</button></div>
       <p class="note">Your order request goes to our fulfilment centre, who confirm it, deliver and invoice you. Prices are in ${esc(curName(CUR()))}, ${esc(vatTxt())}${VAT()?"; VAT is added to the total":""}.</p>
