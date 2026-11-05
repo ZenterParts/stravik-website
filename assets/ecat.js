@@ -11,7 +11,6 @@ const TPL=`<div class="ewrap"><header class="top">
  <div class="top-in">
   <div class="brand"><h1><span>BATTERY E-CATALOGUE 2026</span></h1></div>
   <label class="q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="vh">Search</span><input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Part no., SAB no., case, Ah, CCA or vehicle (e.g. 646, L3, Corolla)"><button type="button" id="qx" hidden>Clear</button></label>
-  <a class="gbtn bronze hwar" data-warranty href="#">Register warranty</a>
   <nav class="tabs" role="tablist" aria-label="Catalogue sections">
    <button role="tab" id="t-bat" aria-controls="p-bat" aria-selected="true">Batteries<small id="n-bat"></small></button>
    <button role="tab" id="t-gd" aria-controls="p-gd" aria-selected="false">Battery guide</button>
@@ -61,7 +60,7 @@ const TPL=`<div class="ewrap"><header class="top">
     <p class="eyebrow">Battery guide</p>
     <h2>Choose, fit and look after your Stravik battery</h2>
     <p>Stravik starter batteries cover passenger cars, SUVs, light commercial vehicles, trucks, buses and agricultural machinery. This guide explains the battery technologies, the information on every product page and how to get the longest life from your battery.</p>
-    <div class="hacts"><a class="gbtn bronze hlink" data-warranty href="#">Register your battery warranty</a><button type="button" class="gbtn ghost" data-goto="bat">Browse all batteries</button></div>
+    <div class="hacts"><button type="button" class="gbtn bronze" data-goto="bat">Browse all batteries</button></div>
    </div>
    <ul class="hfacts">
     <li><b data-n="SMF"></b><span>SMF batteries</span></li>
@@ -72,7 +71,7 @@ const TPL=`<div class="ewrap"><header class="top">
   </div>
 
   <nav class="gtoc" aria-label="Guide contents">
-   <a href="#g-tech">Battery technologies</a><a href="#g-range">Stravik ranges</a><a href="#g-spec">Reading the specification</a><a href="#g-case">Case standards</a><a href="#g-layout">Terminal layout</a><a href="#g-choose">Choosing a battery</a><a href="#g-fit">Fitting and care</a><a href="#g-warranty">Warranty</a>
+   <a href="#g-tech">Battery technologies</a><a href="#g-range">Stravik ranges</a><a href="#g-spec">Reading the specification</a><a href="#g-case">Case standards</a><a href="#g-layout">Terminal layout</a><a href="#g-choose">Choosing a battery</a><a href="#g-fit">Fitting and care</a>
   </nav>
 
   <h3 class="gh" id="g-tech">Battery technologies</h3>
@@ -187,11 +186,6 @@ const TPL=`<div class="ewrap"><header class="top">
     <li>Used batteries contain lead: return them to your dealer or an authorised recycler. Never dispose of them with household waste.</li></ul></div>
   </div>
 
-  <div class="wcard" id="g-warranty">
-   <div><p class="eyebrow">Warranty</p><h3>Register your Stravik battery</h3>
-    <p>Register your battery online after installation so that any future warranty claim is handled quickly. You will need the part number and the barcode number from the label on top of the battery, the date of fitting and your proof of purchase. Keep your invoice with the vehicle documents.</p></div>
-   <a class="gbtn bronze hlink" data-warranty href="#">Register warranty ›</a>
-  </div>
  </section>
 
  <!-- vehicles -->
@@ -222,7 +216,7 @@ const TPL=`<div class="ewrap"><header class="top">
   <div class="ltops" id="ltops"></div>
  </section>
 </div>
-<div class="efoot"><span>Stravik battery e-catalogue 2026. Specifications are declared values from the manufacturers’ technical data and may change without notice. Check fitment, terminal layout and hold-down against the vehicle before installation.</span><span><a data-warranty href="#" style="color:var(--db);font-weight:700">Battery warranty registration</a></span></div>
+<div class="efoot"><span>Stravik battery e-catalogue 2026. Specifications are declared values from the manufacturers’ technical data and may change without notice. Check fitment, terminal layout and hold-down against the vehicle before installation.</span></div>
 
 <!-- detail (drawing viewer) -->
 <div class="dlg" id="dlg" hidden>
@@ -230,9 +224,13 @@ const TPL=`<div class="ewrap"><header class="top">
   <div class="gtop"><span class="gid" id="d-id"></span><h2 id="d-title"></h2><span class="sp"></span>
    <button type="button" class="gnav" id="d-prev" aria-label="Previous battery">‹</button><button type="button" class="gnav" id="d-next" aria-label="Next battery">›</button>
    <button type="button" class="gbtn navy" id="d-close">Close</button></div>
-  <div class="gmain">
-   <div class="gimg" id="gimg"></div>
-   <aside class="ginfo" id="d-info"></aside>
+  <div class="gscroll" id="gscroll">
+   <div class="gmain">
+    <div class="gimg" id="gimg"></div>
+    <aside class="ginfo" id="d-info"></aside>
+   </div>
+   <nav class="gtabs" id="gtabs" aria-label="Battery information"></nav>
+   <div class="gpanels" id="gpanels"></div>
   </div>
  </div>
 </div>
@@ -274,6 +272,7 @@ const IMGD="/assets/img/batteries/";
 const photo=r=>{const k=BAT_PHOTO.exact[r.pn]||BAT_PHOTO.rep[r.series+"|"+r.type];return k?IMGD+k+".webp":null;};
 const dwimg=id=>id&&DW[id]?IMGD+"dwg/"+id+".jpg":null;
 const dwthumb=id=>id&&DW[id]?IMGD+"dwg/"+id+"-thumb.webp":null;
+const BATICO=`<svg class="batico" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="18" width="48" height="34" rx="4"/><path d="M16 18v-5h8v5M40 18v-5h8v5M17 33h8M44 29v8M40 33h8"/></svg>`;
 const LIMG=k=>IMGD+(/^art_/.test(k)?"labels/":"")+k+".webp";
 
 /* ---------- tabs ---------- */
@@ -326,21 +325,21 @@ function run(reset){
 function picHtml(r,cls){
   const p=photo(r),d=dwthumb(r.dwg);
   if(p)return `<div class="pic${cls||""}"><span class="tag">${esc(r.type==="HDB"?"HD":r.type)}</span><img src="${p}" alt="Stravik ${esc(r.series)} ${esc(TNAME[r.type])}" loading="lazy"></div>`;
-  if(d)return `<div class="pic dw${cls||""}"><span class="tag">${esc(r.type==="HDB"?"HD":r.type)}</span><img src="${d}" alt="Technical drawing ${esc(r.dwg)}" loading="lazy"><span class="note">Drawing ${esc(r.dwg)} · photo to follow</span></div>`;
-  return `<div class="pic${cls||""}"><span class="tag">${esc(r.type==="HDB"?"HD":r.type)}</span><span class="note" style="position:static">Photo to follow</span></div>`;
+  if(d)return `<div class="pic dw${cls||""}"><span class="tag">${esc(r.type==="HDB"?"HD":r.type)}</span><img src="${d}" alt="Technical drawing ${esc(r.dwg)}" loading="lazy"></div>`;
+  return `<div class="pic none${cls||""}"><span class="tag">${esc(r.type==="HDB"?"HD":r.type)}</span>${BATICO}</div>`;
 }
 function card(r){
   return `<button type="button" class="card" data-pn="${esc(r.pn)}" style="--sc:${SERCOL[r.series]||"#A97C42"}">${picHtml(r)}
    <div class="cb"><div class="pn">${esc(r.pn)}</div><div class="ser">${esc(r.series)} · ${esc(TNAME[r.type])}</div><div class="eprice" data-p="${esc(r.pn)}"></div>
    <div class="big"><div><b>${esc(r.ah)}</b><span>Ah</span></div><div><b>${esc(r.cca)}</b><span>CCA (EN)</span></div><div><b>${esc(r.box)}</b><span>Case</span></div></div>
    <div class="kv"><span>Size</span><b>${r.L} × ${r.W} × ${r.H}</b><span>Layout</span><b>${esc(r.layout)}</b><span>SAB</span><b>${esc(r.sab||"–")}</b><span>Made in</span><b>${esc(ORG[r.origin])}</b></div>
-   <div class="cfoot"><span>${(vByPn[r.pn]||[]).length} vehicle applications</span>${r.dwg?`<span class="dwb">Drawing ${esc(r.dwg)}</span>`:"<span>No drawing</span>"}</div></div></button>`;
+   <div class="cfoot"><span>${(vByPn[r.pn]||[]).length} vehicle applications</span>${r.dwg?`<span class="dwb">Drawing ${esc(r.dwg)}</span>`:""}</div></div></button>`;
 }
 const COLS=[["","",null],["pn","Part no."],["type","Type"],["series","Series"],["box","Case"],["ah","Ah","n"],["cca","CCA","n"],["L","L × W × H"],["layout","Layout"],["hd","Hold-down"],["sab","SAB"],["origin","Made in"],["dwg","Drawing"]];
 function row(r){const p=photo(r)||dwthumb(r.dwg);
   return `<tr data-pn="${esc(r.pn)}"><td><span class="th">${p?`<img src="${p}" alt="" loading="lazy">`:""}</span></td><td><span class="pnl">${esc(r.pn)}</span></td><td><span class="badge ${r.type.toLowerCase()}">${esc(r.type==="HDB"?"Heavy duty":r.type)}</span></td>
   <td>${esc(r.series)}</td><td>${esc(r.box)}</td><td class="n">${esc(r.ah)}</td><td class="n">${esc(r.cca)}</td><td>${r.L} × ${r.W} × ${r.H}</td><td>${esc(r.layout)}</td><td>${esc(r.hd)}</td><td>${esc(r.sab||"–")}</td><td>${esc(ORG[r.origin])}</td>
-  <td>${r.dwg?`<button type="button" class="dwl" data-dw="${esc(r.dwg)}" data-pn="${esc(r.pn)}">${esc(r.dwg)}</button>`:"–"}</td></tr>`;}
+  <td>${r.dwg?`<button type="button" class="dwl" data-dw="${esc(r.dwg)}" data-pn="${esc(r.pn)}">${esc(r.dwg)}</button>`:""}</td></tr>`;}
 function paint(){
   const out=$("#out"),sl=list.slice(0,st.shown);
   if(!list.length){out.innerHTML=`<div class="empty"><b>No batteries match.</b><br>Try a part number, case (e.g. L3), SAB number (e.g. 646) or remove a filter.</div>`;}
@@ -414,45 +413,49 @@ const zc=t=>`<div class="zc"><button type="button" data-a="-" aria-label="Zoom o
 function paintImg(){
   const r=cur,p=photo(r),d=dwimg(r.dwg);let v=view;if(v==="d"&&!d)v="p";if(v==="p"&&!p&&d)v="d";
   const src=v==="d"?d:p,t=v==="d"?`Technical drawing ${r.dwg}, ${DW[r.dwg].title}`:`Stravik ${r.series} ${TNAME[r.type]}`;
-  $("#gimg").innerHTML=`<div class="gseg" role="group" aria-label="Show"><button type="button" data-v="d" aria-pressed="${v==="d"}"${d?"":" disabled"}>Technical drawing</button><button type="button" data-v="p" aria-pressed="${v==="p"}"${p?"":" disabled"}>Battery photo</button></div>`+
-    (src?`<div class="vp"><img src="${src}" alt="${esc(t)}" draggable="false">${zc(t)}</div><button type="button" class="zhint" id="zhint">Click to zoom</button>`:`<div class="nophoto"><b>No drawing or photo for this battery yet</b><span>Check the dimensions in the specification.</span></div>`);
+  // only the views this battery has are offered (no "no drawing" messages)
+  $("#gimg").innerHTML=(p&&d?`<div class="gseg" role="group" aria-label="Show"><button type="button" data-v="p" aria-pressed="${v==="p"}">Battery photo</button><button type="button" data-v="d" aria-pressed="${v==="d"}">Technical drawing</button></div>`:"")+
+    (src?`<div class="vp"><img src="${src}" alt="${esc(t)}" draggable="false">${zc(t)}</div><button type="button" class="zhint" id="zhint">Click to zoom</button>`:`<div class="nophoto">${BATICO}<b>${esc(r.pn)}</b><span>${esc(r.box)} case · ${r.L} × ${r.W} × ${r.H} mm</span></div>`);
   const vp=$("#gimg .vp");if(vp){zoomable(vp);$("#zhint").onclick=()=>{const b=vp.querySelector('[data-a="+"]');b.click();b.click();};}
   $$("#gimg .gseg button").forEach(b=>b.onclick=()=>{view=b.dataset.v;paintImg();});
 }
 function openPart(pn,v,order){
   const r=byPn[pn];if(!r)return;
   if(dlg.hidden)dLast=act();
-  seq=order||(list.some(x=>x.pn===pn)?list.map(x=>x.pn):[pn]);cur=r;view=v==="p"?"p":"d";
+  seq=order||(list.some(x=>x.pn===pn)?list.map(x=>x.pn):[pn]);cur=r;view=v==="d"?"d":"p";
   const p=photo(r),dd=r.dwg&&DW[r.dwg];
-  $("#d-id").textContent=r.dwg||r.box;$("#d-title").textContent=dd?dd.title:`${r.box} case · no factory drawing`;
+  $("#d-id").textContent=r.pn;$("#d-title").textContent=`${r.series} · ${TNAME[r.type]} · ${r.box} case`;
   paintImg();
   const veh=(vByPn[r.pn]||[]).slice().sort((a,b)=>(a.m+a.o).localeCompare(b.m+b.o));
   const lab=r.type==="SMF"&&LABEL[r.series];
   const sp=dd&&dd.dspec;
   const users=dd?Object.keys(dd.users).map(o=>[o,dd.users[o].filter(x=>byPn[x])]).filter(x=>x[1].length):[];
-  $("#d-info").innerHTML=`<p class="gdims">${sp?`Drawing shows ${sp.L} × ${sp.W} × ${sp.H} mm${sp.htype==="lid"?" (height to lid)":""}`:`Battery size ${r.L} × ${r.W} × ${r.H} mm`}</p>
-   <div class="gprod">
-    ${p?`<button type="button" class="gbat" id="gbat" title="Show the battery photo"><img src="${p}" alt="Stravik ${esc(r.series)} battery"></button><p class="gcap">${esc(r.series)} · representative image · select to enlarge</p>`:`<div class="gbat none">Battery photo to follow</div><p class="gcap"></p>`}
+  $("#d-info").innerHTML=`<div class="gprod">
     <div class="gph"><b>${esc(r.pn)}</b><span>${esc(r.origin)}</span></div><div class="eprice" data-p="${esc(r.pn)}" style="margin:-4px 0 8px"></div>
-    ${chipsHtml(r)}${statsHtml(r)}${specHtml(r)}
-    <div class="gacts"><button type="button" class="gbtn bronze" id="g-add">${addLabel(r.pn)}</button><button type="button" class="gbtn ghost" id="g-more" aria-expanded="false">Battery details</button></div>
-    <div class="gmore" id="g-moreb" hidden><dl class="sp">${[["Battery type",TNAME[r.type]],["Drawing",r.dwg?`${r.dwg}, ${dd.title}`:"–"],["Made in",ORG[r.origin]]].map(x=>`<dt>${x[0]}</dt><dd>${esc(x[1])}</dd>`).join("")}</dl>
+    ${chipsHtml(r)}<p class="glede">${esc(SERINFO[r.series]||r.series)}</p>${statsHtml(r)}
+    <div class="gacts"><button type="button" class="gbtn bronze" id="g-add">${addLabel(r.pn)}</button><a class="gbtn navy hlink" href="/part/${encodeURIComponent(r.pn)}/">Open battery page</a></div>
+    <div class="gacts g2"><button type="button" class="gbtn ghost" id="g-share">Copy page link</button><a class="gbtn ghost hlink" href="/#/contact?part=${encodeURIComponent(TNAME[r.type])}&amp;ref=${encodeURIComponent(r.pn)}">Ask a question</a></div>
+   </div>`;
+  const TB=[["desc","Description"],["feat","Features & benefits"],["spec","Technical specifications"],["app","Application"],["war","Warranty"],["disc","Disclaimer"]];
+  $("#gtabs").innerHTML=TB.map(([k,t])=>`<button type="button" role="tab" data-gt="${k}" aria-selected="${k===dTab}">${esc(t)}</button>`).join("");
+  $("#gpanels").innerHTML=`<div class="gpanel" data-gp="desc">${aboutHtml(r)}</div>
+   <div class="gpanel" data-gp="feat">${featHtml(r)}</div>
+   <div class="gpanel" data-gp="spec"><div class="gsec"><h3>Technical specifications</h3>${specHtml(r)}
      ${lab?`<div class="lab"><button type="button" class="zoom" data-z="${lab}" data-t="${esc(r.series)} front label, 267 × 100 mm"><img src="${LIMG(lab)}" alt="${esc(r.series)} front label"></button><p class="small">Label artwork: front label, ${esc(r.series)} · 267 × 100 mm</p></div>`:""}</div>
-   </div>
-   ${featHtml(r)}${aboutHtml(r)}${altHtml(r)}
-   <div class="gsec"><h3>Vehicle applications</h3><p class="gsub">Battery ${esc(r.pn)} · SAB ${esc(r.sab||"–")} · ${veh.length} South African vehicle applications (SABAT 2019)</p>
-    ${veh.length?`<input class="vf" id="d-vf" type="search" placeholder="Filter by make or model (e.g. Toyota, Polo)" aria-label="Filter vehicle applications"><div class="vlist"><table><thead><tr><th>Make</th><th>Model</th><th>Year</th><th>SAB</th></tr></thead><tbody id="d-vb"></tbody></table></div><p class="small" id="d-vn"></p>`:`<p class="small">No vehicle application listed for this SAB number.</p>`}</div>
-   ${users.length?`<div class="gusers"><h3>Part numbers using this drawing</h3>${users.map(([o,l])=>`<h4>${esc(o)} (${l.length})</h4><div>${l.map(x=>`<button type="button" class="uchip" data-pn="${esc(x)}" aria-pressed="${x===r.pn}">${esc(x)}</button>`).join("")}</div>`).join("")}</div>`:""}
-   ${warrantyHtml(r)}${closingHtml(r)}`;
+     ${users.length?`<div class="gsec gusers"><h3>Part numbers using drawing ${esc(r.dwg)}</h3>${users.map(([o,l])=>`<h4>${esc(o)} (${l.length})</h4><div>${l.map(x=>`<button type="button" class="uchip" data-pn="${esc(x)}" aria-pressed="${x===r.pn}">${esc(x)}</button>`).join("")}</div>`).join("")}</div>`:""}</div>
+   <div class="gpanel" data-gp="app"><div class="gsec"><h3>Vehicle applications</h3>${veh.length?`<p class="gsub">Battery ${esc(r.pn)} · SAB ${esc(r.sab||"–")} · ${veh.length} South African vehicle applications (SABAT 2019)</p>
+    <input class="vf" id="d-vf" type="search" placeholder="Filter by make or model (e.g. Toyota, Polo)" aria-label="Filter vehicle applications"><div class="vlist"><table><thead><tr><th>Make</th><th>Model</th><th>Year</th><th>SAB</th></tr></thead><tbody id="d-vb"></tbody></table></div><p class="small" id="d-vn"></p>`
+    :`<p class="gsub">Battery ${esc(r.pn)} · SAB ${esc(r.sab||"–")}</p><p>Send us the vehicle and we'll confirm the fit. <a href="/#/contact?part=${encodeURIComponent(TNAME[r.type])}&amp;ref=${encodeURIComponent(r.pn)}">Ask about this battery</a></p>`}</div>${altHtml(r)}</div>
+   <div class="gpanel" data-gp="war">${warrantyHtml(r)}</div>
+   <div class="gpanel" data-gp="disc"><div class="gsec"><h3>Disclaimer</h3><p>Specifications are declared values from the manufacturers' technical data and may change without notice.</p><p>Where the picture shows a representative battery of the series, the case size, shape and terminal position depend on the battery: check the technical specifications.</p><p>Vehicle applications are matched by SAB size from the South African battery application guide (SABAT 2019) and are a guide only. Always confirm the case, terminal layout and hold-down against the battery being replaced or the vehicle handbook before installation.</p></div></div>`;
+  showTab(dTab);
   if(veh.length){const vb=$("#d-vb"),vf=$("#d-vf");const draw=()=>{const t=vf.value.toLowerCase().split(/\s+/).filter(Boolean);const m=veh.filter(v=>t.every(x=>v._t.includes(x)));
     vb.innerHTML=m.slice(0,300).map(v=>{const rec=v.fit.includes(r.pn);return `<tr><td>${esc(v.m)}</td><td>${esc(v.o)}</td><td>${esc(v.y)}</td><td><span class="rec${rec?"":" alt"}">${esc(rec?v.r+" rec.":(v.a||v.r)+" alt.")}</span></td></tr>`}).join("");
     $("#d-vn").textContent=m.length>300?`Showing 300 of ${m.length} – type a make or model to narrow the list`:`${m.length} shown`;};vf.addEventListener("input",draw);draw();}
   $("#g-guide").onclick=()=>{closeD();tab("gd");scrollTo(0,0);};wireUpgrade(r);
-  if(p)$("#gbat").onclick=()=>{view="p";paintImg();};
   $("#g-add").onclick=()=>{cartAdd(r);$("#g-add").textContent=addLabel(r.pn);};
-  $("#g-more").onclick=e=>{const b=$("#g-moreb");b.hidden=!b.hidden;e.currentTarget.setAttribute("aria-expanded",!b.hidden);e.currentTarget.textContent=b.hidden?"Battery details":"Hide details";};
   const i=seq.indexOf(r.pn);$("#d-prev").disabled=i<=0;$("#d-next").disabled=i<0||i>=seq.length-1;
-  $("#d-info").scrollTop=0;
+  $("#gscroll").scrollTop=0;
   if(dlg.hidden){dlg.hidden=false;document.body.style.overflow="hidden";$("#d-close").focus();}
   prices();
   try{history.replaceState(null,"","#"+r.pn);}catch(e){}
@@ -461,7 +464,11 @@ function closeD(){dlg.hidden=true;document.body.style.overflow="";try{history.re
 $("#d-close").addEventListener("click",closeD);
 $("#d-prev").addEventListener("click",()=>{const i=seq.indexOf(cur.pn);if(i>0)openPart(seq[i-1],view,seq);});
 $("#d-next").addEventListener("click",()=>{const i=seq.indexOf(cur.pn);if(i<seq.length-1)openPart(seq[i+1],view,seq);});
-$("#d-info").addEventListener("click",e=>{const c=e.target.closest(".uchip");if(c&&c.dataset.pn!==cur.pn)openPart(c.dataset.pn,view,dUsers(cur.dwg));});
+$("#gpanels").addEventListener("click",e=>{const c=e.target.closest(".uchip");if(c&&c.dataset.pn!==cur.pn)openPart(c.dataset.pn,view,dUsers(cur.dwg));});
+// ribbon tabs in the battery view; the chosen tab stays when moving to the next battery
+let dTab="desc";
+function showTab(k){dTab=k;$$("#gtabs [data-gt]").forEach(b=>b.setAttribute("aria-selected",b.dataset.gt===k));$$("#gpanels [data-gp]").forEach(p=>p.hidden=p.dataset.gp!==k);}
+$("#gtabs").addEventListener("click",e=>{const b=e.target.closest("[data-gt]");if(!b)return;showTab(b.dataset.gt);const t=$("#gtabs");if(t.getBoundingClientRect().top<$("#gscroll").getBoundingClientRect().top+2)$("#gscroll").scrollTop=t.offsetTop;});
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){if(!fs.hidden){closeFs();return;}if(!dlg.hidden)closeD();}
   if(!dlg.hidden&&fs.hidden&&!/INPUT|SELECT/.test(act().tagName)){if(e.key==="ArrowRight")$("#d-next").click();if(e.key==="ArrowLeft")$("#d-prev").click();}});
@@ -476,7 +483,6 @@ addEventListener("storage",()=>{if(!dlg.hidden&&cur){const a=$("#g-add");if(a)a.
 /* ---------- battery guide and warranty (added) ---------- */
 const WARRANTY_URL="/warranty/battery/";
 const wurl=pn=>WARRANTY_URL+(pn?(WARRANTY_URL.includes("?")?"&":"?")+"pn="+encodeURIComponent(pn):"");
-$$("[data-warranty]").forEach(a=>{a.href=wurl("");});
 $$(".hfacts [data-n]").forEach(b=>b.textContent=CAT.filter(r=>r.type===b.dataset.n).length);
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>{tab(b.dataset.goto);scrollTo(0,0);}));
 $$(".tlink[data-type]").forEach(b=>b.addEventListener("click",()=>{const t=b.dataset.type;st.types.clear();st.types.add(t);
@@ -511,7 +517,7 @@ function aboutHtml(r){
    <button type="button" class="glink" id="g-guide">Read the full battery guide ›</button></div>`;}
 function warrantyHtml(r){
   return `<div class="wsec"><p class="eyebrow">Warranty</p><h3>Register your battery warranty</h3>
-   <p>Register this battery after installation so that any warranty claim is handled quickly. Have your proof of purchase ready.</p>
+   <p>Register this battery after installation so that any warranty claim is handled quickly. You need the battery number and the barcode number from the label on top of the battery, the date you bought it, where you bought it and your proof of purchase.</p>
    <dl class="wid"><dt>Part number</dt><dd>${esc(r.pn)}</dd><dt>Battery</dt><dd>${esc(TNAME[r.type])} · ${esc(r.ah)} Ah · ${esc(r.cca)} A</dd></dl>
    <a class="gbtn bronze hlink" href="${esc(wurl(r.pn))}">Register warranty ›</a></div>`;}
 
@@ -559,12 +565,10 @@ function altHtml(r){
    <div class="alts">${a.map(x=>{const up=rank(x)>rank(r)?`Upgrade to ${x.type==="HDB"?"EFB":x.type}`:(rank(x)===rank(r)&&parseFloat(x.cca)>parseFloat(r.cca))?"More starting power":"";
     return `<button type="button" class="alt" data-pn="${esc(x.pn)}"><i style="background:${SERCOL[x.series]||"#0B203D"}"></i><span><b>${esc(x.pn)}</b><small>${esc(x.series)} · ${esc(TNAME[x.type])}</small></span><span class="an"><b>${x.ah}</b> Ah<br><b>${esc(x.cca)}</b> A</span>${up?`<em>${up}</em>`:""}</button>`;}).join("")}</div>
    <p class="small">${r.type==="AGM"?"An AGM battery must be replaced with AGM.":"Start-stop vehicles must keep EFB or AGM technology."}</p></div>`;}
-function closingHtml(r){return `<div class="gsec tools"><div class="gacts"><a class="gbtn navy hlink" href="/part/${encodeURIComponent(r.pn)}/">Open battery page</a><button type="button" class="gbtn ghost" id="g-share">Copy page link</button><a class="gbtn ghost hlink" href="/#/contact?part=${encodeURIComponent(TNAME[r.type])}&amp;ref=${encodeURIComponent(r.pn)}">Ask a question</a></div>
-  <p class="small">Fitment information is a guide. Always confirm case, terminal layout and hold-down against the battery being replaced or the vehicle handbook before installation.</p></div>`;}
 function pageUrl(pn){return location.origin+"/part/"+encodeURIComponent(pn)+"/";}
 function wireUpgrade(r){
   const sh=$("#g-share");sh.onclick=()=>{const u=pageUrl(r.pn);(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>sh.textContent="Link copied",()=>prompt("Copy the link:",u));};
-  $$("#d-info .alt").forEach(b=>b.onclick=()=>openPart(b.dataset.pn,view));
+  $$("#gpanels .alt").forEach(b=>b.onclick=()=>openPart(b.dataset.pn,view));
   $$("#d-info .pc[data-f]").forEach(b=>b.onclick=()=>{const f=b.dataset.f,v=b.dataset.v;closeD();tab("bat");$("#reset").click();
     if(f==="type"){st.types.add(v);$$("#types .tchip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.t?st.types.has(x.dataset.t):false));}
     else{st[f]=v;$(f==="ser"?"#f-ser":"#f-box").value=v;}run(true);scrollTo(0,0);});
