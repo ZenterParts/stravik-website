@@ -26,7 +26,7 @@ const list = (a, n) => a.slice(0, n).join(", ") + (a.length > n ? ` and ${a.leng
 // ---- page shell from index.html
 // ---- cache-busting: stamp each shared asset with a short content hash so browsers fetch the new file after every change
 const crypto = require("crypto");
-const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js"];
+const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js", "warranty.js"];
 const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
 { const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|app\.js)(\?v=[0-9a-f]+)?/g, (m, f) => V[f]);
   if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
@@ -40,7 +40,7 @@ const SHELL = {
   toast: cut('<div class="toast"', "</div>"),
   footer: cut('<footer class="site">', "</footer>"),
 };
-function page({ url, title, desc, jsonld, body }) {
+function page({ url, title, desc, jsonld, body, type, scripts }) {
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
@@ -51,7 +51,7 @@ function page({ url, title, desc, jsonld, body }) {
 <link rel="canonical" href="${url}">
 ${SHELL.icons}
 <meta name="theme-color" content="#0b203d">
-<meta property="og:type" content="product">
+<meta property="og:type" content="${type || "product"}">
 <meta property="og:site_name" content="Stravik">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
@@ -73,7 +73,7 @@ ${SHELL.footer}
 <script src="${V["catalog.js"]}"></script>
 <script src="${V["common.js"]}"></script>
 <script src="${V["dealer.js"]}"></script>
-</body>
+${(scripts || []).map(f => `<script src="${V[f]}"></script>\n`).join("")}</body>
 </html>
 `;
 }
@@ -281,6 +281,15 @@ const btOrigin = o => o === "Hungary" ? "EU" : o;
 const btPhoto = i => { const k = BAT_PHOTO.exact[i.pn] || BAT_PHOTO.rep[i.ser + "|" + i.t]; return k ? "/assets/img/batteries/" + k + ".webp" : ""; };
 const btMakes = i => uniq(i.apps.filter(a => a.rec).map(a => a.mk));
 const btBySab = new Map(); BT.forEach(i => i.sab.forEach(s => { if (!btBySab.has(s)) btBySab.set(s, []); btBySab.get(s).push(i); }));
+// battery barcode (EAN-13): 12 + Stravik no. on the phone keypad (S and Z = 1) + supplier code for the country of manufacture + check digit.
+// Same rule as the battery barcode master and the admin Barcodes app; printed on the battery label.
+const BT_SUP = { Hungary: "01", Tunisia: "02", Turkey: "03" }, KEYPAD = "22233344455566677718889991";
+const btEan = i => { if (!BT_SUP[i.org] || !/^[A-Z0-9]{8}$/.test(i.pn)) return "";
+  const s = "12" + [...i.pn].map(c => /\d/.test(c) ? c : KEYPAD[c.charCodeAt(0) - 65]).join("") + BT_SUP[i.org];
+  let t = 0; for (let k = 0; k < 12; k++) t += +s[k] * (k % 2 ? 3 : 1); return s + (10 - t % 10) % 10; };
+{ const seen = new Map(); BT.forEach(i => { const e = btEan(i); if (e && seen.has(e)) throw new Error(`Battery barcode ${e} is used by ${seen.get(e)} and ${i.pn}`); seen.set(e, i.pn); }); }
+// warranty registration: the QR code on the battery opens the battery's page; this block closes the page
+const btWarranty = i => `<aside class="cantfind wreg" id="warranty"><div><h3>Battery warranty registration</h3><p>Bought this Stravik battery? Register it for warranty with the battery number, the date you bought it and where you bought it. Keep your invoice as proof of purchase.</p></div><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register this battery</a></aside>`;
 const btCard = x => { const T = BTT[x.t] || { one: "Battery" }, ph = btPhoto(x);
   return `<div class="fcell"><a class="fcard bcard" href="/part/${esc(x.pn)}/"><span class="bph">${ph ? `<img src="${ph}" alt="" loading="lazy">` : `<span class="ic">${icon("battery")}</span>`}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(T.one)}, ${esc(x.ser)}</span><span class="veh"><b>${esc(x.ah)} Ah · ${esc(x.cca)} A (EN)</b> · case ${esc(x.box)} · made in ${esc(btOrigin(x.org))}</span></a></div>`; };
 const SEG_ORDER = ["Passenger Cars & SUVs", "Light Commercial Vehicles", "Commercial Vehicles", "Tractors & Fork Lifts"];
@@ -289,7 +298,7 @@ for (const i of BT) {
   const url = `${SITE}/part/${i.pn}/`, mk = btMakes(i), ph = btPhoto(i), D = BAT_DWG[i.dwg];
   const rows = [["Stravik number", i.pn], ["Battery type", T.one], ["Series", i.ser], ["Voltage", "12 V"], ["Capacity", i.ah + " Ah"], ["Cold cranking amps", i.cca + " A (EN)"],
     ["Case", i.box + (BT_GRP[i.grp] ? ", " + BT_GRP[i.grp] : "")], ["Dimensions (L × W × H)", `${i.l} × ${i.w} × ${i.h} mm`], ["Terminal layout", i.lay], ["Hold-down", i.hd],
-    ["SAB number", i.sab.join(" / ")], ["Case drawing", D ? `${i.dwg} (${D[0]})` : ""], ["Origin", "Made in " + btOrigin(i.org)]].filter(r => r[1]);
+    ["SAB number", i.sab.join(" / ")], ["Case drawing", D ? `${i.dwg} (${D[0]})` : ""], ["Origin", "Made in " + btOrigin(i.org)], ["Barcode (EAN-13)", btEan(i)]].filter(r => r[1]);
   const alts = uniq(i.sab.flatMap(s => (btBySab.get(s) || []).filter(x => x !== i).map(x => x.pn))).map(pn => BT.find(x => x.pn === pn)).slice(0, 8);
   const segs = SEG_ORDER.map(sg => ({ sg, apps: i.apps.filter(a => a.sg === sg).sort((a, b) => b.rec - a.rec) })).filter(g => g.apps.length);
   const nApps = i.apps.filter(a => a.rec).length, nAlt = i.apps.length - nApps;
@@ -303,7 +312,7 @@ for (const i of BT) {
 ${/\/mock_/.test(ph) ? `<p class="sib">The picture shows the ${esc(i.ser)} SMF label design; the case size and shape depend on the battery.</p>` : ""}
 <div class="replace"><b>Before you order</b><span>Check the SAB number, case size, terminal layout and hold-down against the old battery, or send us the vehicle and we'll confirm the fit.</span></div>
 ${buyBox(item)}
-<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/#/batteries/${T.slug}">More ${esc(btLc(T.many))}</a></div>
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/#/batteries/${T.slug}">More ${esc(btLc(T.many))}</a><a class="btn line" href="#warranty">Warranty registration</a></div>
 ${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}
 </div></div>
 <section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${nApps} ${nApps === 1 ? "vehicle" : "vehicles"}, ${mk.length} ${mk.length === 1 ? "make" : "makes"}${nAlt ? `, plus ${nAlt} as the alternative size` : ""} (South African applications, SABAT)</span></h2>
@@ -311,8 +320,38 @@ ${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" ta
 ${i.apps.length ? segs.map((g, k) => `<details class="segd"${k === 0 ? " open" : ""}><summary class="segh">${esc(g.sg)} <span>${g.apps.filter(a => a.rec).length}${g.apps.some(a => !a.rec) ? ` + ${g.apps.filter(a => !a.rec).length} alternative` : ""}</span></summary><div class="ftable-wrap"><table class="ctable apps"><thead><tr><th>Make</th><th>Model</th><th>Years</th><th>Battery size</th><th>Fit</th></tr></thead><tbody>${g.apps.map(a => `<tr><td>${esc(a.mk)}</td><td>${esc(a.mo)}</td><td class="yr">${esc(a.yr)}</td><td class="mc">${esc(a.sb)}</td><td>${a.rec ? "Recommended" : "Alternative size"}</td></tr>`).join("")}</tbody></table></div></details>`).join("") : `<p class="sib">No vehicles in the South African list take SAB ${esc(i.sab.join(" / "))} yet. Send us the vehicle and we'll confirm the fit.</p>`}
 </div></section>
 ${alts.length ? `<section class="block related"><div class="wrap"><h2>Other Stravik batteries in the same size</h2><p class="pp-note">Batteries with the same SAB number, in other series and origins.</p><div class="fgrid">${alts.map(btCard).join("")}</div></div></section>` : ""}
-${cantFind}`;
+${cantFind.replace("</aside>", "</aside>" + btWarranty(i))}`;
   write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${btDesc(i)} ${i.pn}`, i.pn, T.one, desc, ph || "/assets/og.jpg"), body }));
+  urls.push(url);
+}
+
+// ================= battery warranty registration =================
+// /warranty/battery/?pn=<Stravik no.>: opened from the warranty block at the end of each battery page (the battery's QR code opens that page).
+// The form (assets/warranty.js) saves to Supabase with public.stravik_warranty_register; staff see the registrations in the admin Warranty app.
+{ const url = `${SITE}/warranty/battery/`, title = "Battery warranty registration | Stravik", desc = "Register your Stravik battery for warranty: battery number, date of purchase and where you bought it.";
+  const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products/batteries", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>The battery number (for example SVADH001) is on the battery label, next to the barcode.</p></div></div>
+<section class="block"><div class="wrap wform">
+<form class="enq" id="wf" novalidate>
+<div class="full"><label for="w_pn">Stravik battery number</label><input id="w_pn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
+<div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
+<div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
+<div><label for="w_inv">Invoice or receipt number <span class="opt">(optional)</span></label><input id="w_inv" maxlength="60"></div>
+<div><label for="w_fit">Fitted by <span class="opt">(optional)</span></label><input id="w_fit" placeholder="Workshop name, or yourself" maxlength="160"></div>
+<div><label for="w_veh">Vehicle <span class="opt">(optional)</span></label><input id="w_veh" placeholder="Make, model and year" maxlength="160"></div>
+<div><label for="w_reg">Vehicle registration <span class="opt">(optional)</span></label><input id="w_reg" maxlength="30" autocapitalize="characters"></div>
+<div class="full wsep"><h2>Your details</h2></div>
+<div><label for="w_name">Name</label><input id="w_name" required autocomplete="name" maxlength="120"><div class="err">Enter your name.</div></div>
+<div><label for="w_co">Company <span class="opt">(optional)</span></label><input id="w_co" autocomplete="organization" maxlength="160"></div>
+<div><label for="w_email">Email</label><input id="w_email" type="email" required autocomplete="email" maxlength="160"><div class="err">Enter a valid email address.</div></div>
+<div><label for="w_phone">Phone <span class="opt">(optional)</span></label><input id="w_phone" type="tel" autocomplete="tel" maxlength="60"></div>
+<div><label for="w_country">Country</label><input id="w_country" required autocomplete="country-name" value="South Africa" maxlength="80"><div class="err">Enter your country.</div></div>
+<div><label for="w_city">City or town <span class="opt">(optional)</span></label><input id="w_city" autocomplete="address-level2" maxlength="80"></div>
+<div class="full wok"><label><input type="checkbox" id="w_ok" required> I agree that Stravik keeps these details to handle the warranty of this battery.</label><div class="err">Tick the box to register.</div></div>
+<input type="text" id="w_bot" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
+<div class="full" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><button class="btn gold" type="submit">Register battery</button></div>
+<div class="full ready" role="status" aria-live="polite"></div>
+</form></div></section>`;
+  write("warranty/battery", page({ url, title, desc, type: "website", scripts: ["warranty.js"], jsonld: { "@context": "https://schema.org", "@type": "WebPage", name: "Battery warranty registration", url, description: desc }, body }));
   urls.push(url);
 }
 

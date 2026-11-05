@@ -1055,3 +1055,13 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 @media (max-width:900px){.dwrap:has(.dside),.dacc,.dreg .enq{grid-template-columns:1fr}}
 .dwho{max-width:900px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:10px 14px;background:var(--paper);border:1px solid var(--line);border-radius:8px;font-size:15px}
 .dwho .btn.small{padding:6px 14px;font-size:14px}
+/* battery warranty registration (/warranty/battery/ and the block at the end of each battery page) */
+.cantfind.wreg{margin-top:16px;scroll-margin-top:96px}
+.wform{max-width:860px}
+.wform .wsep h2{font-size:22px;margin:14px 0 0;padding-top:18px;border-top:1px solid var(--line)}
+.wbat{margin-top:8px;font-size:14.5px;color:var(--muted)}
+.wbat b{color:var(--ink)}
+.wbat.bad{color:#b3261e}
+form.enq .wok label{display:flex;gap:10px;align-items:flex-start;font-weight:500}
+form.enq .wok input{width:auto;margin-top:4px}
+.wok.invalid .err{display:block}
