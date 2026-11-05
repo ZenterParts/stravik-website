@@ -19,6 +19,28 @@
   var omoney = function (v, cur) { return v == null || v === '' ? '' : (cur || 'USD') + ' ' + L.money(v); };
   async function groups() { if (!GROUPS.length) GROUPS = L.must(await sb.from('stravik_group_price_counts').select('*').order('sort')); return GROUPS; }
   var gname = function (code) { var g = GROUPS.find(function (x) { return x.code === code; }); return g ? g.name : (code || ''); };
+  // Pricing approval / change of group: exactly what the customer would see with the chosen group (their country decides the region)
+  async function tierPreview(box, dealerId, code) {
+    if (!code) { box.innerHTML = '<p class="small muted">Choose a price group to see the prices this customer will get.</p>'; return; }
+    box.innerHTML = '<p class="small muted">Loading the prices…</p>';
+    try {
+      var v = L.must(await sb.rpc('stravik_tier_preview', { p_dealer: dealerId, p_group: code })), cur = v.currency, vat = v.vat ? Number(v.vat) : 0;
+      var m = function (x) { return x == null ? '' : (cur === 'ZAR' ? 'R' : cur === 'USD' ? '$' : cur + ' ') + L.money(x); };
+      var rows = v.rows || [];
+      box.innerHTML = '<div class="notice' + (rows.length ? ' good' : ' bad') + '"><b>' + esc(v.group_name) + '</b> · ' + esc(v.note) + ' · ' + (rows.length ? rows.length.toLocaleString() + ' parts priced' : 'no prices yet: every part shows “on request”') +
+          (v.ranges.length ? '<div class="small">' + v.ranges.map(function (r) { return esc(r.range) + ' ' + r.parts; }).join(' · ') + '</div>' : '') + '</div>' +
+        (rows.length ? '<input type="search" id="tpQ" placeholder="Search part no. or description…" style="margin:8px 0">' +
+          '<div class="o-list" style="max-height:340px;overflow:auto"><table class="grid compact" style="width:100%"><thead><tr><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">' + esc(cur) + (vat ? ' excl. VAT' : '') + '</th>' + (vat ? '<th class="num">incl. ' + Math.round(vat * 100) + '% VAT</th>' : '') + '</tr></thead><tbody id="tpB"></tbody></table></div><p class="small muted" id="tpN"></p>' : '');
+      if (!rows.length) return;
+      var paint = function () {
+        var q = String($('tpQ').value || '').toLowerCase().trim(), k = L.clean(q);
+        var hit = rows.filter(function (r) { return !q || L.clean(r[0]).indexOf(k) >= 0 || String(r[1] || '').toLowerCase().indexOf(q) >= 0; });
+        $('tpB').innerHTML = hit.slice(0, 150).map(function (r) { return '<tr><td class="pn">' + esc(r[0]) + '</td><td class="clip">' + esc(r[1] || '') + '</td><td class="small">' + esc(r[2]) + '</td><td class="num"><b>' + esc(m(r[3])) + '</b></td>' + (vat ? '<td class="num">' + esc(m(r[4])) + '</td>' : '') + '</tr>'; }).join('');
+        $('tpN').textContent = hit.length > 150 ? 'First 150 of ' + hit.length.toLocaleString() + ' shown; search to find a part.' : hit.length + ' shown.';
+      };
+      $('tpQ').oninput = L.debounce(paint, 150); paint();
+    } catch (e) { box.innerHTML = '<p class="flag">' + esc(e.message || e) + '</p>'; }
+  }
   async function mail(body) {
     try {
       var r = await sb.functions.invoke('stravik-dealer-mail', { body: body });
@@ -117,7 +139,7 @@
           '</div>' +
           L.notebook([
             { key: 'docs', label: 'Documents (' + docs.length + ')', html: docs.length ? '<table class="grid compact"><thead><tr><th>Document</th><th>File</th><th>Uploaded</th><th></th></tr></thead><tbody>' + docs.map(function (x) { return '<tr><td>' + esc(x.kind) + '</td><td>' + esc(x.file_name) + ' <span class="small muted">' + (x.size_bytes ? Math.round(x.size_bytes / 1024) + ' KB' : '') + '</span></td><td class="small">' + esc(L.dt(x.uploaded_at)) + '</td><td><button type="button" class="btn ghost small" data-doc="' + esc(x.path) + '">Open</button></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">No documents uploaded. Ask the customer to email them, or to upload them under “Update your details”.</p>' },
-            { key: 'orders', label: 'Orders (' + orders.length + ')', html: orders.length ? L.listView([{ label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>'; } }, { label: 'Date', render: function (o) { return esc(L.dt(o.created_at)); } }, { label: 'Status', render: function (o) { return pill(o.status); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Total USD', num: true, render: function (o) { return L.money(o.total_usd); } }, { label: 'Invoice', render: function (o) { return esc(o.invoice_no || ''); } }], orders, function (o) { return L.href('orders', [o.order_no]); }) : '<p class="muted">No orders yet.</p>' }
+            { key: 'orders', label: 'Orders (' + orders.length + ')', html: orders.length ? L.listView([{ label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>'; } }, { label: 'Date', render: function (o) { return esc(L.dt(o.created_at)); } }, { label: 'Status', render: function (o) { return pill(o.status); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Total', num: true, render: function (o) { var t = o.total != null ? o.total : o.total_usd; return t == null ? '' : esc(omoney(t, o.currency)); } }, { label: 'Invoice', render: function (o) { return esc(o.invoice_no || ''); } }], orders, function (o) { return L.href('orders', [o.order_no]); }) : '<p class="muted">No orders yet.</p>' }
           ])
       });
       $('content').querySelectorAll('[data-doc]').forEach(function (b) {
@@ -135,9 +157,12 @@
           pricing: '<p>Step 2 of 3. Choose the price list this customer gets. Then it goes for final approval.</p>',
           final: '<p>Step 3 of 3. Price group: <b>' + esc(gname(d.price_group)) + '</b>. Once approved, the customer gets an email, sees these prices in the catalogue and can send order requests.</p>' }[STEP];
         L.modal(STEPNAME[STEP] + ': ' + (d.trading_name || d.company_name), intro +
-          L.group('', (STEP === 'pricing' ? [['Price group', '<select id="apG">' + opt(d.price_group || 'PREF') + '</select>']] : []).concat([['Note (internal, optional)', '<textarea id="apN"></textarea>']])) +
-          '<div class="o-footer"><button class="btn" id="apGo">' + (STEP === 'final' ? 'Approve customer' : 'Approve') + '</button><button class="btn ghost" id="apX">Cancel</button></div>');
+          L.group('', (STEP === 'pricing' ? [['Price group', '<select id="apG"><option value="">Choose a price group…</option>' + opt(d.price_group || '') + '</select>']] : []).concat([['Note (internal, optional)', '<textarea id="apN"></textarea>']])) +
+          (STEP === 'pricing' || STEP === 'final' ? '<div id="apP"></div>' : '') +
+          '<div class="o-footer"><button class="btn" id="apGo"' + (STEP === 'pricing' && !d.price_group ? ' disabled' : '') + '>' + (STEP === 'final' ? 'Approve customer' : 'Approve') + '</button><button class="btn ghost" id="apX">Cancel</button></div>', STEP === 'pricing' || STEP === 'final');
         $('apX').onclick = L.closeModal;
+        if ($('apP')) tierPreview($('apP'), id, STEP === 'pricing' ? $('apG').value : d.price_group);
+        if ($('apG')) $('apG').onchange = function () { $('apGo').disabled = !this.value; tierPreview($('apP'), id, this.value); };
         $('apGo').onclick = function () { var b = this; b.disabled = true; approve(STEP, $('apG') ? $('apG').value : null, $('apN').value.trim()).catch(function (e) { b.disabled = false; L.fail(e); }); };
       };
       if ($('dReject')) $('dReject').onclick = function () {
@@ -156,8 +181,9 @@
       if ($('dReopen')) $('dReopen').onclick = function () { if (confirm('Reopen this account for approval? It starts again at the sales team.')) setStatus({ status: 'Pending', sales_approved_at: null, sales_approved_by: null, pricing_approved_at: null, pricing_approved_by: null, final_approved_at: null, final_approved_by: null }, 'Reopened').catch(L.fail); };
       if ($('dSuspend')) $('dSuspend').onclick = function () { if (confirm('Put this account on hold? The customer can no longer see prices or order.')) setStatus({ status: 'Suspended' }, 'On hold').catch(L.fail); };
       if ($('dGroup')) $('dGroup').onclick = function () {
-        L.modal('Change price group', L.group('', [['Price group', '<select id="cgG">' + opt(d.price_group) + '</select>'], ['DPW customer code', '<input id="cgC" value="' + esc(d.dpw_customer_code || '') + '">']]) + '<div class="o-footer"><button class="btn" id="cgGo">Save</button><button class="btn ghost" id="cgX">Cancel</button></div>');
+        L.modal('Change price group', L.group('', [['Price group', '<select id="cgG">' + opt(d.price_group) + '</select>'], ['DPW customer code', '<input id="cgC" value="' + esc(d.dpw_customer_code || '') + '">']]) + '<div id="cgP"></div><div class="o-footer"><button class="btn" id="cgGo">Save</button><button class="btn ghost" id="cgX">Cancel</button></div>', true);
         $('cgX').onclick = L.closeModal;
+        tierPreview($('cgP'), id, $('cgG').value); $('cgG').onchange = function () { tierPreview($('cgP'), id, this.value); };
         $('cgGo').onclick = function () { setStatus({ price_group: $('cgG').value, dpw_customer_code: $('cgC').value.trim() || null }, 'Saved').catch(L.fail); };
       };
       $('dEdit').onclick = function () {

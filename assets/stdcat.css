@@ -58,6 +58,8 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-spec{display:block;font-size:14px;color:var(--muted);margin-top:1px}
 .sc-hit{display:inline-block;margin-top:5px;font-size:13px;font-weight:600;background:var(--gold-tint);color:var(--gold-deep);padding:2px 7px;border-radius:4px}
 .sc-yr{font-size:16px;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.sc-price{display:block;text-align:right}
+.sc-price:not(:empty){margin-top:4px;padding:2px 8px;border-radius:5px;background:var(--gold-tint);color:var(--gold-deep);font-family:var(--display);font-weight:700;font-size:15px}
 .sc-more{display:block;margin:18px auto 26px;border:0;background:var(--ink);color:var(--white);border-radius:6px;font:600 16px var(--body);padding:12px 24px;cursor:pointer}
 .sc-empty{padding:40px 10px;color:var(--muted);max-width:56ch}
 .sc-empty strong{color:var(--ink)}.sc-empty a{color:var(--gold-deep);font-weight:600}

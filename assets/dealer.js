@@ -9,11 +9,11 @@ const LIB="/admin/vendor/supabase-2.57.4.min.js";
 const STORE="stravik-buyer-auth";          // separate from the admin site's session
 const SITE=location.origin;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-// prices are in the customer's currency: rand for South African tier customers (excl. VAT, plus the price incl. VAT), US dollars for the older groups
+// prices are in the customer's currency: rand for South African tier customers, US dollars for the older groups.
+// Next to the parts the price is shown without VAT and without VAT wording; VAT is only added in the cart (subtotal, VAT, total).
 const money=(v,cur)=>v==null||v===""?"":(cur==="ZAR"?"R":cur==="USD"||!cur?"$":cur+" ")+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const CUR=()=>S.prices&&S.prices.currency||"USD";
 const VAT=()=>S.prices&&S.prices.vat?Number(S.prices.vat):0;
-const vatTxt=()=>VAT()?"excl. "+Math.round(VAT()*100)+"% VAT":"excl. VAT";
 const curName=c=>c==="ZAR"?"rand":c==="USD"?"US dollars":c;
 // South Africa first, then the rest of our region (Africa, Middle East, Indian Ocean islands)
 const COUNTRIES=["South Africa","Algeria","Angola","Bahrain","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde","Central African Republic","Chad","Comoros","Congo (Brazzaville)","Congo (DRC)","Côte d'Ivoire","Djibouti","Egypt","Equatorial Guinea","Eritrea","Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea-Bissau","Iraq","Jordan","Kenya","Kuwait","Lebanon","Lesotho","Liberia","Libya","Madagascar","Malawi","Maldives","Mali","Mauritania","Mauritius","Morocco","Mozambique","Namibia","Niger","Nigeria","Oman","Qatar","Réunion","Rwanda","São Tomé and Príncipe","Saudi Arabia","Senegal","Seychelles","Sierra Leone","Somalia","South Sudan","Sudan","Syria","Tanzania","Togo","Tunisia","Uganda","United Arab Emirates","Yemen","Zambia","Zimbabwe","Other"];
@@ -71,8 +71,7 @@ function paintNav(){
   a.title=d?"Your customer account":"Sign in for customer prices and ordering";
   a.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="nav-l">${esc(label.length>22?label.slice(0,21)+"…":label)}</span>`;
 }
-function tag(pn){const m=S.prices&&S.prices.map;if(!m||!m.has(pn))return null;const x=m.get(pn);
-  return `<b>${esc(money(x.p,CUR()))}</b><small>excl. VAT${x.i!=null?` · ${esc(money(x.i,CUR()))} incl. VAT`:""}</small>`;}
+function tag(pn){const m=S.prices&&S.prices.map;if(!m||!m.has(pn))return null;return esc(money(m.get(pn).p,CUR()));}
 function paintPrices(root){
   if(!S.prices)return;
   (root||document).querySelectorAll("button[data-cart-key],button[data-add-qty]").forEach(b=>{
@@ -80,11 +79,13 @@ function paintPrices(root){
     const t=pn&&tag(pn);if(!t)return;
     const prev=b.previousElementSibling;
     if(prev&&prev.classList.contains("dprice")){if(prev.innerHTML!==t)prev.innerHTML=t;return;}
-    const s=document.createElement("span");s.className="dprice"+(b.dataset.addQty?" big":"");s.innerHTML=t;s.title="Your price ("+S.prices.group_name+", "+curName(CUR())+", "+vatTxt()+")";
+    const s=document.createElement("span");s.className="dprice"+(b.dataset.addQty?" big":"");s.innerHTML=t;s.title="Your price";
     b.parentNode.insertBefore(s,b);
   });
+  // price slots in part lists (e.g. the standard catalogue rows): <span data-price-pn="SLBH0001">
+  (root||document).querySelectorAll("[data-price-pn]").forEach(el=>{const t=tag(el.dataset.pricePn)||"";if(el.innerHTML!==t){el.innerHTML=t;el.title=t?"Your price":"";}});
 }
-function clearPrices(){document.querySelectorAll(".dprice").forEach(x=>x.remove());}
+function clearPrices(){document.querySelectorAll(".dprice").forEach(x=>x.remove());document.querySelectorAll("[data-price-pn]").forEach(x=>{x.innerHTML="";});}
 function paintAll(){paintNav();if(S.prices)paintPrices();else clearPrices();}
 let raf=0;new MutationObserver(()=>{if(!S.prices||raf)return;raf=requestAnimationFrame(()=>{raf=0;paintPrices();});}).observe(document.body,{childList:true,subtree:true});
 
@@ -254,21 +255,21 @@ async function account(app,c,me){
   else{
     const n=S.prices?S.prices.map.size:0;
     const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="#/batteries">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
-    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>Your price list: <b>${esc(d.group_name)}</b>${cats?` (${esc(cats.join(", "))})`:""}. Your prices (${esc(curName(CUR()))}, ${esc(vatTxt())}${VAT()?", with the price incl. VAT":""}) show next to each part in the catalogue${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
+    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}) show next to each part in the catalogue${VAT()?`; ${Math.round(VAT()*100)}% VAT is added in your cart`:""}${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
     <div>${body}</div>
     <aside class="dcard"><span class="dbadge ${esc(d.status.toLowerCase())}">${esc(badge)}</span>
-      <dl><dt>Company</dt><dd>${esc(d.company_name)}</dd>${d.cipc_no?`<dt>${isSA(d.country)?"CIPC":"Reg. no."}</dt><dd>${esc(d.cipc_no)}</dd>`:""}<dt>Contact</dt><dd>${esc(d.contact_name)}</dd><dt>Email</dt><dd>${esc(d.email)}</dd><dt>Mobile</dt><dd>${esc(d.mobile||"")}</dd><dt>Location</dt><dd>${esc([d.city,d.province,isSA(d.country)?"":d.country].filter(Boolean).join(", "))}</dd>${d.group_name?`<dt>Price list</dt><dd>${esc(d.group_name)}</dd>`:""}</dl>
+      <dl><dt>Company</dt><dd>${esc(d.company_name)}</dd>${d.cipc_no?`<dt>${isSA(d.country)?"CIPC":"Reg. no."}</dt><dd>${esc(d.cipc_no)}</dd>`:""}<dt>Contact</dt><dd>${esc(d.contact_name)}</dd><dt>Email</dt><dd>${esc(d.email)}</dd><dt>Mobile</dt><dd>${esc(d.mobile||"")}</dd><dt>Location</dt><dd>${esc([d.city,d.province,isSA(d.country)?"":d.country].filter(Boolean).join(", "))}</dd></dl>
       <button class="btn line" type="button" id="dout">Sign out</button></aside></div></div>`;
   app.querySelector("#dout").onclick=()=>signOut(c);
   const box=app.querySelector("#dord");if(!box)return;
   try{
     const os=must(await c.rpc("stravik_dealer_orders"));
-    box.innerHTML=!os.length?`<p class="dhint">No orders yet.</p>`:os.map(o=>`<details class="dorder"><summary><b>${esc(o.order_no)}</b><span>${esc(new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}))}</span><span>${o.lines} line${o.lines===1?"":"s"}, ${o.units} units</span><span>${o.total==null?"":esc(money(o.total,o.currency))+(o.vat_rate?" incl. VAT":"")}</span><span class="dbadge s">${esc(o.status==="With DPW"?"With fulfilment centre":o.status)}</span></summary>
+    box.innerHTML=!os.length?`<p class="dhint">No orders yet.</p>`:os.map(o=>`<details class="dorder"><summary><b>${esc(o.order_no)}</b><span>${esc(new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}))}</span><span>${o.lines} line${o.lines===1?"":"s"}, ${o.units} units</span><span>${o.total==null?"":esc(money(o.total,o.currency))}</span><span class="dbadge s">${esc(o.status==="With DPW"?"With fulfilment centre":o.status)}</span></summary>
       <div class="dorder-b">${o.po_ref?`<p>Your PO: <b>${esc(o.po_ref)}</b></p>`:""}<p>Deliver to: ${esc(o.delivery_address||"")}</p>${o.invoice_no?`<p>Invoice: <b>${esc(o.invoice_no)}</b></p>`:""}${o.waybill_no?`<p>Waybill: <b>${esc(o.waybill_no)}</b></p>`:""}
-      <table class="ctable"><thead><tr><th>Part</th><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td class="no"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td><td class="dsc">${esc(i.description||"")}</td><td>${i.qty}</td><td>${i.price==null?"on request":esc(money(i.price,o.currency))}</td><td>${esc(money(i.total,o.currency))}</td></tr>`).join("")}</tbody>${o.vat_rate?`<tfoot><tr><td colspan="4">Subtotal excl. VAT</td><td>${esc(money(o.subtotal,o.currency))}</td></tr><tr><td colspan="4">VAT ${Math.round(o.vat_rate*100)}%</td><td>${esc(money(o.vat_amount,o.currency))}</td></tr><tr><td colspan="4"><b>Total incl. VAT</b></td><td><b>${esc(money(o.total,o.currency))}</b></td></tr></tfoot>`:""}</table></div></details>`).join("");
+      <table class="ctable"><thead><tr><th>Part</th><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td class="no"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td><td class="dsc">${esc(i.description||"")}</td><td>${i.qty}</td><td>${i.price==null?"on request":esc(money(i.price,o.currency))}</td><td>${esc(money(i.total,o.currency))}</td></tr>`).join("")}</tbody>${o.vat_rate?`<tfoot><tr><td colspan="4">Subtotal</td><td>${esc(money(o.subtotal,o.currency))}</td></tr><tr><td colspan="4">VAT ${Math.round(o.vat_rate*100)}%</td><td>${esc(money(o.vat_amount,o.currency))}</td></tr><tr><td colspan="4"><b>Total</b></td><td><b>${esc(money(o.total,o.currency))}</b></td></tr></tfoot>`:""}</table></div></details>`).join("");
   }catch(e){box.innerHTML=`<p class="dnote bad">${esc(msg(e))}</p>`;}
 }
 
@@ -291,17 +292,17 @@ async function cart(app){
   const by={};chk.forEach(x=>by[x.pn]=x);
   const ok=items.filter(i=>by[i.no]&&by[i.no].allowed),no=items.filter(i=>!(by[i.no]&&by[i.no].allowed));
   const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
-  sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2><span class="muted">${esc(d.group_name)} · ${esc(CUR())}</span></div>
+  sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2></div>
     ${ok.length?`<table class="ctable dot"><thead><tr><th>Part</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="dotb"></tbody><tfoot id="dotf"></tfoot></table>`:""}
     ${no.length?`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(i=>i.no).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`:""}
     ${ok.length?`<form class="enq" id="dof" novalidate>
       <div><label for="o_po">Your order / PO reference</label><input id="o_po" maxlength="60"></div>
       <div><label for="o_cn">Contact name</label><input id="o_cn" value="${esc(d.contact_name)}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_ph">Contact phone</label><input id="o_ph" type="tel" value="${esc(d.mobile||d.phone||"")}" required><div class="err">Required.</div></div>
-      <div class="full"><label for="o_ad">Deliver to</label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
+      <div class="full"><label for="o_ad">Deliver to <span class="lhint">(your registered delivery address: change it only if this order goes somewhere else)</span></label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
       <div class="full"><label for="o_no">Notes for the fulfilment centre (optional)</label><textarea id="o_no" rows="2"></textarea></div>
       <div class="full"><button class="btn gold" type="submit" id="o_go">Send order request</button></div>
-      <p class="note">Your order request goes to our fulfilment centre, who confirm it, deliver and invoice you. Prices are in ${esc(curName(CUR()))}, ${esc(vatTxt())}${VAT()?"; VAT is added to the total":""}.</p>
+      <p class="note">Your order request goes to our fulfilment centre, who confirm it, deliver and invoice you. Prices are in ${esc(curName(CUR()))}${VAT()?`; ${Math.round(VAT()*100)}% VAT is added to the total`:""}.</p>
       <div class="status" id="o_st" role="alert"></div></form>`:""}`;
   const C=CUR(),V=VAT(),m=v=>esc(money(v,C)),r2=v=>Math.round(v*100)/100;
   const paint=()=>{const tb=sec.querySelector("#dotb");if(!tb)return;let tot=0,anyNull=false;
@@ -309,8 +310,8 @@ async function cart(app){
     tb.innerHTML=ok.map(i=>{const q=(cur.find(x=>x.key===i.key)||i).qty||1,p=by[i.no].price,t=p==null?null:r2(p*q);if(t==null)anyNull=true;else tot=r2(tot+t);
       return `<tr><td class="no">${esc(i.no)}<div class="dsc">${esc(by[i.no].description||i.desc||"")}</div></td><td>${q}</td><td>${p==null?'<span class="dhint">on request</span>':m(p)}</td><td>${t==null?"":m(t)}</td></tr>`;}).join("");
     const more=anyNull?" + lines on request":"",vat=r2(tot*V);
-    sec.querySelector("#dotf").innerHTML=V?`<tr><td colspan="3">Subtotal (excl. VAT)</td><td>${m(tot)}${more}</td></tr><tr><td colspan="3">VAT ${Math.round(V*100)}%</td><td>${m(vat)}</td></tr><tr><td colspan="3"><b>Total incl. VAT</b></td><td><b>${m(r2(tot+vat))}</b>${more}</td></tr>`
-      :`<tr><td colspan="3">Total (excl. VAT)</td><td>${m(tot)}${more}</td></tr>`;};
+    sec.querySelector("#dotf").innerHTML=V?`<tr><td colspan="3">Subtotal</td><td>${m(tot)}${more}</td></tr><tr><td colspan="3">VAT ${Math.round(V*100)}%</td><td>${m(vat)}</td></tr><tr><td colspan="3"><b>Total</b></td><td><b>${m(r2(tot+vat))}</b>${more}</td></tr>`
+      :`<tr><td colspan="3">Total</td><td>${m(tot)}${more}</td></tr>`;};
   paint();
   const ci=app.querySelector("#citems");if(ci)ci.addEventListener("change",()=>setTimeout(paint,0));
   const f=sec.querySelector("#dof");if(!f)return;
