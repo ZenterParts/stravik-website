@@ -140,35 +140,6 @@ const GAS={
     return {makes:M.list,parts};}
 };
 
-// ---------------------------------------------------------------- batteries
-// batteries.json parts: [Stravik no, type, series, case group, case, Ah, CCA, length, width, height, layout, hold-down, drawing, origin, [SAB]]
-//   vehicles: [make, model, years, SAB, segment, [recommended part indexes], [alternative part indexes]]
-const BTT={};BAT_TYPES.forEach(t=>BTT[t[0]]=t);
-const CASE={"DIN (European) cases":"European (DIN)","JIS (Asian) cases":"Asian (JIS)","Heavy duty":"Heavy duty"};
-const BATTERIES={
-  icon:"battery",title:"Batteries",tab:"Battery catalogue",one:"battery",many:"batteries",cat:"Batteries",data:"/batteries.json",
-  crumbs:crumbs("Batteries","#/products/batteries"),hero:"/assets/img/batteries/efb_75_eu.webp",
-  lead:"SMF, EFB, AGM and heavy duty starter batteries. Find the right Stravik battery by Stravik or SAB number, case, capacity or vehicle. Vehicle applications from the South African market (SABAT).",
-  placeholder:"Stravik or SAB no., case, Ah, CCA, or vehicle (e.g. Corolla)",
-  filters:[{k:"Battery type",h:"Battery type",any:"All types",order:BAT_TYPES.map(t=>t[1])},{k:"Series",h:"Series",any:"All series"},
-    {k:"Case group",h:"Case group",any:"All cases",order:["European (DIN)","Asian (JIS)","Heavy duty"]},{k:"Case",h:"Case",any:"Any",sort:"alpha"},
-    {k:"Made in",h:"Made in",any:"Any origin"}],
-  facts:d=>[[d.n.items,"batteries"],[d.n.apps,"vehicle applications"],[d.n.makes,"vehicle makes"]],
-  title1:i=>i.s["Battery type"],
-  rowRight:i=>i.s["Capacity"]||"",
-  specLine:s=>join([s["Series"],s["Case"]&&"case "+s["Case"],s["Cold cranking"]]),
-  specs:[["Battery type","Battery type"],["Series","Series"],["Case group","Case group"],["Case","Case"],["Capacity","Capacity"],["Cold cranking","Cold cranking (EN)"],
-    ["Size","Size (L × W × H)"],["Layout","Terminal layout"],["Hold-down","Hold-down"],["Made in","Made in"]],
-  prep:i=>{const k=BAT_PHOTO.exact[i.pn]||BAT_PHOTO.rep[i.s["Series"]+"|"+i.t];if(k)i.ph="/assets/img/batteries/"+k+".webp";},
-  adapt(raw){const M=makes();
-    const parts=raw.parts.map(p=>{const [pn,t,ser,grp,box,ah,cca,l,w,h,lay,hd,,org,sab]=p,s={"Battery type":(BTT[t]||[])[1]||"Battery"};
-      if(ser)s["Series"]=ser;if(grp)s["Case group"]=CASE[grp]||grp;if(box)s["Case"]=box;if(ah)s["Capacity"]=ah+" Ah";if(cca)s["Cold cranking"]=cca+" A";
-      if(l&&w&&h)s["Size"]=l+" × "+w+" × "+h+" mm";if(lay)s["Layout"]=lay;if(hd)s["Hold-down"]=hd;if(org)s["Made in"]=org==="Hungary"?"EU (Hungary)":org;
-      return {pn,t,d:"",s,oe:[],xr:(sab||[]).map(x=>"SAB "+x),ap:[]};});
-    (raw.vehicles||[]).forEach(v=>(v[5]||[]).forEach(ix=>{if(parts[ix])parts[ix].ap.push([M.add(raw.makes[v[0]]),v[1]||null,years(v[2])]);}));
-    return {makes:M.list,parts};}
-};
-
 // ---------------------------------------------------------------- register, and forward the old addresses
 const RANGES=[
   ["brakes","brake-catalogue",BRAKES,"Part type",BR_TYPES.map(t=>[slug(t[2]),t[1]])],
@@ -176,12 +147,21 @@ const RANGES=[
   ["shock-absorbers","shock-absorber-catalogue",SHOCKS,"Part type",SA_TYPES.map(t=>[slug(t[2]),t[1]])],
   ["filters","filter-catalogue",FILTERS,"Filter type",[["air-filters","Air filter"],["oil-filters","Oil filter"],["fuel-filters","Fuel filter"],["cabin-filters","Cabin filter"],
     ["filter-kits","Filter kit"],["coolant-filters","Coolant filter"],["filter-housings","Oil filter housing"]]],
-  ["gas-springs","gas-spring-catalogue",GAS,"Fitting",GS_TYPES.map(t=>[t[3],t[1].replace(/ gas spring$/i,"")])],
-  ["batteries","battery-catalogue",BATTERIES,"Battery type",BAT_TYPES.map(t=>[slug(t[2]),t[1]])]];
+  ["gas-springs","gas-spring-catalogue",GAS,"Fitting",GS_TYPES.map(t=>[t[3],t[1].replace(/ gas spring$/i,"")])]];
 const MOVED={};
 RANGES.forEach(([old,id,c,key,subs])=>{StdCat.register(id,c);MOVED[old]={id,key,subs:Object.fromEntries(subs)};});
+// batteries have their own page, the battery e-catalogue (/batteries/, assets/ecat.js): old battery addresses open it
+const BAT_OLD={"batteries":1,"battery-catalogue":1};
+function batForward(parts,qs){
+  const old=new URLSearchParams(qs||""),p=new URLSearchParams(),sub=parts[1]?decodeURIComponent(parts[1]):"";
+  const T=BAT_TYPES.find(t=>slug(t[2])===sub||t[1]===old.get("f.Battery type"));if(T)p.set("type",T[0]);
+  if(old.get("q"))p.set("q",old.get("q"));if(old.get("series"))p.set("series",old.get("series"));
+  if(/^SV[A-Z0-9]{6}$/i.test(sub))p.set("pn",sub.toUpperCase());
+  location.replace("/batteries/"+(p.toString()?"?"+p.toString():""));
+}
 function forward(){
   const [path,qs]=location.hash.replace(/^#/,"").split("?"),parts=path.split("/").filter(Boolean),m=MOVED[parts[0]];
+  if(BAT_OLD[parts[0]]){batForward(parts,qs);return;}
   if(!m)return;
   const old=new URLSearchParams(qs||""),p=new URLSearchParams();
   ["q","p"].forEach(k=>{if(old.get(k))p.set(k,old.get(k));});

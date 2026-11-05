@@ -86,7 +86,7 @@ function paintPrices(root){
   (root||document).querySelectorAll("[data-price-pn]").forEach(el=>{const t=tag(el.dataset.pricePn)||"";if(el.innerHTML!==t){el.innerHTML=t;el.title=t?"Your price":"";}});
 }
 function clearPrices(){document.querySelectorAll(".dprice").forEach(x=>x.remove());document.querySelectorAll("[data-price-pn]").forEach(x=>{x.innerHTML="";});}
-function paintAll(){paintNav();if(S.prices)paintPrices();else clearPrices();}
+function paintAll(){paintNav();if(S.prices)paintPrices();else clearPrices();document.dispatchEvent(new Event("stravik-prices"));}
 let raf=0;new MutationObserver(()=>{if(!S.prices||raf)return;raf=requestAnimationFrame(()=>{raf=0;paintPrices();});}).observe(document.body,{childList:true,subtree:true});
 
 // =====================================================================
@@ -254,7 +254,7 @@ async function account(app,c,me){
   else if(d.status==="Suspended")body=`<div class="dstat bad"><h2>Your account is on hold</h2><p>Ordering is paused for now. Please <a href="#/contact">contact us</a> if you have questions.</p></div>`;
   else{
     const n=S.prices?S.prices.map.size:0;
-    const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="#/batteries">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
+    const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="/batteries/">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
     body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}) show next to each part in the catalogue${VAT()?`; ${Math.round(VAT()*100)}% VAT is added in your cart`:""}${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
@@ -341,5 +341,5 @@ function done(app,no,mail){
 // ---------- start ----------
 paintNav();
 if(hasSession()||/[?&]code=/.test(location.search))ensure().then(()=>{if(/[?&]code=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash);});
-window.StravikDealer={page,cart,refresh:()=>{S.loading=null;return ensure();},state:S};
+window.StravikDealer={page,cart,tag,refresh:()=>{S.loading=null;return ensure();},state:S};
 })();

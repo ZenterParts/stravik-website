@@ -38,7 +38,7 @@ const MENU=[
     {name:"Horns",href:"/#/horns"},
     {name:"Starter motors",href:"/#/starters"},
     {name:"Ignition coils",href:"/#/ignition-coils"}]},
-  {name:"Batteries",icon:"battery",href:"/#/products/batteries",kids:BAT_TYPES.map(t=>({name:t[2],href:"/#/batteries/"+slug(t[2])})).concat([{name:"Search the catalogue",href:"/#/batteries"}])},
+  {name:"Batteries",icon:"battery",href:"/batteries/",kids:BAT_TYPES.map(t=>({name:t[2],href:"/batteries/?type="+t[0]})).concat([{name:"Vehicle finder",href:"/batteries/?tab=vehicles"},{name:"Battery guide",href:"/batteries/?tab=guide"}])},
   {name:"Engine cooling",icon:"pump",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
   {name:"Wiper systems",icon:"wiper",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -107,11 +107,12 @@ document.addEventListener("click",e=>{
 
 // ---------- keep the catalogue on screen: no selecting, copying, dragging, saving or printing ----------
 const typing=t=>!!(t&&t.closest&&t.closest("input,textarea,select"));
-["copy","cut","contextmenu","dragstart","selectstart"].forEach(ev=>document.addEventListener(ev,e=>{if(!typing(e.target))e.preventDefault();}));
+const evt=e=>e.composedPath?e.composedPath()[0]:e.target;   // the real element, also inside the battery catalogue (shadow DOM)
+["copy","cut","contextmenu","dragstart","selectstart"].forEach(ev=>document.addEventListener(ev,e=>{if(!typing(evt(e)))e.preventDefault();}));
 document.addEventListener("keydown",e=>{
   if(!(e.ctrlKey||e.metaKey))return;const k=(e.key||"").toLowerCase();
   if(k==="s"||k==="p"||k==="u"||(e.shiftKey&&(k==="s"||k==="c"))){e.preventDefault();return;}
-  if((k==="a"||k==="c"||k==="x")&&!typing(e.target))e.preventDefault();
+  if((k==="a"||k==="c"||k==="x")&&!typing(evt(e)))e.preventDefault();
 });
 
 cartPaint();
