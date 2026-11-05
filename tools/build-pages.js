@@ -26,7 +26,7 @@ const list = (a, n) => a.slice(0, n).join(", ") + (a.length > n ? ` and ${a.leng
 // ---- page shell from index.html
 // ---- cache-busting: stamp each shared asset with a short content hash so browsers fetch the new file after every change
 const crypto = require("crypto");
-const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js", "warranty.js"];
+const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js", "warranty.js", "ecat.js", "ecat.css"];
 const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
 { const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|app\.js)(\?v=[0-9a-f]+)?/g, (m, f) => V[f]);
   if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
@@ -305,14 +305,14 @@ for (const i of BT) {
   const title = `Stravik ${i.pn} ${btDesc(i)} | ${i.box} case`.slice(0, 120);
   const desc = `Stravik ${btLc(btDesc(i))}, ${i.ser}, case ${i.box} (${i.l} × ${i.w} × ${i.h} mm).` + (i.sab.length ? ` SAB ${i.sab.join(" / ")}.` : "") + (mk.length ? ` Fits ${list(mk, 4)}.` : "");
   const item = { key: i.pn, no: i.pn, cat: "Batteries", desc: btDesc(i).replace(" 12V", "") + ", " + i.box + " case", link: `/part/${i.pn}/`, kind: "bat" };
-  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/batteries", "Batteries"], [`/#/batteries/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(btLc(btDesc(i)))}, ${esc(i.ser)}</p></div></div>
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/batteries/", "Batteries"], [`/batteries/?type=${T.code}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(btLc(btDesc(i)))}, ${esc(i.ser)}</p></div></div>
 <div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span>${ph ? `<img class="bphoto" src="${ph}" alt="Stravik ${esc(btLc(T.one))}, ${esc(i.ser)}">` : `<div class="big">${icon("battery")}</div>`}</div>
 <div class="info"><div class="type">Stravik ${esc(btLc(T.one))}</div>
 <dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
 ${/\/mock_/.test(ph) ? `<p class="sib">The picture shows the ${esc(i.ser)} SMF label design; the case size and shape depend on the battery.</p>` : ""}
 <div class="replace"><b>Before you order</b><span>Check the SAB number, case size, terminal layout and hold-down against the old battery, or send us the vehicle and we'll confirm the fit.</span></div>
 ${buyBox(item)}
-<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/#/batteries/${T.slug}">More ${esc(btLc(T.many))}</a><a class="btn line" href="#warranty">Warranty registration</a></div>
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this battery</a><a class="btn line" href="/batteries/?type=${T.code}">More ${esc(btLc(T.many))}</a><a class="btn line" href="#warranty">Warranty registration</a></div>
 ${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}
 </div></div>
 <section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${nApps} ${nApps === 1 ? "vehicle" : "vehicles"}, ${mk.length} ${mk.length === 1 ? "make" : "makes"}${nAlt ? `, plus ${nAlt} as the alternative size` : ""} (South African applications, SABAT)</span></h2>
@@ -329,7 +329,7 @@ ${cantFind.replace("</aside>", "</aside>" + btWarranty(i))}`;
 // /warranty/battery/?pn=<Stravik no.>: opened from the warranty block at the end of each battery page (the battery's QR code opens that page).
 // The form (assets/warranty.js) saves to Supabase with public.stravik_warranty_register; staff see the registrations in the admin Warranty app.
 { const url = `${SITE}/warranty/battery/`, title = "Battery warranty registration | Stravik", desc = "Register your Stravik battery for warranty: battery number, date of purchase and where you bought it.";
-  const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products/batteries", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>The battery number (for example SVADH001) is on the battery label, next to the barcode.</p></div></div>
+  const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>The battery number (for example SVADH001) is on the battery label, next to the barcode.</p></div></div>
 <section class="block"><div class="wrap wform">
 <form class="enq" id="wf" novalidate>
 <div class="full"><label for="w_pn">Stravik battery number</label><input id="w_pn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
@@ -352,6 +352,15 @@ ${cantFind.replace("</aside>", "</aside>" + btWarranty(i))}`;
 <div class="full ready" role="status" aria-live="polite"></div>
 </form></div></section>`;
   write("warranty/battery", page({ url, title, desc, type: "website", scripts: ["warranty.js"], jsonld: { "@context": "https://schema.org", "@type": "WebPage", name: "Battery warranty registration", url, description: desc }, body }));
+  urls.push(url);
+}
+
+// ================= battery e-catalogue page =================
+// /batteries/: the layout of the Stravik Battery e-Catalogue 2026 (assets/ecat.js draws it from batteries.json; styles in assets/ecat.css).
+// The light DOM keeps a plain list of the batteries for search engines and for visitors without JavaScript.
+{ const url = `${SITE}/batteries/`, title = "Stravik batteries | Battery e-catalogue 2026", desc = `All ${BT.length} Stravik SMF, EFB, AGM and heavy duty batteries: search by part number, SAB number, case, capacity or vehicle, with the battery guide, technical drawings and label artwork.`;
+  const body = `<div id="ecat" data-css="${V["ecat.css"]}"><noscript><div class="wrap" style="padding:30px 0"><h1>Stravik batteries</h1><ul>${BT.map(i => `<li><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a> ${esc(btDesc(i))}, ${esc(i.box)} case</li>`).join("")}</ul></div></noscript></div>`;
+  write("batteries", page({ url, title, desc, type: "website", scripts: ["ecat.js"], jsonld: { "@context": "https://schema.org", "@type": "CollectionPage", name: "Stravik battery e-catalogue", url, description: desc }, body }));
   urls.push(url);
 }
 
