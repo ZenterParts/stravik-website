@@ -38,7 +38,7 @@ const MENU=[
     {name:"Horns",href:"/#/horns"},
     {name:"Starter motors",href:"/#/starters"},
     {name:"Ignition coils",href:"/#/ignition-coils"}]},
-  {name:"Batteries",icon:"battery",href:"/batteries/",kids:BAT_TYPES.map(t=>({name:t[2],href:"/batteries/?type="+t[0]})).concat([{name:"Vehicle finder",href:"/batteries/?tab=vehicles"},{name:"Battery guide",href:"/batteries/?tab=guide"}])},
+  {name:"Batteries",icon:"battery",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"},{name:"Warranty registration",href:"/warranty/battery/"}]},
   {name:"Engine cooling",icon:"pump",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
   {name:"Wiper systems",icon:"wiper",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -114,6 +114,25 @@ document.addEventListener("keydown",e=>{
   if(k==="s"||k==="p"||k==="u"||(e.shiftKey&&(k==="s"||k==="c"))){e.preventDefault();return;}
   if((k==="a"||k==="c"||k==="x")&&!typing(evt(e)))e.preventDefault();
 });
+
+// ---------- ribbon tabs (battery pages, battery ranges): <section class="ptabs"> with <a data-tab> links and <div class="ppanel" data-panel> panels ----------
+// Without JavaScript every panel shows and the links jump to it. The tab bar sticks under the header (--hh).
+(function(){
+  const boxes=[...document.querySelectorAll(".ptabs")];if(!boxes.length)return;
+  const hdr=document.querySelector("header.site");const hh=()=>{if(hdr)document.documentElement.style.setProperty("--hh",hdr.offsetHeight+"px");};hh();addEventListener("resize",hh);
+  boxes.forEach(box=>{
+    const tabs=[...box.querySelectorAll("[data-tab]")],panels=[...box.querySelectorAll("[data-panel]")];if(!tabs.length)return;
+    box.classList.add("js");
+    const show=(k,scroll)=>{tabs.forEach(t=>t.setAttribute("aria-selected",t.dataset.tab===k));panels.forEach(p=>p.classList.toggle("on",p.dataset.panel===k));
+      if(scroll){const bar=box.querySelector(".ptabbar");if(bar)scrollTo({top:box.getBoundingClientRect().top+scrollY-(hdr?hdr.offsetHeight:0)+1,behavior:"smooth"});}};
+    tabs.forEach(t=>{t.setAttribute("role","tab");t.addEventListener("click",e=>{e.preventDefault();show(t.dataset.tab,false);try{history.replaceState(null,"","#"+t.dataset.tab);}catch(err){}});});
+    const fromHash=scroll=>{const h=decodeURIComponent(location.hash.slice(1));if(tabs.some(t=>t.dataset.tab===h)){show(h,scroll);return true;}return false;};
+    if(!fromHash(true))show(tabs[0].dataset.tab,false);
+    addEventListener("hashchange",()=>fromHash(true));
+    // links to a tab elsewhere on the page (e.g. "Vehicles it fits")
+    document.querySelectorAll('a[href^="#"]').forEach(a=>{const k=a.getAttribute("href").slice(1);if(!a.dataset.tab&&tabs.some(t=>t.dataset.tab===k))a.addEventListener("click",e=>{e.preventDefault();show(k,true);try{history.replaceState(null,"","#"+k);}catch(err){}});});
+  });
+})();
 
 cartPaint();
 window.STV={Cart,cartPaint,toast,clampQty,ddSet,ddBtn,nav,menuBtn,esc};

@@ -157,7 +157,7 @@ function batForward(parts,qs){
   const T=BAT_TYPES.find(t=>slug(t[2])===sub||t[1]===old.get("f.Battery type"));if(T)p.set("type",T[0]);
   if(old.get("q"))p.set("q",old.get("q"));if(old.get("series"))p.set("series",old.get("series"));
   if(/^SV[A-Z0-9]{6}$/i.test(sub))p.set("pn",sub.toUpperCase());
-  location.replace("/batteries/"+(p.toString()?"?"+p.toString():""));
+  location.replace("/batteries/catalogue/"+(p.toString()?"?"+p.toString():""));
 }
 function forward(){
   const [path,qs]=location.hash.replace(/^#/,"").split("?"),parts=path.split("/").filter(Boolean),m=MOVED[parts[0]];
