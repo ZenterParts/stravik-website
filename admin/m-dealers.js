@@ -29,16 +29,38 @@
       var rows = v.rows || [];
       box.innerHTML = '<div class="notice' + (rows.length ? ' good' : ' bad') + '"><b>' + esc(v.group_name) + '</b> · ' + esc(v.note) + ' · ' + (rows.length ? rows.length.toLocaleString() + ' parts priced' : 'no prices yet: every part shows “on request”') +
           (v.ranges.length ? '<div class="small">' + v.ranges.map(function (r) { return esc(r.range) + ' ' + r.parts; }).join(' · ') + '</div>' : '') + '</div>' +
-        (rows.length ? '<input type="search" id="tpQ" placeholder="Search part no. or description…" style="margin:8px 0">' +
+        (rows.length ? '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap"><select id="tpR" style="width:auto;min-width:180px"><option value="">All ranges</option>' +
+            v.ranges.map(function (r) { return '<option>' + esc(r.range) + '</option>'; }).join('') + '</select>' +
+            '<input type="search" id="tpQ" placeholder="Search part no. or description…" style="flex:1;min-width:220px">' +
+            '<button type="button" class="btn ghost" id="tpX">Download</button></div>' +
           '<div class="o-list" style="max-height:340px;overflow:auto"><table class="grid compact" style="width:100%"><thead><tr><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">' + esc(cur) + (vat ? ' excl. VAT' : '') + '</th>' + (vat ? '<th class="num">incl. ' + Math.round(vat * 100) + '% VAT</th>' : '') + '</tr></thead><tbody id="tpB"></tbody></table></div><p class="small muted" id="tpN"></p>' : '');
       if (!rows.length) return;
-      var paint = function () {
-        var q = String($('tpQ').value || '').toLowerCase().trim(), k = L.clean(q);
-        var hit = rows.filter(function (r) { return !q || L.clean(r[0]).indexOf(k) >= 0 || String(r[1] || '').toLowerCase().indexOf(q) >= 0; });
-        $('tpB').innerHTML = hit.slice(0, 150).map(function (r) { return '<tr><td class="pn">' + esc(r[0]) + '</td><td class="clip">' + esc(r[1] || '') + '</td><td class="small">' + esc(r[2]) + '</td><td class="num"><b>' + esc(m(r[3])) + '</b></td>' + (vat ? '<td class="num">' + esc(m(r[4])) + '</td>' : '') + '</tr>'; }).join('');
-        $('tpN').textContent = hit.length > 150 ? 'First 150 of ' + hit.length.toLocaleString() + ' shown; search to find a part.' : hit.length + ' shown.';
+      var hits = function () {
+        var q = String($('tpQ').value || '').toLowerCase().trim(), k = L.clean(q), rg = $('tpR').value;
+        return rows.filter(function (r) { return (!rg || r[2] === rg) && (!q || L.clean(r[0]).indexOf(k) >= 0 || String(r[1] || '').toLowerCase().indexOf(q) >= 0); });
       };
-      $('tpQ').oninput = L.debounce(paint, 150); paint();
+      var paint = function () {
+        var hit = hits();
+        $('tpB').innerHTML = hit.slice(0, 150).map(function (r) { return '<tr><td class="pn">' + esc(r[0]) + '</td><td class="clip">' + esc(r[1] || '') + '</td><td class="small">' + esc(r[2]) + '</td><td class="num"><b>' + esc(m(r[3])) + '</b></td>' + (vat ? '<td class="num">' + esc(m(r[4])) + '</td>' : '') + '</tr>'; }).join('');
+        $('tpN').textContent = hit.length > 150 ? 'First 150 of ' + hit.length.toLocaleString() + ' shown; search or choose a range to narrow it down.' : hit.length + ' shown.';
+      };
+      $('tpQ').oninput = L.debounce(paint, 150); $('tpR').onchange = paint; paint();
+      // Download: this customer's prices (as filtered), then every tier and, for the pricing team, the whole costing of the same parts
+      $('tpX').onclick = async function () {
+        var b = this; b.disabled = true; b.textContent = 'Preparing…';
+        try {
+          var hit = hits(), keep = {}; hit.forEach(function (r) { keep[r[0]] = 1; });
+          var head = ['Stravik PN', 'Description', 'Range', v.group_name + ' ' + cur + (vat ? ' excl. VAT' : '')].concat(vat ? [v.group_name + ' ' + cur + ' incl. VAT'] : []);
+          var first = [{ name: 'Customer prices', head: head, widths: [14, 46, 16, 22, 22], top: [[v.group_name + ' · ' + v.note + (v.country ? ' · ' + v.country : '')]],
+            rows: hit.map(function (r) { return [r[0], r[1] || '', r[2], r[3] == null ? '' : Number(r[3])].concat(vat ? [r[4] == null ? '' : Number(r[4])] : []); }) }];
+          var name = 'Stravik_price_check_' + String(v.group_name).replace(/\W+/g, '_') + '_' + L.today() + '.xlsx';
+          if (v.region_code && L.pricingDownload) {
+            var rg = $('tpR').value;
+            await L.pricingDownload(v.region_code, rg ? [rg] : v.ranges.map(function (r) { return r.range; }), function (x) { return keep[x.sv_pn]; }, first, name);
+          } else await L.saveXlsx(first, name);
+        } catch (e) { L.fail(e); }
+        b.disabled = false; b.textContent = 'Download';
+      };
     } catch (e) { box.innerHTML = '<p class="flag">' + esc(e.message || e) + '</p>'; }
   }
   async function mail(body) {
