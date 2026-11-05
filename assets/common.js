@@ -38,7 +38,7 @@ const MENU=[
     {name:"Horns",href:"/#/horns"},
     {name:"Starter motors",href:"/#/starters"},
     {name:"Ignition coils",href:"/#/ignition-coils"}]},
-  {name:"Batteries",icon:"battery",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"},{name:"Warranty registration",href:"/warranty/battery/"}]},
+  {name:"Batteries",icon:"battery",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"}]},
   {name:"Engine cooling",icon:"pump",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
   {name:"Wiper systems",icon:"wiper",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
