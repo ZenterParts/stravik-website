@@ -174,21 +174,118 @@
     }
     return sheets;
   }
-  // Download for other apps (Customers > pricing approval): every range (or the ones given) of a region, filtered by keep(row, view)
-  L.pricingDownload = async function (regionCode, ranges, keep, extraFirst, name) {
+  // ---- The pricing team's download: one sheet per range in the costing sheet's own layout (title rows, exchange rate,
+  // COSTING BUILD-UP + PRICE PER UNIT, the same headings and live formulas), so it can be edited and uploaded again.
+  var COLS = [   // [key, heading, kind]   kind: id | text | usd | pct | rate | zar | f_* (formula)
+    ['sv_pn', 'STRAVIK PART NUMBER', 'id'], ['lucas_pn', 'LUCAS PART NUMBER', 'id'], ['short_desc', 'DESCRIPTION', 'id'],
+    ['fob_port', 'FOB PORT', 'text'], ['fob_usd', 'FOB PRICE (USD/PC)', 'usd'], ['remarks', 'REMARKS', 'text'],
+    ['c_cons', 'C_CONS', 'pct'], ['c_finance', 'C_FINANCE', 'pct'], ['c_customer_rebate', 'C_CUSTOMER REBATE', 'pct'], ['c_ship', 'C_SHIP', 'pct'], ['c_ins', 'C_INS', 'pct'],
+    ['c_whs', 'C_WHS', 'pct'], ['c_warr', 'C_WARR', 'pct'], ['c_mar', 'C_MAR', 'pct'], ['c_roy', 'C_ROY', 'pct'], ['zp_mar', 'ZP MAR', 'pct'],
+    ['cif_usd', 'CIF ZENTER PARTS', 'f_usd'], ['_exchange', 'EXCHANGE ZAR', 'f_rate'], ['_cif_zar', 'CIF ZENTER PARTS ZAR', 'f_zar'],
+    ['_clearance', 'CLEARANCE', 'pct'], ['_duties', 'DUTIES', 'pct'], ['_ancillary', 'ANCILIARY FLUCTUATIONS', 'pct'], ['_finance', 'FINANCE', 'pct'], ['_excise', 'EXCISE', 'pct'],
+    ['_anti_dumping', 'ANTI DUMPING', 'pct'], ['_dpw_margin', 'DPW MARGIN', 'pct'], ['_landed', 'LANDED COST DPW', 'f_zar'], ['_c_dist', 'C_DIST', 'pct'], ['_c_cod', 'C_COD DISCOUNT', 'pct'], ['_gross', 'GROSS SALES', 'f_zar'],
+    ['_t1_uplift', 'T1 DISTRIBUTOR/WHOLESALER', 'pct'], ['_t1', 'T1 DISTRIBUTOR/ WHOLESALER', 'f_zar'], ['_t2_uplift', 'T2 CHAIN UPLIFT', 'pct'], ['_t2', 'T2 CHAIN PRICES', 'f_zar'],
+    ['_t3_uplift', 'T3 UPLIFT BIG RETAILERS', 'pct'], ['_t3', 'BIG RETAILERS', 'f_zar'], ['_t4_uplift', 'T4 UPLIFT TO MEDIUM RETAILERS', 'pct'], ['_t4', 'T4 MEDIUM RETAILERS', 'f_zar'],
+    ['_t5_uplift', 'T5 UPLIFT TO SMALL RETAILERS', 'pct'], ['_t5', 'T5 SMALL RETAILERS', 'f_zar'], ['_retail_margin', 'SALES MARGIN RETAIL PRICE', 'pct'], ['_retail', 'RETAIL PRICE', 'f_zar'],
+    ['_market_price', 'MARKET PRICE ZAR', 'text'], ['_check', 'PRICE CHECK', 'f_text']];
+  async function costingXlsx(views, keep, opts, name) {
+    opts = opts || {};
+    var X = await L.loadExcel(), wb = new X.Workbook(), logo = null;
+    try { var lr = await fetch('/admin/img/stravik-excel-logo.png'); if (lr.ok) logo = wb.addImage({ buffer: new Uint8Array(await lr.arrayBuffer()), extension: 'png' }); } catch (e) { /* no logo */ }
+    wb.creator = 'Stravik';
+    var NAVY = 'FF0B203D', GOLD = 'FF8A6326', GREY = 'FF5B6475', TINT = 'FFF5ECDD', font = { name: 'Arial', size: 10, color: { argb: 'FF1B2430' } };
+    var L_ = function (n) { var t = ''; n++; while (n > 0) { var m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; };   // 0-based index -> column letter
+    var col = {}; COLS.forEach(function (c, i) { col[c[0]] = L_(i); });
+    var FMT = { usd: '"$"#,##0.00', f_usd: '"$"#,##0.00', zar: '"R" #,##0.00', f_zar: '"R" #,##0.00', pct: '0.00%', rate: '0.000', f_rate: '0.000' };
+    var HL = opts.highlight ? col['_' + opts.highlight] : null;
+    views.forEach(function (v) {
+      var reg = v.region, px = reg.prefix, vat = Number(reg.vat), rows = v.rows.filter(function (x) { return !keep || keep(x, v); });
+      if (!rows.length) return;
+      var ws = wb.addWorksheet(String(v.subcategory).slice(0, 31), { properties: { defaultRowHeight: 15 }, views: [{ state: 'frozen', xSplit: 1, ySplit: 11, showGridLines: false }] });
+      var val = function (x, k) { return k.charAt(0) === '_' ? x[px + k] : x[k]; };
+      var basis = rows.some(function (x) { return x.price_basis === 'EXW'; }) && !rows.some(function (x) { return x.price_basis === 'FOB'; }) ? 'EXW' : 'FOB';
+      var head = COLS.map(function (c) { return c[0] === 'fob_usd' && basis === 'EXW' ? 'C_EXW/USD' : c[1]; });
+      COLS.forEach(function (c, i) { var w = c[2] === 'id' ? (i === 2 ? 46 : 18) : c[2] === 'text' ? 16 : c[1].length > 18 ? 16 : 13; ws.getColumn(i + 1).width = w; ws.getColumn(i + 1).font = font; });
+      // title block (as in the costing sheets)
+      var first = rows[0], eff = rows.map(function (x) { return val(x, '_effective'); }).filter(Boolean).sort().pop();
+      var effTxt = eff ? new Date(eff + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+      for (var r = 1; r <= 9; r++) ws.getRow(r).height = r <= 4 ? 21 : 18;
+      if (logo != null) ws.addImage(logo, { tl: { col: 0.1, row: 0.3 }, ext: { width: 320, height: 71 }, editAs: 'absolute' });
+      var put = function (addr, v_, f, fill) { var c = ws.getCell(addr); c.value = v_; if (f) c.font = Object.assign({ name: 'Arial', size: 10 }, f); if (fill) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } }; return c; };
+      put(col.fob_port + '2', 'PRICE LIST · ' + String(reg.name).toUpperCase(), { bold: true, size: 13, color: { argb: GOLD } });
+      if (effTxt) put(col.fob_port + '3', 'Effective ' + effTxt, { color: { argb: GREY } });
+      put(col.fob_port + '4', 'All prices in ' + (reg.currency === 'ZAR' ? 'South African Rand (ZAR)' : reg.currency) + ', per unit, excl. VAT', { color: { argb: GREY } });
+      put('B7', v.subcategory, { bold: true, size: 13, color: { argb: NAVY } });
+      if (opts.note) put('B8', opts.note, { bold: true, color: { argb: GOLD } });
+      var RL = col.cif_usd, RV = col._exchange;
+      put(RL + '7', 'USD → ZAR rate', { bold: true, color: { argb: GOLD } }); put(RV + '7', Number(val(first, '_fx_rate')) || null, { bold: true, color: { argb: NAVY } }, TINT);
+      put(RL + '8', 'FX buffer', { bold: true, color: { argb: GOLD } }); put(RV + '8', Number(val(first, '_fx_buffer')) || 0, { bold: true, color: { argb: NAVY } }, TINT).numFmt = '0.00%';
+      put(RL + '9', 'VAT (for the price check)', { bold: true, color: { argb: GOLD } }); put(RV + '9', vat, { bold: true, color: { argb: NAVY } }, TINT).numFmt = '0%';
+      // section row 10 and headings row 11
+      var cs = COLS.findIndex(function (c) { return c[0] === 'fob_port'; }), ce = COLS.findIndex(function (c) { return c[0] === '_gross'; }), ps = ce + 1, pe = COLS.length - 1;
+      ws.mergeCells(10, cs + 1, 10, ce + 1); ws.mergeCells(10, ps + 1, 10, pe + 1);
+      put(L_(cs) + '10', 'COSTING BUILD-UP', { bold: true, color: { argb: 'FFFFFFFF' } }, GREY).alignment = { horizontal: 'center' };
+      put(L_(ps) + '10', 'PRICE PER UNIT (' + reg.currency + ')', { bold: true, color: { argb: 'FFFFFFFF' } }, GOLD).alignment = { horizontal: 'center' };
+      var hr = ws.getRow(11); hr.height = 30;
+      head.forEach(function (h, i) {
+        var c = hr.getCell(i + 1), k = COLS[i][0], fill = i < cs ? NAVY : i <= ce ? GREY : k === '_retail' ? 'FFD3A864' : GOLD;
+        if (HL && L_(i) === HL) fill = NAVY;
+        c.value = h; c.font = { name: 'Arial', size: 10, bold: true, color: { argb: k === '_retail' && !(HL && L_(i) === HL) ? NAVY : 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } }; c.alignment = { vertical: 'middle', wrapText: true };
+      });
+      // data with live formulas (and their values, so the file shows numbers before Excel recalculates)
+      rows.forEach(function (x, n) {
+        var rn = 12 + n, R = ws.getRow(rn), a = function (k) { return col[k] + rn; };
+        var sum = function (base, keys) { return base + keys.map(function (k) { return '+(' + base + '*' + a(k) + ')'; }).join(''); };
+        COLS.forEach(function (c, i) {
+          var k = c[0], cell = R.getCell(i + 1), y = k === '_check' ? null : val(x, k), f = null;
+          if (k === 'cif_usd') f = sum(a('fob_usd'), ['c_cons', 'c_finance', 'c_customer_rebate', 'c_ship', 'c_ins', 'c_whs', 'c_warr', 'c_mar', 'c_roy', 'zp_mar']);
+          else if (k === '_exchange') f = '$' + RV + '$7+($' + RV + '$7*$' + RV + '$8)';
+          else if (k === '_cif_zar') f = a('cif_usd') + '*' + a('_exchange');
+          else if (k === '_landed') f = sum(a('_cif_zar'), ['_clearance', '_duties', '_ancillary', '_finance', '_excise', '_anti_dumping', '_dpw_margin']);
+          else if (k === '_gross') f = sum(a('_landed'), ['_c_dist', '_c_cod']);
+          else if (/^_t\d$|^_retail$/.test(k)) { var prev = { _t1: '_gross', _t2: '_t1', _t3: '_t2', _t4: '_t3', _t5: '_t4', _retail: '_t5' }[k], up = k === '_retail' ? '_retail_margin' : k + '_uplift'; f = a(prev) + '+(' + a(prev) + '*' + a(up) + ')'; }
+          else if (k === '_check') {
+            var mk = a('_market_price'), lo = 'VALUE(TRIM(SUBSTITUTE(SUBSTITUTE(LEFT(' + mk + ',FIND("–",' + mk + '&"–")-1),"R",""),",","")))', hi = 'IFERROR(VALUE(TRIM(SUBSTITUTE(SUBSTITUTE(MID(' + mk + ',FIND("–",' + mk + ')+1,99),"R",""),",",""))),' + lo + ')';
+            f = 'IF(' + mk + '="","no market price",IFERROR(IF(' + a('_retail') + '*(1+$' + RV + '$9)<=(' + lo + '+' + hi + ')/2,"ok","not ok"),"check"))';
+            var mkv = val(x, '_market_price'), nums = String(mkv || '').replace(/–/g, '-').split('-').map(function (t) { return Number(t.replace(/[^0-9.]/g, '')); }).filter(function (t) { return t > 0; });
+            y = !mkv ? 'no market price' : !nums.length ? 'check' : (val(x, '_retail') * (1 + vat) <= (nums[0] + (nums[1] || nums[0])) / 2 ? 'ok' : 'not ok');
+          }
+          if (y != null && typeof y === 'number') y = Math.round(y * 1e8) / 1e8;
+          if (f) cell.value = { formula: f, result: y == null ? undefined : y };
+          else cell.value = y == null || y === '' ? null : (c[2] === 'pct' || c[2] === 'usd') ? Number(y) : y;
+          if (FMT[c[2]]) cell.numFmt = FMT[c[2]];
+          if (HL && L_(i) === HL) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6EFE4' } };
+          if (k === 'sv_pn') cell.font = { name: 'Arial', size: 10, bold: true };
+        });
+      });
+      var last = 11 + rows.length;
+      ws.autoFilter = { from: { row: 11, column: 1 }, to: { row: last, column: COLS.length } };
+      put('A' + (last + 2), rows.length + ' items  ·  Prices per unit in ' + reg.currency + ', excl. VAT. Costing and pricing columns are live formulas; change the exchange rate above to update.', { italic: true, color: { argb: GREY } });
+      put('A' + (last + 3), 'stravikautomotiveparts.com', { color: { argb: GOLD } });
+    });
+    if (!wb.worksheets.length) throw new Error('Nothing to download');
+    var buf = await wb.xlsx.writeBuffer();
+    L.download(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name);
+  }
+  // Download for other apps (Customers > pricing approval): every range (or the ones given) of a region, filtered by keep(row, view).
+  // Pricing team: the costing-sheet layout (opts.highlight = tier column to mark, opts.note = line under the range name); others: prices only.
+  L.pricingDownload = async function (regionCode, ranges, keep, extraFirst, name, opts) {
     var me_ = await me(); regionCode = regionCode || (me_.regions[0] || {}).code;
     if (!regionCode) throw new Error('No price region available');
     var subs = (ranges && ranges.length ? ranges : me_.ranges.map(function (r) { return r.subcategory; }));
     var views = await Promise.all(subs.map(function (sub) { return sb.rpc('stravik_price_view', { p_sub: sub, p_region: regionCode }).then(L.must); }));
-    var sheets = (extraFirst || []).concat(exportSheets(views, keep));
-    await L.saveXlsx(sheets, name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
+    if (views.length && views.every(function (v) { return v.costs; })) return costingXlsx(views, keep, opts, name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
+    await L.saveXlsx((extraFirst || []).concat(exportSheets(views, keep)), name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
   };
   async function excel() {
     try {
       if (!S.data) return;
       L.toast('Preparing the download…');
       var keep = {}; rows().forEach(function (x) { keep[x.sv_pn] = 1; });
-      await L.saveXlsx(exportSheets([S.data], function (x) { return keep[x.sv_pn]; }), 'Stravik_prices_' + S.data.region.name.replace(/\W+/g, '_') + '_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx');
+      var name = 'Stravik_prices_' + S.data.region.name.replace(/\W+/g, '_') + '_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx';
+      if (S.data.costs) await costingXlsx([S.data], function (x) { return keep[x.sv_pn]; }, null, name);
+      else await L.saveXlsx(exportSheets([S.data], function (x) { return keep[x.sv_pn]; }), name);
     } catch (e) { L.fail(e); }
   }
   async function excelAll() {
