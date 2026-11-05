@@ -20,7 +20,7 @@
   async function groups() { if (!GROUPS.length) GROUPS = L.must(await sb.from('stravik_group_price_counts').select('*').order('sort')); return GROUPS; }
   var gname = function (code) { var g = GROUPS.find(function (x) { return x.code === code; }); return g ? g.name : (code || ''); };
   // Pricing approval / change of group: exactly what the customer would see with the chosen group (their country decides the region)
-  async function tierPreview(box, dealerId, code) {
+  async function tierPreview(box, dealerId, code, d0name) {
     if (!code) { box.innerHTML = '<p class="small muted">Choose a price group to see the prices this customer will get.</p>'; return; }
     box.innerHTML = '<p class="small muted">Loading the prices…</p>';
     try {
@@ -56,7 +56,10 @@
           var name = 'Stravik_price_check_' + String(v.group_name).replace(/\W+/g, '_') + '_' + L.today() + '.xlsx';
           if (v.region_code && L.pricingDownload) {
             var rg = $('tpR').value;
-            await L.pricingDownload(v.region_code, rg ? [rg] : v.ranges.map(function (r) { return r.range; }), function (x) { return keep[x.sv_pn]; }, first, name);
+            // pricing team: the costing-sheet layout with the chosen group's price column marked; others: these prices only
+            var hl = /^T\d$/.test(v.group) ? v.group.toLowerCase() : v.group === 'RETAIL' ? 'retail' : null;
+            await L.pricingDownload(v.region_code, rg ? [rg] : v.ranges.map(function (r) { return r.range; }), function (x) { return keep[x.sv_pn]; }, first, name,
+              { highlight: hl, note: 'Price check: ' + (d0name || '') + ' · ' + v.group_name });
           } else await L.saveXlsx(first, name);
         } catch (e) { L.fail(e); }
         b.disabled = false; b.textContent = 'Download';
@@ -183,8 +186,8 @@
           (STEP === 'pricing' || STEP === 'final' ? '<div id="apP"></div>' : '') +
           '<div class="o-footer"><button class="btn" id="apGo"' + (STEP === 'pricing' && !d.price_group ? ' disabled' : '') + '>' + (STEP === 'final' ? 'Approve customer' : 'Approve') + '</button><button class="btn ghost" id="apX">Cancel</button></div>', STEP === 'pricing' || STEP === 'final');
         $('apX').onclick = L.closeModal;
-        if ($('apP')) tierPreview($('apP'), id, STEP === 'pricing' ? $('apG').value : d.price_group);
-        if ($('apG')) $('apG').onchange = function () { $('apGo').disabled = !this.value; tierPreview($('apP'), id, this.value); };
+        if ($('apP')) tierPreview($('apP'), id, STEP === 'pricing' ? $('apG').value : d.price_group, d.trading_name || d.company_name);
+        if ($('apG')) $('apG').onchange = function () { $('apGo').disabled = !this.value; tierPreview($('apP'), id, this.value, d.trading_name || d.company_name); };
         $('apGo').onclick = function () { var b = this; b.disabled = true; approve(STEP, $('apG') ? $('apG').value : null, $('apN').value.trim()).catch(function (e) { b.disabled = false; L.fail(e); }); };
       };
       if ($('dReject')) $('dReject').onclick = function () {
@@ -205,7 +208,7 @@
       if ($('dGroup')) $('dGroup').onclick = function () {
         L.modal('Change price group', L.group('', [['Price group', '<select id="cgG">' + opt(d.price_group) + '</select>'], ['DPW customer code', '<input id="cgC" value="' + esc(d.dpw_customer_code || '') + '">']]) + '<div id="cgP"></div><div class="o-footer"><button class="btn" id="cgGo">Save</button><button class="btn ghost" id="cgX">Cancel</button></div>', true);
         $('cgX').onclick = L.closeModal;
-        tierPreview($('cgP'), id, $('cgG').value); $('cgG').onchange = function () { tierPreview($('cgP'), id, this.value); };
+        tierPreview($('cgP'), id, $('cgG').value, d.trading_name || d.company_name); $('cgG').onchange = function () { tierPreview($('cgP'), id, this.value, d.trading_name || d.company_name); };
         $('cgGo').onclick = function () { setStatus({ price_group: $('cgG').value, dpw_customer_code: $('cgC').value.trim() || null }, 'Saved').catch(L.fail); };
       };
       $('dEdit').onclick = function () {
