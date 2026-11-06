@@ -209,13 +209,13 @@ P.forEach(p=>{const fk=famOf(p.code).k; p.ap.forEach(a=>{const mk=MAKES[a[0]];
   const mo=(VI[mk]=VI[mk]||{}), r=(mo[a[1]||'—']=mo[a[1]||'—']||{}); const key=[a[2],a[3],a[5],a[4],a[6]].join('|');
   const row=(r[key]=r[key]||{a,f:{}}); (row.f[fk]=row.f[fk]||new Set()).add(p.pn);});});
 const mkCount=Object.entries(VI).map(([m,mo])=>[m,new Set(Object.values(mo).flatMap(r=>Object.values(r).flatMap(x=>Object.values(x.f).flatMap(s=>[...s])))).size]).sort((a,b)=>b[1]-a[1]);
-let make=mkCount[0][0], model='', vshown=12, mode='prod';
+let make=mkCount.length?mkCount[0][0]:'', model='', vshown=12, mode='prod';
 $('makes').innerHTML=mkCount.slice(0,16).map(([m,n])=>`<button class="chip" data-mk="${esc(m)}" aria-pressed="false">${esc(m)} <code>${n}</code></button>`).join('');
 $('mksel').innerHTML='<option value="">All makes…</option>'+mkCount.slice().sort((a,b)=>a[0].localeCompare(b[0])).map(([m,n])=>`<option value="${esc(m)}">${esc(m)} (${n})</option>`).join('');
 $('mksel').onchange=e=>{if(e.target.value) setMake(e.target.value)};
 $('mosel').onchange=e=>{model=e.target.value; vshown=12; renderVeh()};
 $('vmore').onclick=()=>{vshown+=12; renderVeh()};
-function setMake(m){make=m; model=''; vshown=12;
+function setMake(m){if(!VI[m])return; make=m; model=''; vshown=12;
   root.querySelectorAll('#makes [data-mk]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mk===m));
   $('mksel').value=m;
   const models=Object.keys(VI[m]).sort();
@@ -232,7 +232,7 @@ function mergeRows(rows){const g={};
   return Object.values(g).map(x=>{const v=[...x.v]; return {a:[0,'',v.slice(0,4).join(', ')+(v.length>4?` +${v.length-4}`:''),x.en,x.fu,x.cc,yrs(x.y)],f:x.f};})
     .sort((a,b)=>(a.a[3]+a.a[6]).localeCompare(b.a[3]+b.a[6]));}
 function renderVeh(){
-  const mo=VI[make], models=(model?[model]:Object.keys(mo).sort());
+  const mo=VI[make]||{}, models=(model?[model]:Object.keys(mo).sort());
   const used=FCOL.filter(([k])=>models.some(m=>Object.values(mo[m]).some(r=>r.f[k])));
   let html=`<thead><tr><th>Variant</th><th>Engine</th><th>cc</th><th>Fuel</th><th>Years</th>${used.map(([,l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>`;
   models.slice(0,vshown).forEach(m=>{
