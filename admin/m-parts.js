@@ -32,8 +32,8 @@
   // Stravik part numbers: SV… (filters, steering & suspension, shock absorbers, brakes, batteries) or a 4-character prefix
   // including the S + 4 digits (gas springs SBGS0001, ignition coils SEIC0001, alternators SLAL0001, bulbs SLBH0001, wipers SWCS0001, water pumps SCWP0001 …);
   // S + 4 letters + 4 digits is still accepted while the alternator components (SLANC) wait for their new prefix
-  var PN_OK = /^(SV[A-Z0-9-]{3,}|S[A-Z]{3}[0-9]{4}|S[A-Z]{4}[0-9]{4})$/;
-  var PN_RULE = 'SV followed by letters, digits or hyphens (e.g. SVBJ0001L), or a 4-character prefix starting with S + 4 digits (e.g. SEIC0001, SBGS0001)';
+  var PN_OK = /^(SV[A-Z0-9-]{3,}|S[A-Z]{3}[0-9]{4}|S[A-Z]{4}[0-9]{4}|(OR|OE|AP|AC|HC|H|DR|DE|DL|GL|GE|GR|R|J)[0-9]{3})$/;   // filters: type code + 3 digits (OR001)
+  var PN_RULE = 'SV followed by letters, digits or hyphens (e.g. SVBJ0001L), or a 4-character prefix starting with S + 4 digits (e.g. SEIC0001, SBGS0001), or for filters a type code + 3 digits (e.g. OR126, AP352)';
   var REGIONS = [['north_africa', 'North Africa'], ['east_africa', 'East Africa'], ['west_africa', 'West Africa'], ['central_africa', 'Central Africa'],
     ['southern_africa', 'Southern Africa'], ['ocean_islands', 'Indian Ocean Islands'], ['gcc', 'GCC'], ['middle_east', 'Middle East']];
   var COSTS = [['c_cons', 'Consolidation'], ['c_finance', 'Finance'], ['c_ship', 'Shipping'], ['c_ins', 'Insurance'], ['c_whs', 'Warehousing'], ['c_war', 'Warranty'],

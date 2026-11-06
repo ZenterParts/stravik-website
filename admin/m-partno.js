@@ -86,7 +86,7 @@
       var last = {}; if (rows.length) L.must(await sb.from('stravik_parts').select('sv_pn,short_desc').in('sv_pn', rows.map(function (r) { return r.last_pn; }))).forEach(function (p) { last[p.sv_pn] = p.short_desc; });
       var order = {}; L.CATS.forEach(function (c, i) { order[c.subcategory_key] = i; });
       rows.sort(function (a, b) { return (order[a.subcategory] != null ? order[a.subcategory] : 99) - (order[b.subcategory] != null ? order[b.subcategory] : 99) || a.prefix.localeCompare(b.prefix); });
-      L.content('<p class="muted">One line per part-number block (prefix, running number, suffix: e.g. <span class="mono">SV-AFL-</span>0001<span class="mono">-00</span>, <span class="mono">SVBJ</span>0001<span class="mono">L</span>). <b>Next free</b> continues after the highest number in use. Numbers missing below it are counted but not reused, as they may belong to retired parts.</p>' + L.listView([
+      L.content('<p class="muted">One line per part-number block (prefix, running number, suffix: e.g. <span class="mono">SEIC</span>0001, <span class="mono">SVBJ</span>0001<span class="mono">L</span>, filters <span class="mono">OR</span>001). <b>Next free</b> continues after the highest number in use. Numbers missing below it are counted but not reused, as they may belong to retired parts.</p>' + L.listView([
         { label: 'Range', render: function (r) { return esc(r.subcategory); } },
         { label: 'Prefix', render: function (r) { return '<span class="mono">' + esc(r.prefix) + '</span>'; } },
         { label: 'Product (last part)', cls: 'clip', render: function (r) { return esc(last[r.last_pn] || ''); } },
