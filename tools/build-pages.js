@@ -26,7 +26,7 @@ const list = (a, n) => a.slice(0, n).join(", ") + (a.length > n ? ` and ${a.leng
 // ---- page shell from index.html
 // ---- cache-busting: stamp each shared asset with a short content hash so browsers fetch the new file after every change
 const crypto = require("crypto");
-const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js", "warranty.js", "ecat.js", "ecat.css"];
+const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js", "warranty.js", "ecat.js", "ecat.css", "fcat.js", "fcat.css"];
 const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
 { const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|app\.js)(\?v=[0-9a-f]+)?/g, (m, f) => V[f]);
   if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
@@ -496,6 +496,8 @@ ${cantFind}`;
 const F = JSON.parse(rd("filters.json"));
 const FT = {}; F.types.forEach(t => FT[t[0]] = { code: t[0], slug: t[1], name: t[2], one: t[3] });
 // the final filter descriptions already start with the type ("Oil filter, spin-on – H 72 × OD 66 mm"); older ones get the type in front
+// the catalogue family of a filter (/filters/?fam=): O oil, A air, H cabin, D diesel, G petrol, F all fuel, R coolant, J kits
+const FFAM = i => { const c = i.c || ""; return c ? ({ OR: "O", OE: "O", AP: "A", AC: "A", H: "H", HC: "H", R: "R", J: "J" }[c] || c[0]) : ({ OFL: "O", AFL: "A", CFL: "H", FFL: "F", FKT: "J", CLF: "R" }[i.t] || ""); };
 const fdesc = i => { const s = i.d || ""; return /filter/i.test(s.slice(0, 40)) ? s : FT[i.t].one + (s ? ", " + s.charAt(0).toLowerCase() + s.slice(1) : ""); };
 const models = i => uniq(String(i.mo || "").split(/[;,/]/).map(s => s.trim().toLowerCase()));
 function fRelated(i) {
@@ -505,6 +507,13 @@ function fRelated(i) {
   return cand.map(x => [x, sc(x)]).filter(e => e[1] >= 3).sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).slice(0, 8).map(e => e[0]);
 }
 const fCard = x => `<div class="fcell"><a class="fcard" href="/filter/${esc(x.pn)}/"><span class="ic">${icon(FICON[x.t])}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(fdesc(x))}</span><span class="veh"><b>Fits</b> ${esc([(x.mk || []).join(", "), x.mo, x.y].filter(Boolean).join(" · "))}</span></a></div>`;
+// /filters/  the Stravik filter catalogue (assets/fcat.js draws it from filters.json; styles in assets/fcat.css)
+{ const url = `${SITE}/filters/`, title = "Stravik filter catalogue | Oil, air, cabin and fuel filters", desc = `All ${F.items.length} Stravik oil, air, cabin, fuel and coolant filters and filter kits, matched to OE fit: search by Stravik, OE or cross-reference number (GUD, MANN, MAHLE, FRAM), model or engine, or find the filters for a vehicle.`;
+  // the light DOM keeps a plain list of the filters for search engines and for visitors without JavaScript
+  const body = `<div id="fcat" data-css="${V["fcat.css"]}"><noscript><div class="wrap" style="padding:30px 0"><h1>Stravik filters</h1><ul>${F.items.map(i => `<li><a href="/filter/${esc(i.pn)}/">${esc(i.pn)}</a> ${esc(fdesc(i))}</li>`).join("")}</ul></div></noscript></div>`;
+  write("filters", page({ url, title, desc, type: "website", scripts: ["fcat.js"], jsonld: { "@context": "https://schema.org", "@type": "CollectionPage", name: "Stravik filter catalogue", url, description: desc }, body }));
+  urls.push(url);
+}
 for (const i of F.items) {
   const T = FT[i.t], url = `${SITE}/filter/${i.pn}/`;
   const rows = [["Stravik number", i.pn], ["Filter type", T.one], ["Description", i.d], ["Vehicle make", (i.mk || []).join(", ")], ["Models", i.mo], ["Years", i.y], ["Engine", i.e], ["Dimensions (mm)", i.s]].filter(r => r[1]);
@@ -513,14 +522,14 @@ for (const i of F.items) {
   const desc = `Stravik ${lc1(fdesc(i))} ${i.pn}.` + ((i.n || []).length ? ` OE and cross-references ${list(i.n, 3)}.` : "") + (veh ? ` Fits ${veh}${i.y ? " " + i.y : ""}.` : "");
   const item = { key: i.pn, no: i.pn, cat: "Filters", desc: fdesc(i), link: `/filter/${i.pn}/`, kind: "filter" };
   const rel = fRelated(i);
-  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/filters", "Filtration"], [`/#/filters/${T.slug}`, T.name], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(fdesc(i)))}</p></div></div>
+  const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/filters/", "Filtration"], [`/filters/?fam=${FFAM(i)}`, T.name], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(fdesc(i)))}</p></div></div>
 <div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span><div class="big">${icon(FICON[i.t])}</div></div>
 <div class="info"><div class="type">Stravik ${esc(T.one.toLowerCase())}</div>
 <dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
 ${(i.n || []).length ? `<h2 class="nums-h">OE and cross-reference numbers</h2><div class="chips">${i.n.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
 <div class="replace"><b>Before you order</b><span>Match the OE number on the old filter or in the service book. Send us the vehicle details if you're not sure.</span></div>
 ${buyBox(item)}
-<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.name)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this filter</a><a class="btn line" href="/#/filters/${T.slug}">More ${esc(T.name.toLowerCase())}</a></div>
+<div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(T.name)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this filter</a><a class="btn line" href="/filters/?fam=${FFAM(i)}">More ${esc(T.name.toLowerCase())}</a></div>
 </div></div>
 ${rel.length ? `<section class="block paper related"><div class="wrap"><h2>Other Stravik filters for the same vehicles</h2><p class="pp-note">Matching air, oil, fuel and cabin filters, so you can supply the full service.</p><div class="fgrid">${rel.map(fCard).join("")}</div></div></section>` : ""}
 ${cantFind}`;

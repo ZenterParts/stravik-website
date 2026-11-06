@@ -117,7 +117,7 @@ jobs:
         if: steps.go.outputs.run == 'yes'
         run: |
           node tools/build-pages.js
-          git add -A part filter sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json batteries.json gas-springs.json ignition-coils.json bulbs.json horns.json wiper-blades.json water-pumps.json alternators.json starters.json
+          git add -A part filter filters sitemap.xml robots.txt index.html filters.json steering-suspension.json shock-absorbers.json brakes.json batteries.json gas-springs.json ignition-coils.json bulbs.json horns.json wiper-blades.json water-pumps.json alternators.json starters.json
           if git diff --cached --quiet; then echo "pages=no" >> "$GITHUB_OUTPUT"; else echo "pages=yes" >> "$GITHUB_OUTPUT"; fi
 
       - name: Commit and publish

@@ -146,8 +146,6 @@ const RANGES=[
   ["brakes","brake-catalogue",BRAKES,"Part type",BR_TYPES.map(t=>[slug(t[2]),t[1]])],
   ["steering","steering-catalogue",STEERING,"Part type",SS_TYPES.map(t=>[slug(t[2]),t[1]])],
   ["shock-absorbers","shock-absorber-catalogue",SHOCKS,"Part type",SA_TYPES.map(t=>[slug(t[2]),t[1]])],
-  ["filters","filter-catalogue",FILTERS,"Filter type",[["air-filters","Air filter"],["oil-filters","Oil filter"],["fuel-filters","Fuel filter"],["cabin-filters","Cabin filter"],
-    ["filter-kits","Filter kit"],["coolant-filters","Coolant filter"],["filter-housings","Oil filter housing"]]],
   ["gas-springs","gas-spring-catalogue",GAS,"Fitting",GS_TYPES.map(t=>[t[3],t[1].replace(/ gas spring$/i,"")])]];
 const MOVED={};
 RANGES.forEach(([old,id,c,key,subs])=>{StdCat.register(id,c);MOVED[old]={id,key,subs:Object.fromEntries(subs)};});
@@ -160,9 +158,20 @@ function batForward(parts,qs){
   if(/^SV[A-Z0-9]{6}$/i.test(sub))p.set("pn",sub.toUpperCase());
   location.replace("/batteries/catalogue/"+(p.toString()?"?"+p.toString():""));
 }
+// filters have their own page too, the Stravik filter catalogue (/filters/, assets/fcat.js): old filter addresses open it
+const FIL_OLD={"filters":1,"filter-catalogue":1};
+const FIL_FAM={"air-filters":"A","oil-filters":"O","fuel-filters":"F","cabin-filters":"H","filter-kits":"J","coolant-filters":"R","filter-housings":"O",
+  "Air filter":"A","Oil filter":"O","Fuel filter":"F","Cabin filter":"H","Filter kit":"J","Coolant filter":"R","Oil filter housing":"O"};
+function filForward(parts,qs){
+  const old=new URLSearchParams(qs||""),p=new URLSearchParams(),sub=parts[0]==="products"?parts[2]:parts[1];
+  const f=FIL_FAM[sub?decodeURIComponent(sub):""]||FIL_FAM[old.get("f.Filter type")||""];if(f)p.set("fam",f);
+  ["q","make","model"].forEach(k=>{if(old.get(k))p.set(k,old.get(k));});
+  location.replace("/filters/"+(p.toString()?"?"+p.toString():""));
+}
 function forward(){
   const [path,qs]=location.hash.replace(/^#/,"").split("?"),parts=path.split("/").filter(Boolean),m=MOVED[parts[0]];
   if(BAT_OLD[parts[0]]){batForward(parts,qs);return;}
+  if(FIL_OLD[parts[0]]||(parts[0]==="products"&&parts[1]==="filters")){filForward(parts,qs);return;}
   if(!m)return;
   const old=new URLSearchParams(qs||""),p=new URLSearchParams();
   ["q","p"].forEach(k=>{if(old.get(k))p.set(k,old.get(k));});

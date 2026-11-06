@@ -31,7 +31,7 @@ const MENU=[
   {name:"Steering & suspension",icon:"ball",href:"/#/products/steering-suspension",kids:
     ["CA","TE","BS","SL","BJ","RE","IA","SR","DL","SM","EM","IS","OS"].map(SS_SLUG).filter(Boolean).concat([{name:"Search the catalogue",href:"/#/steering"}])},
   {name:"Shock absorbers",icon:"shock",href:"/#/products/shock-absorbers",kids:SA_TYPES.filter(t=>!/gas spring/i.test(t[2])).map(t=>({name:t[2],href:"/#/shock-absorbers/"+slug(t[2])})).concat([{name:"Gas springs",href:"/#/products/gas-springs",kids:GS_TYPES.map(t=>({name:t[2],href:"/#/gas-springs/"+t[3]})).concat([{name:"Search the catalogue",href:"/#/gas-springs"}])},{name:"Search the catalogue",href:"/#/shock-absorbers"}])},   // gas springs (their own catalogue) sit with the shock absorbers
-  {name:"Filters",icon:"f_oil",href:"/#/products/filters",kids:[["air-filters","Air filters"],["fuel-filters","Fuel filters"],["oil-filters","Oil filters"],["cabin-filters","Cabin filters"],["filter-kits","Filter kits"],["coolant-filters","Coolant filters"],["filter-housings","Filter housings"]].map(f=>({name:f[1],href:"/#/filters/"+f[0]})).concat([{name:"Search the catalogue",href:"/#/filters"}])},
+  {name:"Filters",icon:"f_oil",href:"/filters/",kids:[["O","Oil filters"],["A","Air filters"],["H","Cabin filters"],["D","Diesel fuel filters"],["G","Petrol fuel filters"],["R","Coolant filters"],["J","Filter kits"]].map(f=>({name:f[1],href:"/filters/?fam="+f[0]})).concat([{name:"Find by vehicle",href:"/filters/#vehicles"},{name:"Search the catalogue",href:"/filters/"}])},
   {name:"Electrical",icon:"bolt",href:"/#/products",kids:[
     {name:"Alternators",href:"/#/alternators"},
     {name:"Bulbs",href:"/#/bulbs"},

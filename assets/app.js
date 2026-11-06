@@ -150,7 +150,7 @@ function flResults(d,list,q,max){
   if(!list.length)return "";const shown=list.slice(0,max);
   return `<div class="rgroup"><h2>Filters <span>${list.length} ${list.length===1?"filter":"filters"}</span></h2>
   <div class="ftable-wrap"><table class="ftable"><thead><tr><th>Stravik no.</th><th>Filter</th><th>Fits</th><th>OE / ref. numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(x=>frow(d,x.i,q)).join("")}</tbody></table></div>
-  ${list.length>max?`<p class="rmore"><a class="btn line" href="#/filters?q=${encodeURIComponent(q)}">See all ${list.length} in the filter catalogue</a></p>`:""}</div>`;
+  ${list.length>max?`<p class="rmore"><a class="btn line" href="/filters/?q=${encodeURIComponent(q)}">See all ${list.length} in the filter catalogue</a></p>`:""}</div>`;
 }
 // standard catalogue ranges (assets/stdcat.js): ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters
 function loadStd(){
@@ -380,7 +380,7 @@ function about(){
       <div><h3>What we offer</h3><p>Our range offers extensive vehicle coverage, giving workshops, distributors and retailers one reliable source for the parts they need.</p></div>
       <div><h3>Serving markets worldwide</h3><p>We supply customers across a wide range of markets in over 60 countries. Whatever the region, we understand the vehicles on its roads and the parts its customers need, so you get a range that fits your market.</p></div>
       <div><h3>Find your part fast</h3><p>Our online catalogue lets you search the full range by OE number or cross-reference number. Enter the number you have and see the matching Stravik part, with its position and the vehicles it fits.</p>
-        <p class="links"><a href="#/brakes">Brake catalogue</a><a href="/batteries/catalogue/">Battery catalogue</a><a href="#/gas-springs">Gas spring catalogue</a><a href="#/steering">Steering &amp; suspension catalogue</a><a href="#/filters">Filter catalogue</a></p></div>
+        <p class="links"><a href="#/brakes">Brake catalogue</a><a href="/batteries/catalogue/">Battery catalogue</a><a href="#/gas-springs">Gas spring catalogue</a><a href="#/steering">Steering &amp; suspension catalogue</a><a href="/filters/">Filter catalogue</a></p></div>
     </div>
   </div></section>
   <section class="block paper"><div class="wrap">
@@ -396,7 +396,7 @@ function filtersOverview(){
     <div class="tabs" role="list">${prodTabs("filters")}</div></div></div>
   <section class="fband"><div class="wrap">
     <div><div class="kicker">Catalogue</div><h2>Filter catalogue</h2><p id="fov-lede">Every Stravik filter with its OE numbers, cross-references and vehicles. Search by number, or browse by vehicle make.</p>
-      <div style="margin-top:22px"><a class="btn gold" href="#/filters">Open the catalogue</a></div></div>
+      <div style="margin-top:22px"><a class="btn gold" href="/filters/">Open the catalogue</a></div></div>
     <form id="fovq" role="search"><label for="fovi">Search the catalogue</label><div class="field"><input id="fovi" type="search" autocomplete="off" placeholder="OE or cross-reference number, or vehicle"><button type="submit">Search</button></div><small>For example 17801-0L040, Z212 or Hilux</small></form>
   </div></section>
   <section class="block"><div class="wrap"><div class="group" style="margin-bottom:0"><h2>Filter types<span id="fov-n"></span></h2><div class="grid" id="fov-grid"><p class="loading">Loading filter types…</p></div></div></div></section>`;
@@ -440,7 +440,7 @@ function productsHome(){
       ${pc(B.img,"disc","Braking System",esc(B.intro),["",""],`<a class="btn gold" href="#/brakes">Open the catalogue</a><a class="btn line" href="#/products/braking-system">About the range</a>`)}
       ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",""],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
       ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`)}
-      ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="#/filters">Open the catalogue</a><a class="btn line" href="#/products/filters">About the range</a>`)}
+      ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/filters/">About the range</a>`)}
       ${pc("/assets/img/gas-springs-hero.svg","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`)}
       ${pc("/assets/img/ignition-coils/hero.webp","bolt","Ignition Coils","Ignition coils, coil packs and pencil coils for cars, bakkies and motorcycles, each with its connector, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/ignition-coils">Open the catalogue</a>`)}
       ${pc("","bulb","Bulbs","Halogen, miniature, LED and HID xenon bulbs, each with its bulb type, base, voltage and wattage.",["",""],`<a class="btn gold" href="#/bulbs">Open the catalogue</a>`)}
@@ -484,7 +484,7 @@ function products(catId,typeId,q){
       </div>
       <nav aria-label="Part types">${cats.map(c=>`<h4>${esc(c.name)}</h4>${c.types.map(t=>`<a href="#/products/${c.id}/${t.id}">${esc(t.name)}</a>`).join("")}<div style="height:18px"></div>`).join("")}</nav>
     </aside>
-    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="#/filters"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="/batteries/catalogue/"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
+    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="/filters/"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="/batteries/catalogue/"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
   </div>`;
   if(!cat)loadGS().then(d=>{const e=app.querySelector("#cc-gs");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" gas springs with OE numbers and vehicles";}).catch(()=>{});
   if(!cat)loadBAT().then(d=>{const e=app.querySelector("#cc-bt");if(e)e.textContent=d.items.length+" batteries with SAB numbers and vehicles";}).catch(()=>{});
@@ -637,7 +637,7 @@ function filtersPage(slugT,params){
   let q=params.get("q")||"",mk=params.get("make")||"",view="list";
   try{if(localStorage.getItem("stravik-fview")==="cards")view="cards";}catch(e){}
   const STEP=()=>view==="list"?100:48;let shown=STEP();
-  app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/filters">Filters</a><span>/</span><span>Catalogue</span></div><h1>Filter catalogue</h1>
+  app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="/filters/">Filters</a><span>/</span><span>Catalogue</span></div><h1>Filter catalogue</h1>
     <p>Air, oil, fuel and cabin filters under the Stravik name. Search by Stravik part number, OE number or cross-reference, or pick your vehicle make.</p><div class="tabs" id="ftabs"></div></div></div>
     <div class="wrap catalog"><aside class="side fside"><nav aria-label="Filter types" class="ftypes-nav" id="fnav"></nav></aside>
     <div><div class="fsearch" role="search">
@@ -650,9 +650,9 @@ function filtersPage(slugT,params){
     <div id="flist"><p class="loading">Loading filters…</p></div></div></div>`;
   loadFilters().then(d=>{
     const T=d.types.find(t=>t[1]===slugT);const code=T?T[0]:"";
-    if(T){app.querySelector(".pagehead h1").textContent=T[2];app.querySelector(".crumbs").innerHTML=`<a href="#/">Home</a><span>/</span><a href="#/products/filters">Filters</a><span>/</span><a href="#/filters">Catalogue</a><span>/</span><span>${esc(T[2])}</span>`;document.title=T[2]+" | Stravik";}
-    app.querySelector("#ftabs").innerHTML=`<a href="#/filters" aria-current="${!T}">All filters</a>`+d.types.map(t=>`<a href="#/filters/${t[1]}" aria-current="${t===T}">${esc(t[2])}</a>`).join("");
-    app.querySelector("#fnav").innerHTML=`<h4>Filter types</h4><a href="#/filters" aria-current="${!T}">All filters<span>${d.items.length}</span></a>`+d.types.map(t=>`<a href="#/filters/${t[1]}" aria-current="${t===T}">${esc(t[2])}<span>${FCOUNT(d,t[0])}</span></a>`).join("");
+    if(T){app.querySelector(".pagehead h1").textContent=T[2];app.querySelector(".crumbs").innerHTML=`<a href="#/">Home</a><span>/</span><a href="/filters/">Filters</a><span>/</span><a href="/filters/">Catalogue</a><span>/</span><span>${esc(T[2])}</span>`;document.title=T[2]+" | Stravik";}
+    app.querySelector("#ftabs").innerHTML=`<a href="/filters/" aria-current="${!T}">All filters</a>`+d.types.map(t=>`<a href="#/filters/${t[1]}" aria-current="${t===T}">${esc(t[2])}</a>`).join("");
+    app.querySelector("#fnav").innerHTML=`<h4>Filter types</h4><a href="/filters/" aria-current="${!T}">All filters<span>${d.items.length}</span></a>`+d.types.map(t=>`<a href="#/filters/${t[1]}" aria-current="${t===T}">${esc(t[2])}<span>${FCOUNT(d,t[0])}</span></a>`).join("");
     const sel=app.querySelector("#fmk"),inp=app.querySelector("#fq"),list=app.querySelector("#flist"),qx=app.querySelector("#fqx");
     const showX=()=>{qx.hidden=!inp.value;};
     qx.addEventListener("click",()=>{inp.value="";q="";showX();shown=STEP();sync();draw();inp.focus();});
@@ -693,7 +693,7 @@ function cartPage(){
   <div class="wrap cartwrap">
     <section class="panel" aria-labelledby="ptitle"><div class="panel-head"><h2 id="ptitle">Parts <span class="muted" id="pcount"></span></h2>${items.length?`<button type="button" class="linkbtn" id="cclear">Remove all</button>`:""}</div>
       <div id="citems"></div>
-      ${items.length?`<div class="cfoot"><a href="#/filters">← Add more from the filter catalogue</a> · <a href="#/products">Browse products</a></div>`:""}</section>
+      ${items.length?`<div class="cfoot"><a href="/filters/">← Add more from the filter catalogue</a> · <a href="#/products">Browse products</a></div>`:""}</section>
     ${items.length?`<section class="panel" aria-labelledby="ftitle"><div class="panel-head"><h2 id="ftitle">Request for price</h2></div>
       <form class="enq" id="rfp" novalidate>
         <div><label for="rn">Full name</label><input id="rn" autocomplete="name" required><div class="err">Enter your name.</div></div>
@@ -724,7 +724,7 @@ function cartPage(){
 function renderItems(){
   const items=Cart.items(),box=app.querySelector("#citems");
   app.querySelector("#pcount").textContent=items.length?`(${items.length})`:"";
-  if(!items.length){box.innerHTML=`<div class="cempty"><p>Your cart is empty.</p><div class="row"><a class="btn gold" href="#/filters">Filter catalogue</a><a class="btn line" href="#/products">Browse products</a></div><p style="margin:18px 0 0">Need something else? <a href="#/contact" style="color:var(--gold-deep)">Send us an enquiry</a>.</p></div>`;return;}
+  if(!items.length){box.innerHTML=`<div class="cempty"><p>Your cart is empty.</p><div class="row"><a class="btn gold" href="/filters/">Filter catalogue</a><a class="btn line" href="#/products">Browse products</a></div><p style="margin:18px 0 0">Need something else? <a href="#/contact" style="color:var(--gold-deep)">Send us an enquiry</a>.</p></div>`;return;}
   const groups={},order=[];items.forEach(it=>{const c=it.cat||"Other";if(!groups[c]){groups[c]=[];order.push(c);}groups[c].push(it);});
   box.innerHTML=`<table class="ctable"><thead><tr><th>Part</th><th>Details</th><th>Qty</th><th><span class="sr">Remove</span></th></tr></thead><tbody>`+
     order.map(c=>`<tr class="catrow"><td colspan="4">${esc(c)}</td></tr>`+groups[c].map(it=>`<tr class="item" data-key="${esc(it.key)}">
@@ -770,7 +770,7 @@ function thanks(ref,name,email){
     <p>Your request for price has been received.</p>
     <div class="refbox"><span>Your inquiry number</span><strong>${esc(ref)}</strong><button type="button" id="cref">Copy</button></div>
     <p>Our sales team will reply to <b style="color:var(--ink)">${esc(email)}</b>. Please quote this number in any correspondence.</p>
-    <div class="row"><a class="btn gold" href="#/filters">Back to the filter catalogue</a><a class="btn line" href="#/">Home</a></div></section></div>`;
+    <div class="row"><a class="btn gold" href="/filters/">Back to the filter catalogue</a><a class="btn line" href="#/">Home</a></div></section></div>`;
   toastEl.classList.remove("show");window.scrollTo(0,0);app.querySelector("#tyh").focus();
   app.querySelector("#cref").addEventListener("click",function(){const b=this;(navigator.clipboard?navigator.clipboard.writeText(ref):Promise.reject()).then(()=>{b.textContent="Copied";},()=>{b.textContent="Write it down: "+ref;});});
 }
@@ -1614,6 +1614,11 @@ const OLD_SS={"ball-joints":"ball-joints","tie-rod-ends":"tie-rod-ends","control
 function notFound(){app.innerHTML=`<div class="pagehead"><div class="wrap"><h1>Page not found</h1><p>That page doesn't exist. <a href="#/products" style="color:var(--gold-deep)">Browse our products</a> or <a href="#/" style="color:var(--gold-deep)">go to the home page</a>.</p></div></div>`;}
 
 // old battery catalogue links (#/batteries, #/batteries/<type>?q=…) open the battery e-catalogue page
+// filters: the Stravik filter catalogue is its own page (/filters/); the old routes open it with the same filters
+const FSLUG={"air-filters":"A","oil-filters":"O","cabin-filters":"H","fuel-filters":"F","filter-kits":"J","coolant-filters":"R","filter-housings":"O"};
+function filtRedirect(typeSlug,params){const p=new URLSearchParams();if(typeSlug&&FSLUG[typeSlug])p.set("fam",FSLUG[typeSlug]);
+  ["q","make","model","fam","code"].forEach(k=>{if(params.get(k))p.set(k,params.get(k));});
+  location.replace("/filters/"+(p.toString()?"?"+p:""));}
 function batRedirect(typeSlug,params){const p=new URLSearchParams();const T=typeSlug&&BAT_TYPES.find(t=>BTI[t[0]].slug===typeSlug);if(T)p.set("type",T[0]);
   ["q","series","dwg"].forEach(k=>{if(params.get(k))p.set(k,params.get(k));});
   if(params.get("make")){p.set("tab","vehicles");p.set("make",params.get("make"));if(params.get("model"))p.set("model",params.get("model"));}
@@ -1629,12 +1634,13 @@ function route(){
   else if(parts[0]==="new"){key="new";newPage();}
   else if(parts[0]==="where-to-buy"){key="where";wherePage(params);}
   else if(parts[0]==="about"){key="about";about();}
+  else if(parts[0]==="products"&&parts[1]==="filters"){filtRedirect(parts[2],params);return;}
   else if(parts[0]==="products"){key="products";products(parts[1],parts[2],params.get("q"));}
   else if(parts[0]==="product"){key="products";product(parts[1],params);}
   else if(parts[0]==="contact"){key="contact";contact(params);}
   else if(parts[0]==="cart"){key="cart";cartPage();}
   else if(parts[0]==="dealer"){key="dealer";if(window.StravikDealer)StravikDealer.page(app,parts.slice(1));else notFound();}
-  else if(parts[0]==="filters"){key="filters";filtersPage(parts[1],params);}
+  else if(parts[0]==="filters"){filtRedirect(parts[1],params);return;}
   else if(parts[0]==="filter"&&parts[1]){location.replace(filterUrl(decodeURIComponent(parts[1])));return;}
   else if(parts[0]==="steering"){key="steering";ssPage(parts[1],params);}
   else if(parts[0]==="shock-absorbers"){key="shocks";saPage(parts[1],params);}
