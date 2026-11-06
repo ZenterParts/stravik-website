@@ -542,14 +542,15 @@
       '<div class="o-bar"><select id="cvRange" style="width:auto">' + L.rangeOptions(false, S.range) + '</select><label class="check"><input type="checkbox" id="cvMissing" checked> Only parts without an FOB price</label><button class="btn ghost" id="cvTpl">Download template</button></div></div>');
     $('cvTpl').onclick = function () { template($('cvRange').value, $('cvMissing').checked).catch(L.fail); };
     try {
-      var res = await Promise.all([L.fetchAll(function () { return sb.from('stravik_parts').select('sv_pn,subcategory,status').order('sv_pn'); }), L.fetchAll(function () { return sb.from('stravik_prices').select('sv_pn,fob_usd').order('sv_pn'); })]);
-      var price = {}; res[1].forEach(function (p) { price[p.sv_pn] = p; });
-      var by = {}; res[0].forEach(function (p) { if (p.status === 'Inactive') return; var b = by[p.subcategory] = by[p.subcategory] || { n: 0, fob: 0 }; b.n++; var x = price[p.sv_pn]; if (x && x.fob_usd != null) b.fob++; });
+      // counts from stravik_price_coverage(): FOB prices in the old price list and in the per-range price tables
+      // (Pricing app uploads, e.g. stravik_prices_bulbs); counts only, so every staff member sees this page
+      var rows = L.must(await sb.rpc('stravik_price_coverage'));
+      var by = {}; rows.forEach(function (r) { by[r.subcategory] = { n: Number(r.parts), fob: Number(r.with_fob), reg: r.regions || '' }; });
       var tot = { n: 0, fob: 0 };
-      $('cvTable').innerHTML = '<thead><tr><th>Range</th><th class="num">Parts in use</th><th class="num">With FOB price</th><th class="num">Missing FOB</th><th class="num">Coverage</th></tr></thead><tbody>' +
+      $('cvTable').innerHTML = '<thead><tr><th>Range</th><th>Regional prices</th><th class="num">Parts in use</th><th class="num">With FOB price</th><th class="num">Missing FOB</th><th class="num">Coverage</th></tr></thead><tbody>' +
         L.CATS.map(function (c) { var b = by[c.subcategory_key] || { n: 0, fob: 0 }; tot.n += b.n; tot.fob += b.fob;
-          return '<tr class="click" data-href="' + esc(L.href('parts', [], { range: c.subcategory_key })) + '"><td>' + esc(c.name) + '</td><td class="num">' + b.n.toLocaleString() + '</td><td class="num">' + b.fob.toLocaleString() + '</td><td class="num">' + (b.n - b.fob ? '<span class="flag">' + (b.n - b.fob).toLocaleString() + '</span>' : '0') + '</td><td class="num">' + (b.n ? Math.round(b.fob / b.n * 100) : 0) + '%</td></tr>'; }).join('') +
-        '</tbody><tfoot><tr><td>Total</td><td class="num">' + tot.n.toLocaleString() + '</td><td class="num">' + tot.fob.toLocaleString() + '</td><td class="num">' + (tot.n - tot.fob).toLocaleString() + '</td><td class="num">' + (tot.n ? Math.round(tot.fob / tot.n * 100) : 0) + '%</td></tr></tfoot>';
+          return '<tr class="click" data-href="' + esc(L.href('parts', [], { range: c.subcategory_key })) + '"><td>' + esc(c.name) + '</td><td>' + esc(b.reg || '') + '</td><td class="num">' + b.n.toLocaleString() + '</td><td class="num">' + b.fob.toLocaleString() + '</td><td class="num">' + (b.n - b.fob ? '<span class="flag">' + (b.n - b.fob).toLocaleString() + '</span>' : '0') + '</td><td class="num">' + (b.n ? Math.round(b.fob / b.n * 100) : 0) + '%</td></tr>'; }).join('') +
+        '</tbody><tfoot><tr><td>Total</td><td></td><td class="num">' + tot.n.toLocaleString() + '</td><td class="num">' + tot.fob.toLocaleString() + '</td><td class="num">' + (tot.n - tot.fob).toLocaleString() + '</td><td class="num">' + (tot.n ? Math.round(tot.fob / tot.n * 100) : 0) + '%</td></tr></tfoot>';
     } catch (e) { L.fail(e); }
   }
 
