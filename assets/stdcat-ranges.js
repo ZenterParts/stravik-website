@@ -102,12 +102,13 @@ const FILTERS={
   icon:"f_oil",title:"Filters",tab:"Filter catalogue",one:"filter",many:"filters",cat:"Filters",data:"/filters.json",
   crumbs:crumbs("Filters","#/products/filters"),oeTitle:"OE and reference numbers",
   partUrl:i=>"/filter/"+encodeURIComponent(i.pn)+"/",
-  lead:"Air, oil, fuel and cabin filters, filter kits, coolant filters and housings. Find the right Stravik filter by Stravik, OE or cross-reference number, or vehicle.",
+  lead:"Air, oil, fuel and cabin filters, filter kits and coolant filters. Find the right Stravik filter by Stravik, OE or cross-reference number, or vehicle.",
   placeholder:"Stravik, OE or cross-reference no., vehicle or engine (e.g. Hilux 2.5 TD)",
   filters:[{k:"Filter type",h:"Filter type",any:"All filters"}],
   facts:d=>[[d.n.items,"filters"],[new Set(d.items.map(i=>i.s["Filter type"])).size,"filter types"],[d.n.makes,"vehicle makes"]],
   title1:i=>i.s["Filter type"],
-  specLine:s=>join([s["Filter type"],s["Description"]&&lc(s["Description"])!==lc(s["Filter type"])?lc(s["Description"]):"",s["Engine"]]),
+  // the final filter descriptions already start with the type ("Oil filter, spin-on – H 72 × OD 66 mm"): show them as they are
+  specLine:s=>{const d=s["Description"]||"";return /filter/i.test(d.slice(0,40))?join([d,s["Engine"]]):join([s["Filter type"],d&&lc(d)!==lc(s["Filter type"])?lc(d):"",s["Engine"]]);},
   specs:[["Filter type","Filter type"],["Description","Description"],["Engine","Engine"],["Size","Size"]],
   adapt(raw){const M=makes(),T={};(raw.types||[]).forEach(t=>T[t[0]]=t);
     FILTERS.filters[0].order=(raw.types||[]).map(t=>t[3]);

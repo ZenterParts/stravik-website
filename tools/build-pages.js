@@ -495,7 +495,8 @@ ${cantFind}`;
 // ================= filters =================
 const F = JSON.parse(rd("filters.json"));
 const FT = {}; F.types.forEach(t => FT[t[0]] = { code: t[0], slug: t[1], name: t[2], one: t[3] });
-const fdesc = i => FT[i.t].one + (i.d ? ", " + i.d.charAt(0).toLowerCase() + i.d.slice(1) : "");
+// the final filter descriptions already start with the type ("Oil filter, spin-on – H 72 × OD 66 mm"); older ones get the type in front
+const fdesc = i => { const s = i.d || ""; return /filter/i.test(s.slice(0, 40)) ? s : FT[i.t].one + (s ? ", " + s.charAt(0).toLowerCase() + s.slice(1) : ""); };
 const models = i => uniq(String(i.mo || "").split(/[;,/]/).map(s => s.trim().toLowerCase()));
 function fRelated(i) {
   const mo = models(i), mk = (i.mk || []).map(s => s.toLowerCase());
@@ -603,6 +604,13 @@ let forwards = 0;
       `<link rel="canonical" href="${SITE}${to}"><meta http-equiv="refresh" content="0; url=${to}"></head><body><p>Stravik ${old} is now <a href="${to}">${f}</a>.</p></body></html>\n`);
     forwards++;
   }
+}
+// filters were renumbered on 6 Nov 2026 (SV-AFL-0001-00 -> AP001): /filter/<old number>/ forwards to the new page
+for (const i of F.items) for (const old of i.o || []) {
+  const to = `/filter/${i.pn}/`;
+  write(`filter/${old}`, `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Stravik ${esc(old)} is now ${esc(i.pn)}</title><meta name="robots" content="noindex">` +
+    `<link rel="canonical" href="${SITE}${to}"><meta http-equiv="refresh" content="0; url=${to}"></head><body><p>Stravik ${esc(old)} is now <a href="${to}">${esc(i.pn)}</a>.</p></body></html>\n`);
+  forwards++;
 }
 
 // ================= sitemap and robots =================

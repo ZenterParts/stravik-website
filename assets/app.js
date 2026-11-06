@@ -567,7 +567,7 @@ function contact(params){
           </dl></aside>
   </div>`;
   const form=app.querySelector("form"),ready=app.querySelector("#ready");
-  const ref=params.get("ref");if(ref&&/^SV(-[A-Z]{3}-\d{4}-\d{2}|[A-Z]{2}\d{4}[LRK]?)$/.test(ref))form.querySelector("#m").value=`Stravik part number: ${ref}\nQuantity: \n`;
+  const ref=params.get("ref");if(ref&&(/^SV(-[A-Z]{3}-\d{4}-\d{2}|[A-Z]{2}\d{4}[LRK]?)$/.test(ref)||/^S[A-Z]{3,4}\d{4}$/.test(ref)||/^(OR|OE|AP|AC|HC|H|DR|DE|DL|GL|GE|GR|R|J)\d{3}$/.test(ref)))form.querySelector("#m").value=`Stravik part number: ${ref}\nQuantity: \n`;
   const btn=form.querySelector("#sendbtn");
   form.addEventListener("submit",async ev=>{ev.preventDefault();let ok=true;
     ["n","e","m"].forEach(id=>{const el=form.querySelector("#"+id);const bad=!el.value.trim()||(id==="e"&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(el.value));el.classList.toggle("invalid",bad);if(bad&&ok){el.focus();ok=false;}});
@@ -610,14 +610,15 @@ function fmatch(i,q){
   const words=q.toLowerCase().split(/\s+/).filter(Boolean);
   return words.every(w=>i.text.includes(w)||(fclean(w).length>=2&&i.keys.some(k=>k.includes(fclean(w)))));
 }
-const fdesc=(d,i)=>d.T[i.t].one+(i.d?", "+i.d.charAt(0).toLowerCase()+i.d.slice(1):"");
+// the final filter descriptions already start with the type ("Oil filter, spin-on – H 72 × OD 66 mm"); older ones get the type in front
+const fdesc=(d,i)=>{const s=i.d||"";return /filter/i.test(s.slice(0,40))?s:d.T[i.t].one+(s?", "+s.charAt(0).toLowerCase()+s.slice(1):"");};
 function frow(d,i,q){
   const c=fclean(q),hit=c.length>=3?(i.n||[]).filter(n=>fclean(n).includes(c)):[];
   const nums=hit.concat((i.n||[]).filter(n=>!hit.includes(n))),shown=nums.slice(0,3);
   const veh=[(i.mk||[]).join(", "),i.mo,i.y].filter(Boolean).join(" · ");
   const item={key:i.pn,no:i.pn,cat:"Filters",desc:fdesc(d,i),link:"/filter/"+i.pn+"/",kind:"filter"},on=Cart.has(i.pn);
   return `<tr data-href="/filter/${esc(i.pn)}/"><td class="fpn"><a href="/filter/${esc(i.pn)}/">${esc(i.pn)}</a></td>`+
-    `<td class="fty"><b>${esc(d.T[i.t].one)}</b>${i.d&&i.d.toLowerCase()!==d.T[i.t].one.toLowerCase()?` <span>${esc(i.d)}</span>`:""}</td>`+
+    `<td class="fty">${(()=>{const f=fdesc(d,i),k=f.indexOf(" – ");return k>0?`<b>${esc(f.slice(0,k))}</b> <span>${esc(f.slice(k+3))}</span>`:`<b>${esc(f)}</b>`;})()}</td>`+
     `<td class="fveh">${veh?esc(veh):""}</td>`+
     `<td class="fnum">${shown.length?shown.map(n=>hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)).join(", ")+(nums.length>3?` +${nums.length-3} more`:""):""}</td>`+
     `<td class="fact"><button type="button" class="fadd inline" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button></td></tr>`;
@@ -627,7 +628,7 @@ function fcard(d,i,q){
   const nums=hit.concat((i.n||[]).filter(n=>!hit.includes(n))),shown=nums.slice(0,4);
   const veh=[(i.mk||[]).join(", "),i.mo,i.y].filter(Boolean).join(" · ");
   const item={key:i.pn,no:i.pn,cat:"Filters",desc:fdesc(d,i),link:"/filter/"+i.pn+"/",kind:"filter"},on=Cart.has(i.pn);
-  return `<div class="fcell"><a class="fcard" href="/filter/${i.pn}/"><span class="ic">${icon(FICON[i.t])}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(d.T[i.t].one)}${i.d?", "+esc(i.d.charAt(0).toLowerCase()+i.d.slice(1)):""}</span>`+
+  return `<div class="fcell"><a class="fcard" href="/filter/${i.pn}/"><span class="ic">${icon(FICON[i.t])}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(fdesc(d,i))}</span>`+
     (veh?`<span class="veh"><b>Fits</b> ${esc(veh)}</span>`:"")+
     (shown.length?`<span class="nums"><b>OE / ref.</b> ${shown.map(n=>hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)).join(", ")}${nums.length>4?` +${nums.length-4} more`:""}</span>`:"")+`</a>`+
     `<button type="button" class="fadd" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button></div>`;
@@ -643,7 +644,7 @@ function filtersPage(slugT,params){
       <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the filter catalogue</span>
         <input id="fq" type="search" autocomplete="off" spellcheck="false" placeholder="${matchMedia("(max-width:600px)").matches?"Part no., OE no. or vehicle":"Search Stravik no., OE or cross-reference no., vehicle or engine"}" value="${esc(q)}">
         <button type="button" class="fs-x" id="fqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
-      <span class="fs-hint">For example SV-OFL-0001, 17801-0L040, Z212, Hilux or 2.2 TD</span></div>
+      <span class="fs-hint">For example OR001, 17801-0L040, Z212, Hilux or 2.2 TD</span></div>
     <div class="fbar"><div class="fbar-l"><label class="sr" for="fmk">Vehicle make</label><select id="fmk"><option value="">All makes</option></select><p class="fcount" id="fcount" aria-live="polite"></p></div>
       <div class="vtoggle" role="group" aria-label="Show filters as"><button type="button" data-v="list" aria-pressed="${view==="list"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2 3.5h12M2 8h12M2 12.5h12"/></svg>List</button><button type="button" data-v="cards" aria-pressed="${view==="cards"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Cards</button></div></div>
     <div id="flist"><p class="loading">Loading filters…</p></div></div></div>`;
