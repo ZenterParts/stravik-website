@@ -27,6 +27,8 @@
   var pct = function (v) { return v == null || v === '' ? '' : (Math.round(Number(v) * 10000) / 100) + '%'; };
   var dmy = function (d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
   var TIER = [['t1', 'T1'], ['t2', 'T2'], ['t3', 'T3'], ['t4', 'T4'], ['t5', 'T5'], ['retail', 'Retail']];
+  var single = function (reg) { return reg && reg.pricing === 'single'; };   // USD regions: one price for every customer (landed cost / (1 - margin))
+  var USDREG = function () { return (ME.regions || []).filter(single); };
   var tierName = function (col) { var t = (ME.tiers || []).find(function (x) { return x.col === col; }); return t ? t.name : col.toUpperCase(); };
   function noAccess() {
     L.cp({ crumbs: [['Pricing']] });
@@ -80,15 +82,22 @@
   function sell(x, col) { var px = S.data.region.prefix; return S.data.costs ? x[px + '_' + col] : x[col]; }
   function paint() {
     var reg = S.data.region, vat = Number(reg.vat), all = rows(), page = all.slice(S.offset, S.offset + L.PAGE), px = reg.prefix, cur = reg.currency;
-    var eff = (S.data.rows || []).map(function (x) { return S.data.costs ? x[px + '_effective'] : x.effective; }).filter(Boolean).sort().pop();
+    var eff = single(reg) ? null : (S.data.rows || []).map(function (x) { return S.data.costs ? x[px + '_effective'] : x.effective; }).filter(Boolean).sort().pop();
     $('prNote').innerHTML = esc(reg.name) + ' · ' + esc(S.range) + ' · ' + (S.data.rows || []).length.toLocaleString() + ' parts priced' + (eff ? ' · effective ' + esc(dmy(eff)) : '') + ' · prices in ' + esc(cur) +
-      (S.costs ? ' · costing view (pricing team only)' : ' · first line excl. VAT, second line incl. ' + esc(pct(vat)) + ' VAT');
+      (single(reg) ? ' · one price for every customer in the region' + (S.costs ? ' · costing view (pricing team only)' : '') : S.costs ? ' · costing view (pricing team only)' : ' · first line excl. VAT, second line incl. ' + esc(pct(vat)) + ' VAT');
     L.pager(S.offset, all.length, function (o) { S.offset = o; paint(); });
     if (!all.length) { $('prList').innerHTML = L.empty(S.text ? 'Nothing matches' : 'No prices in this range yet'); return; }
     var two = function (v) { return v == null ? '' : '<b>' + esc(money(v, cur)) + '</b><div class="small muted">' + esc(money(incl(v, vat), cur)) + '</div>'; };
     var cols = [{ label: 'Stravik PN', render: function (x) { return '<span class="pn">' + esc(x.sv_pn) + '</span>' + (x.lucas_pn ? '<div class="small muted">' + esc(x.lucas_pn) + '</div>' : ''); } },
       { label: 'Description', cls: 'clip', render: function (x) { return esc(x.short_desc || ''); } }];
-    if (S.costs) {
+    if (single(reg)) {
+      if (S.costs) cols = cols.concat([
+        { label: 'FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
+        { label: 'Landed USD', num: true, render: function (x) { return esc(money(x.cif_usd, 'USD')); } },
+        { label: 'Margin', num: true, render: function (x) { return esc(pct(x[px + '_margin'])); } }]);
+      cols = cols.concat([{ label: 'Price ' + cur, num: true, render: function (x) { return '<b>' + esc(money(S.data.costs ? x[px + '_price'] : x.price, cur)) + '</b>'; } },
+        { label: 'MOQ', num: true, render: function (x) { return x.moq == null ? '' : esc(String(x.moq)); } }]);
+    } else if (S.costs) {
       cols = cols.concat([
         { label: 'FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
         { label: 'CIF USD', num: true, render: function (x) { return esc(money(x.cif_usd, 'USD')); } },
@@ -104,7 +113,7 @@
         .concat([{ label: 'Market', num: true, render: function (x) { return esc((S.data.costs ? x[px + '_market_price'] : x.market_price) || ''); } }]);
     }
     $('prList').innerHTML = L.listView(cols, page, costs() ? function (x) { return L.href('pricing', ['part', x.sv_pn], { range: S.range }); } : null) +
-      '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>';
+      (single(reg) ? '<p class="small muted" style="margin-top:8px">Price = landed cost ÷ (1 − margin), rounded to 0.1.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
   }
 
   // one part's full costing (pricing team)
@@ -115,7 +124,8 @@
       if (r.q.range) S.range = r.q.range;
       if (!S.region) S.region = ME.regions[0].code;
       await load();
-      var pn = r.parts[1], x = (S.data.rows || []).find(function (y) { return y.sv_pn === pn; }), reg = S.data.region, px = reg.prefix, cur = reg.currency, vat = Number(reg.vat);
+      var pn = r.parts[1], x = (S.data.rows || []).find(function (y) { return y.sv_pn === pn; }), reg = S.data.region;
+      var sa = (ME.regions || []).find(function (g) { return g.code === 'south_africa'; }) || { prefix: 'sa', currency: 'ZAR', vat: 0.15 }, px = sa.prefix, cur = sa.currency, vat = Number(sa.vat);
       var crumbs = [['Pricing', BASE], [S.range, L.href('pricing', [], { range: S.range })], [pn]];
       if (!x) { L.cp({ crumbs: crumbs }); return L.content(L.empty('No price for ' + pn, 'This part is not in the ' + S.range + ' price list.')); }
       var hist = L.must(await sb.from('stravik_price_history').select('at,by_email,action,changes,source').eq('sv_pn', pn).order('at', { ascending: false }).limit(30));
@@ -125,15 +135,20 @@
           '<div class="o-groups">' +
           L.group('Supplier and Zenter Parts costs (USD)', [[(x.price_basis || 'FOB') + ' price', '<b>' + esc(money(x.fob_usd, 'USD')) + '</b>' + (x.fob_port ? ' <span class="muted">' + esc(x.fob_port) + '</span>' : '')],
             line('Consolidation', 'c_cons'), line('Finance', 'c_finance'), line('Customer rebate / discount', 'c_customer_rebate'), line('Shipping', 'c_ship'), line('Insurance', 'c_ins'),
-            line('Warehousing', 'c_whs'), line('Warranty', 'c_warr'), line('Marketing', 'c_mar'), line('Royalty', 'c_roy'), line('ZP margin', 'zp_mar'), line('CIF Zenter Parts', null, 'cif_usd', 'USD'), ['Remarks', esc(x.remarks || '')]]) +
-          L.group(reg.name + ' (' + cur + ', excl. VAT)', [['Exchange rate', esc(String(x[px + '_fx_rate'] || '')) + ' + ' + esc(pct(x[px + '_fx_buffer'])) + ' buffer = <b>' + esc(x[px + '_exchange'] == null ? '' : String(Math.round(x[px + '_exchange'] * 10000) / 10000)) + '</b>'],
+            line('Warehousing', 'c_whs'), line('Warranty', 'c_warr'), line('Marketing', 'c_mar'), line('Royalty', 'c_roy'), line('ZP margin', 'zp_mar'), line('CIF Zenter Parts / landed cost', null, 'cif_usd', 'USD'),
+            ['MOQ', esc(x.moq == null ? '' : String(x.moq))], ['Price source', esc(x.price_source || '')], ['Remarks', esc(x.remarks || '')]]) +
+          (USDREG().some(function (g) { return x[g.prefix + '_price'] != null; }) ? L.group('USD regions (one price per region)', USDREG().map(function (g) {
+            return [g.name, '<span class="muted">' + esc(pct(x[g.prefix + '_margin'])) + '</span> <b>' + esc(money(x[g.prefix + '_price'], 'USD')) + '</b>'];
+          })) : '') +
+          (x.sa_t1 == null && single(reg) ? '' : L.group('South Africa (ZAR, excl. VAT)', [['Exchange rate', esc(String(x[px + '_fx_rate'] || '')) + ' + ' + esc(pct(x[px + '_fx_buffer'])) + ' buffer = <b>' + esc(x[px + '_exchange'] == null ? '' : String(Math.round(x[px + '_exchange'] * 10000) / 10000)) + '</b>'],
             line('CIF ' + cur, null, px + '_cif_zar', cur), line('Clearance', px + '_clearance'), line('Duties', px + '_duties'), line('Ancillary fluctuations', px + '_ancillary'), line('Finance', px + '_finance'),
             line('Excise', px + '_excise'), line('Anti-dumping', px + '_anti_dumping'), line('DPW margin', px + '_dpw_margin'), line('Landed cost', null, px + '_landed', cur),
             line('Distribution', px + '_c_dist'), line('COD discount', px + '_c_cod'), line('Gross sales', null, px + '_gross', cur)]) +
           L.group('Sell prices (' + cur + ')', TIER.map(function (t) {
             var up = t[0] === 'retail' ? px + '_retail_margin' : px + '_' + t[0] + '_uplift', v = x[px + '_' + t[0]];
             return [tierName(t[0]), '<span class="muted">+' + esc(pct(x[up])) + '</span> <b>' + esc(money(v, cur)) + '</b> <span class="muted">· incl. VAT ' + esc(money(incl(v, vat), cur)) + '</span>'];
-          }).concat([['Market price', esc(x[px + '_market_price'] || '')], ['Effective', esc(dmy(x[px + '_effective']))], ['Source', esc(x[px + '_source'] || '')], ['Last change', esc(L.dt(x.updated_at)) + ' · ' + esc(x.updated_by || '')]])) +
+          }).concat([['Market price', esc(x[px + '_market_price'] || '')], ['Effective', esc(dmy(x[px + '_effective']))], ['Source', esc(x[px + '_source'] || '')]]))) +
+          L.group('', [['Last change', esc(L.dt(x.updated_at)) + ' · ' + esc(x.updated_by || '')]]) +
           '</div>' +
           '<h3 style="margin-top:22px">History</h3>' + historyTable(hist, false)
       });
@@ -148,6 +163,7 @@
     views = views.filter(function (v) { return v && v.rows; });
     if (!views.length) return [];
     var reg = views[0].region, px = reg.prefix, cur = reg.currency, vat = Number(reg.vat), withCost = views.every(function (v) { return v.costs; });
+    if (single(reg)) return exportSingle(views, keep, withCost);
     var sell_ = function (v, x, col) { return v.costs ? x[px + '_' + col] : x[col]; };
     var head = ['Stravik PN', 'Lucas PN', 'Description', 'Range'], widths = [14, 14, 46, 16];
     TIER.forEach(function (t) { head.push(tierName(t[0]) + ' ' + cur + ' excl. VAT', tierName(t[0]) + ' ' + cur + ' incl. VAT'); widths.push(16, 16); });
@@ -168,6 +184,24 @@
         [px + '_t1_uplift', 'T1 UPLIFT'], [px + '_t1', 'T1 DISTRIBUTOR/WHOLESALER'], [px + '_t2_uplift', 'T2 CHAIN UPLIFT'], [px + '_t2', 'T2 CHAIN PRICES'], [px + '_t3_uplift', 'T3 UPLIFT BIG RETAILERS'], [px + '_t3', 'BIG RETAILERS'],
         [px + '_t4_uplift', 'T4 UPLIFT TO MEDIUM RETAILERS'], [px + '_t4', 'T4 MEDIUM RETAILERS'], [px + '_t5_uplift', 'T5 UPLIFT TO SMALL RETAILERS'], [px + '_t5', 'T5 SMALL RETAILERS'], [px + '_retail_margin', 'SALES MARGIN RETAIL PRICE'], [px + '_retail', 'RETAIL PRICE'],
         [px + '_market_price', 'MARKET PRICE ' + cur], ['remarks', 'REMARKS'], [px + '_effective', 'Effective'], [px + '_source', 'Source']];
+      sheets.push({ name: 'Costing', head: C.map(function (c) { return c[1]; }), rows: all.map(function (p) {
+        return C.map(function (c) { var y = c[0] === '_range' ? p[0].subcategory : p[1][c[0]]; return y == null ? '' : typeof y === 'number' ? Math.round(y * 1e6) / 1e6 : y; });
+      }) });
+    }
+    return sheets;
+  }
+  // USD region download: one price per part; for the pricing team also the cost build-up and every USD region
+  function exportSingle(views, keep, withCost) {
+    var reg = views[0].region, px = reg.prefix, all = [];
+    views.forEach(function (v) { v.rows.forEach(function (x) { if (!keep || keep(x, v)) all.push([v, x]); }); });
+    var sheets = [{ name: 'Prices', head: ['Stravik PN', 'Lucas PN', 'Description', 'Range', 'Price USD', 'MOQ'], widths: [14, 14, 46, 16, 14, 8],
+      top: [[reg.name + ' · ' + views.map(function (v) { return v.subcategory; }).join(', ') + ' · USD · one price for every customer']],
+      rows: all.map(function (p) { var v = p[0], x = p[1]; return [x.sv_pn, x.lucas_pn || '', x.short_desc || '', v.subcategory, r2(v.costs ? x[px + '_price'] : x.price), x.moq == null ? '' : x.moq]; }) }];
+    if (withCost) {
+      var C = [['sv_pn', 'Stravik PN'], ['_range', 'Range'], ['price_basis', 'Basis'], ['fob_usd', 'FOB / EXW USD'], ['c_cons', 'C_CONS'], ['c_finance', 'C_FINANCE'], ['c_customer_rebate', 'C_CUSTOMER DISCOUNT'], ['c_ship', 'C_SHIP'], ['c_ins', 'C_INS'],
+        ['c_whs', 'C_WHS'], ['c_warr', 'C_WARR'], ['c_mar', 'C_MAR'], ['c_roy', 'C_ROY'], ['zp_mar', 'ZP MAR'], ['cif_usd', 'LANDED COST USD'], ['moq', 'MOQ']];
+      USDREG().forEach(function (g) { C.push([g.prefix + '_margin', 'MARGIN ' + g.name.toUpperCase()], [g.prefix + '_price', 'PRICE ' + g.name.toUpperCase()]); });
+      C.push(['price_source', 'PRICE SOURCE'], ['remarks', 'REMARKS']);
       sheets.push({ name: 'Costing', head: C.map(function (c) { return c[1]; }), rows: all.map(function (p) {
         return C.map(function (c) { var y = c[0] === '_range' ? p[0].subcategory : p[1][c[0]]; return y == null ? '' : typeof y === 'number' ? Math.round(y * 1e6) / 1e6 : y; });
       }) });
@@ -275,7 +309,7 @@
     if (!regionCode) throw new Error('No price region available');
     var subs = (ranges && ranges.length ? ranges : me_.ranges.map(function (r) { return r.subcategory; }));
     var views = await Promise.all(subs.map(function (sub) { return sb.rpc('stravik_price_view', { p_sub: sub, p_region: regionCode }).then(L.must); }));
-    if (views.length && views.every(function (v) { return v.costs; })) return costingXlsx(views, keep, opts, name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
+    if (views.length && views.every(function (v) { return v.costs && !single(v.region); })) return costingXlsx(views, keep, opts, name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
     await L.saveXlsx((extraFirst || []).concat(exportSheets(views, keep)), name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
   };
   async function excel() {
@@ -284,7 +318,7 @@
       L.toast('Preparing the download…');
       var keep = {}; rows().forEach(function (x) { keep[x.sv_pn] = 1; });
       var name = 'Stravik_prices_' + S.data.region.name.replace(/\W+/g, '_') + '_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx';
-      if (S.data.costs) await costingXlsx([S.data], function (x) { return keep[x.sv_pn]; }, null, name);
+      if (S.data.costs && !single(S.data.region)) await costingXlsx([S.data], function (x) { return keep[x.sv_pn]; }, null, name);
       else await L.saveXlsx(exportSheets([S.data], function (x) { return keep[x.sv_pn]; }), name);
     } catch (e) { L.fail(e); }
   }
@@ -305,13 +339,22 @@
     finance: 'sa_finance', excise: 'sa_excise', antidumping: 'sa_anti_dumping', dpwmargin: 'sa_dpw_margin', landedcost: 'sa_landed', landedcostdpw: 'sa_landed', cdist: 'sa_c_dist', ccoddiscount: 'sa_c_cod', grosssales: 'sa_gross',
     t1uplift: 'sa_t1_uplift', t2chainuplift: 'sa_t2_uplift', t2chainprices: 'sa_t2', t3upliftbigretailers: 'sa_t3_uplift', bigretailers: 'sa_t3', t3bigretailers: 'sa_t3', t4uplifttomediumretailers: 'sa_t4_uplift', t4mediumretailers: 'sa_t4',
     t5uplifttosmallretailers: 'sa_t5_uplift', t5smallretailers: 'sa_t5', salesmarginretailprice: 'sa_retail_margin', retailprice: 'sa_retail', marketpricezar: 'sa_market_price', marketprice: 'sa_market_price' };
-  var TEXT = { sv_pn: 1, _lucas: 1, fob_port: 1, remarks: 1, sa_market_price: 1 };
+  var TEXT = { sv_pn: 1, _lucas: 1, fob_port: 1, remarks: 1, sa_market_price: 1, price_source: 1 };
+  MAP.moq = 'moq'; MAP.pricesource = 'price_source'; MAP.landedcostusd = 'cif_usd'; MAP.cwar = 'c_warr'; MAP.cmark = 'c_mar';
+  // USD regions: "MARGIN NORTH AFRICA" / "PRICE NORTH AFRICA" (also "margin_north_africa", "North Africa margin")
+  function regionHeads() {
+    USDREG().forEach(function (g) {
+      [g.name, g.name.replace(/\s*\(.*\)$/, ''), g.code].forEach(function (n) { var h = L.normHead(n);
+        MAP['margin' + h] = g.prefix + '_margin'; MAP[h + 'margin'] = g.prefix + '_margin'; MAP['price' + h] = g.prefix + '_price'; MAP[h + 'price'] = g.prefix + '_price'; });
+    });
+  }
   function numOf(s) {
     s = String(s == null ? '' : s).trim(); if (!s) return null;
     var p = /%$/.test(s); s = s.replace(/[R$\s,%]/g, '');
     var n = Number(s); return isFinite(n) ? (p ? n / 100 : n) : NaN;
   }
   async function readPriceSheet(f) {
+    regionHeads();
     var rows = await L.readRows(f), hi = rows.findIndex(function (r) { return r.some(function (c) { return L.normHead(c) === 'stravikpartnumber'; }); });
     if (hi < 0) throw new Error('No "STRAVIK PART NUMBER" column found in the first sheet.');
     var info = { fx: null, buf: null, eff: null, title: null };
@@ -360,22 +403,28 @@
         sh.rows.forEach(function (o) { if (!o.sv_pn && o._lucas) o.sv_pn = by[L.clean(o._lucas)] || o._lucas; });
       }
       var range = sh.info.title || S.range || '';
+      var hasSA = sh.rows.some(function (o) { return Object.keys(o).some(function (k) { return /^sa_/.test(k) && k !== 'sa_market_price'; }); });
+      var regs = USDREG().filter(function (g) { return sh.rows.some(function (o) { return o[g.prefix + '_margin'] != null || o[g.prefix + '_price'] != null; }); });
+      var noFx = hasSA && !sh.info.fx;
       L.modal('Upload price list', '<p>' + esc(f.name) + ': <b>' + sh.rows.length.toLocaleString() + '</b> rows' +
           (sh.info.eff ? ', effective <b>' + esc(dmy(sh.info.eff)) + '</b>' : '') + (sh.info.fx ? ', USD → ZAR <b>' + esc(String(sh.info.fx)) + '</b>' + (sh.info.buf != null ? ' + ' + esc(pct(sh.info.buf)) + ' buffer' : '') : '') + '.</p>' +
-        (!sh.info.fx ? '<div class="notice bad">No exchange rate found above the table ("USD → ZAR rate" with the rate in the next cell).</div>' : '') +
+        (noFx ? '<div class="notice bad">South Africa columns but no exchange rate above the table ("USD → ZAR rate" with the rate in the next cell).</div>' : '') +
         (sh.bad.length ? '<div class="notice bad"><b>Fix these first:</b><ul>' + sh.bad.slice(0, 20).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></div>' : '') +
         L.group('', [['Range', '<select id="puRange">' + L.CATS.map(function (x) { return '<option' + (x.subcategory_key === range ? ' selected' : '') + '>' + esc(x.subcategory_key) + '</option>'; }).join('') + '</select>'],
-          ['Region', '<select id="puReg"><option value="south_africa">South Africa (ZAR)</option></select>']]) +
+          ['Regions in the file', esc((hasSA ? ['South Africa (ZAR)'] : []).concat(regs.map(function (g) { return g.name + ' (USD)'; })).join(', ') || 'costs only (FOB and cost build-up)')]]) +
         (sh.ignored.length ? '<p class="small muted">Not price columns, ignored: ' + esc(sh.ignored.join(', ')) + '</p>' : '') +
-        '<div id="puRes"></div><div class="o-footer"><button class="btn" id="puCheck"' + (sh.bad.length || !sh.info.fx ? ' disabled' : '') + '>Check</button><button class="btn ghost" id="puX">Cancel</button></div>', true);
+        '<div id="puRes"></div><div class="o-footer"><button class="btn" id="puCheck"' + (sh.bad.length || noFx ? ' disabled' : '') + '>Check</button><button class="btn ghost" id="puX">Cancel</button></div>', true);
       $('puX').onclick = L.closeModal;
       var payload = function () {
         return sh.rows.map(function (o) {
           var x = Object.assign({}, o); delete x._lucas;
-          x.sa_fx_rate = sh.info.fx; if (sh.info.buf != null) x.sa_fx_buffer = sh.info.buf;
-          if (sh.info.eff) x.sa_effective = sh.info.eff;
+          if (hasSA) {
+            x.sa_fx_rate = sh.info.fx; if (sh.info.buf != null) x.sa_fx_buffer = sh.info.buf;
+            if (sh.info.eff) x.sa_effective = sh.info.eff;
+            x.sa_source = f.name + (sh.info.eff ? ' (effective ' + sh.info.eff + ')' : '');
+          } else if (!x.price_source) x.price_source = f.name;
           if (sh.basis) x.price_basis = sh.basis;
-          x.sa_source = f.name + (sh.info.eff ? ' (effective ' + sh.info.eff + ')' : ''); return x;
+          return x;
         });
       };
       $('puCheck').onclick = async function () {
@@ -410,8 +459,8 @@
         li(res.mismatches, function (m) { return '<b>' + esc(m.pn) + '</b> ' + esc(m.column) + ': sheet ' + esc(String(m.sheet)) + ', formula ' + esc(String(m.formula)); }) + '</div>' : '') +
       (res.above_market.length ? '<div class="notice"><b>' + res.above_market.length + ' retail prices incl. VAT are above the market price</b> (for information):' +
         li(res.above_market, function (m) { return '<b>' + esc(m.pn) + '</b> retail incl. VAT R' + esc(L.money(m.retail_incl_vat)) + ', market ' + esc(m.market); }) + '</div>' : '') +
-      (res.changes.length ? '<div class="o-list"><table class="grid compact"><thead><tr><th>Stravik PN</th><th class="num">T1 now</th><th class="num">T1 new</th><th class="num">Retail now</th><th class="num">Retail new</th><th>Changed</th></tr></thead><tbody>' +
-        res.changes.slice(0, 200).map(function (c) { return '<tr><td class="pn">' + esc(c.pn) + '</td><td class="num">' + (c.new ? '<span class="muted">new</span>' : esc(L.money(c.t1_was))) + '</td><td class="num"><b>' + esc(L.money(c.t1)) + '</b></td><td class="num">' + (c.new ? '' : esc(L.money(c.retail_was))) + '</td><td class="num"><b>' + esc(L.money(c.retail)) + '</b></td><td class="small">' + esc((c.columns || []).join(', ')) + '</td></tr>'; }).join('') +
+      (res.changes.length ? '<div class="o-list"><table class="grid compact"><thead><tr><th>Stravik PN</th><th class="num">Landed USD now</th><th class="num">Landed USD new</th><th class="num">T1 now</th><th class="num">T1 new</th><th class="num">Retail now</th><th class="num">Retail new</th><th>Changed</th></tr></thead><tbody>' +
+        res.changes.slice(0, 200).map(function (c) { return '<tr><td class="pn">' + esc(c.pn) + '</td><td class="num">' + (c.new ? '<span class="muted">new</span>' : esc(c.landed_was == null ? '' : String(c.landed_was))) + '</td><td class="num"><b>' + esc(c.landed == null ? '' : String(c.landed)) + '</b></td><td class="num">' + (c.new ? '' : esc(c.t1_was == null ? '' : L.money(c.t1_was))) + '</td><td class="num"><b>' + esc(c.t1 == null ? '' : L.money(c.t1)) + '</b></td><td class="num">' + (c.new || c.retail_was == null ? '' : esc(L.money(c.retail_was))) + '</td><td class="num"><b>' + esc(c.retail == null ? '' : L.money(c.retail)) + '</b></td><td class="small">' + esc((c.columns || []).join(', ')) + '</td></tr>'; }).join('') +
         '</tbody></table></div>' + (res.changes.length > 200 ? '<p class="small muted">First 200 shown.</p>' : '') : '');
   }
   async function uploadPage() {
@@ -420,7 +469,8 @@
     L.cp({ crumbs: [['Pricing', BASE], ['Upload']], buttons: '<button type="button" class="btn" id="upGo">Choose the Excel file</button>' });
     L.content('<div class="o-sheet" style="max-width:860px"><h2>Upload a price list</h2><p>Upload the costing sheet as you keep it (one range per file), for example <i>Bulbs.xlsx</i>. Above the table it should have the range name, ' +
       '“Effective 30 October 2026”, “USD → ZAR rate” and “FX buffer”; the table starts at the row with <b>STRAVIK PART NUMBER</b>.</p>' +
-      '<ul><li>Every price is recalculated from the costs with the sheet\'s own formulas. Values that differ by more than a cent (typed over, or a broken formula) are listed before anything is saved.</li>' +
+      '<ul><li>South Africa sheets need the exchange rate above the table. Files for the USD regions only need STRAVIK PART NUMBER, FOB and the cost columns, with MARGIN &lt;region&gt; (for example MARGIN NORTH AFRICA): the price is landed cost ÷ (1 − margin), rounded to 0.1.</li>' +
+      '<li>Every price is recalculated from the costs with the sheet\'s own formulas. Values that differ by more than a cent (typed over, or a broken formula) are listed before anything is saved.</li>' +
       '<li>You see what is new and what changes, then save. Every change is kept in the history.</li>' +
       '<li>A file with only some columns (e.g. Stravik PN and FOB) changes only those, and recalculates the prices from the part\'s other stored costs.</li>' +
       '<li>Parts listed twice (one row per vehicle) must have the same costs and margins; the market price may be on just one of the rows.</li>' +
@@ -432,7 +482,7 @@
   var TBL = {};
   function historyTable(rows, withPart) {
     if (!rows.length) return '<p class="muted">No changes yet.</p>';
-    var PCT = /^(c_|zp_mar|sa_(clearance|duties|ancillary|finance|excise|anti_dumping|dpw_margin|c_dist|c_cod|fx_buffer|t\d_uplift|retail_margin)$)/, PLAIN = /^sa_(fx_rate|exchange)$/;
+    var PCT = /^(c_|zp_mar|[a-z]{2,4}_margin$|sa_(clearance|duties|ancillary|finance|excise|anti_dumping|dpw_margin|c_dist|c_cod|fx_buffer|t\d_uplift|retail_margin)$)/, PLAIN = /^sa_(fx_rate|exchange)$/;
     var show = function (k, v) { return v == null ? '—' : typeof v !== 'number' ? String(v) : PCT.test(k) ? pct(v) : PLAIN.test(k) ? String(Math.round(v * 10000) / 10000) : L.money(v); };
     return '<div class="o-list"><table class="grid compact"><thead><tr><th>When</th><th>By</th>' + (withPart ? '<th>Part</th><th>Range</th>' : '') + '<th>What</th><th>Source</th></tr></thead><tbody>' + rows.map(function (h) {
       var what = h.action === 'insert' ? 'Added' + (h.changes && h.changes.sa_t1 != null ? ' · T1 ' + esc(L.money(h.changes.sa_t1)) + ', retail ' + esc(L.money(h.changes.sa_retail)) : '') : h.action === 'delete' ? 'Removed' :
@@ -470,7 +520,7 @@
       L.content('<div class="o-sheet" style="max-width:980px">' +
         '<h2>Pricing team: sees all costs and every region</h2><p class="small muted">FOB / EXW, the cost build-up, landed cost, gross sales and uplifts; uploads price lists. Changed by the data team (staff.sees_costs).</p>' +
         '<ul>' + staff.filter(function (s) { return s.sees_costs && s.active; }).map(function (s) { return '<li>' + nm(s.email) + '</li>'; }).join('') + '</ul>' +
-        '<h2 style="margin-top:22px">Sales: sell prices by region</h2><p class="small muted">T1–T5 and retail, excl. and incl. VAT, and the market price. Never costs or uplifts.</p>' +
+        '<h2 style="margin-top:22px">Sales: sell prices by region</h2><p class="small muted">South Africa: T1–T5 and retail, excl. and incl. VAT, and the market price. USD regions: the region\'s price. Never costs, uplifts or margins.</p>' +
         '<div class="o-list"><table class="grid compact"><thead><tr><th>Person</th><th>Region</th><th>Note</th><th></th></tr></thead><tbody>' +
         (acc.length ? acc.map(function (a) { return '<tr><td>' + nm(a.email) + '</td><td>' + esc((regs.find(function (x) { return x.code === a.region; }) || {}).name || a.region) + '</td><td class="small">' + esc(a.note || '') + '</td><td><button type="button" class="btn small ghost" data-del="' + esc(a.email + '|' + a.region) + '">Remove</button></td></tr>'; }).join('') : '<tr><td colspan="4" class="muted">Nobody yet.</td></tr>') +
         '</tbody></table></div>' +

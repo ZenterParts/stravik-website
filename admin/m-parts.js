@@ -1,6 +1,7 @@
 /* App: Parts & prices (Stravik). Everyone on the staff list views and downloads; the data team edits and uploads.
    Tables: stravik_parts, stravik_specs, stravik_oe_numbers, stravik_cross_refs, stravik_applications, stravik_packaging,
-   stravik_prices (FOB, cost build-up, margin per region) and the view stravik_price_list (landed cost and regional prices, calculated).
+   Prices: read only here, from the view stravik_price_list (built from the Pricing app's tables stravik_prices_<range>);
+   they are uploaded and changed in the Pricing app. The old table stravik_prices is closed (read-only, kept for reference).
    Every change is written to stravik_part_history by the database. */
 (function (L) {
   'use strict';
@@ -115,7 +116,8 @@
   function readRows(key) {
     return Array.from(document.querySelectorAll('#rows-' + key + ' .row')).map(function (r) { var o = { id: r.dataset.id ? Number(r.dataset.id) : null }; LISTS[key].cols.forEach(function (c) { o[c[0]] = r.querySelector('[data-f="' + c[0] + '"]').value.trim(); }); return o; });
   }
-  function pricesTab(pr, pl, ed) {
+  function pricesTab(pr, pl, ed, sub) {
+    ed = false;   // prices are changed in the Pricing app
     var cost = '<tr><td>FOB (USD)</td><td class="num">' + (ed ? '<input id="g_fob_usd" inputmode="decimal" value="' + esc(pr.fob_usd == null ? '' : pr.fob_usd) + '" style="width:110px;text-align:right">' : money4(pr.fob_usd)) + '</td></tr>' +
       COSTS.map(function (c) { return '<tr><td>' + esc(c[1]) + '</td><td class="num">' + (ed ? '<input id="g_' + c[0] + '" inputmode="decimal" value="' + esc(pctIn(pr[c[0]])) + '" style="width:80px;text-align:right"> %' : esc(pctIn(pr[c[0]])) + (pr[c[0]] == null ? '' : '%')) + '</td></tr>'; }).join('') +
       '<tr><td><b>Landed cost (USD)</b></td><td class="num"><b>' + money4(pl.landed_cost) + '</b></td></tr>';
@@ -123,7 +125,8 @@
       return '<tr><td>' + esc(g[1]) + '</td><td class="num">' + (ed ? '<input id="g_m_' + g[0] + '" inputmode="decimal" value="' + esc(pctIn(pr['margin_' + g[0]])) + '" style="width:70px;text-align:right"> %' : esc(pctIn(pr['margin_' + g[0]])) + (pr['margin_' + g[0]] == null ? '' : '%')) +
         '</td><td class="num"><b>' + L.money(pl['price_' + g[0]]) + '</b></td></tr>';
     }).join('');
-    return '<p class="muted small">Landed cost = FOB × (1 + the cost percentages). Regional price = landed cost ÷ (1 − margin), rounded to 0.1. Sales price = the highest regional price. Change the FOB, a cost or a margin and save: the prices recalculate. Prices are internal and never shown on the Stravik website.</p>' +
+    return '<p class="muted small">Landed cost = FOB × (1 + the cost percentages). Regional price = landed cost ÷ (1 − margin), rounded to 0.1. Sales price = the highest regional price. Prices are internal and never shown on the Stravik website. ' +
+      'They are kept in the <a href="' + L.href('pricing', [], { range: sub || '' }) + '">Pricing app</a>: upload or change them there (South Africa, with its tiers, is there too).</p>' +
       '<div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start"><div><h3 style="margin:0 0 6px">Cost build-up</h3><table class="grid compact"><tbody>' + cost + '</tbody></table></div>' +
       '<div><h3 style="margin:0 0 6px">Prices by region (USD)</h3><table class="grid compact"><thead><tr><th>Region</th><th class="num">Margin</th><th class="num">Price</th></tr></thead><tbody>' + reg +
       '<tr><td><b>Sales price</b></td><td></td><td class="num"><b>' + L.money(pl.sales_price) + '</b></td></tr></tbody></table></div>' +
@@ -136,7 +139,7 @@
     try {
       var r = await Promise.all([
         sb.from('stravik_parts').select('*').eq('sv_pn', pn).maybeSingle(),
-        sb.from('stravik_prices').select('*').eq('sv_pn', pn).maybeSingle(),
+        sb.from('stravik_price_list').select('*').eq('sv_pn', pn).maybeSingle(),
         sb.from('stravik_price_list').select('*').eq('sv_pn', pn).maybeSingle(),
         sb.from('stravik_specs').select('*').eq('sv_pn', pn).order('id'),
         sb.from('stravik_oe_numbers').select('*').eq('sv_pn', pn).order('seq', { nullsFirst: false }).order('id'),
@@ -168,7 +171,7 @@
         apps.map(function (a) { return '<tr><td>' + esc(a.make) + '</td><td>' + esc(a.model) + '</td><td>' + esc(a.model_code) + '</td><td>' + esc(a.engine_code) + '</td><td>' + esc(a.years) + '</td><td>' + esc(a.position) + '</td><td class="clip">' + esc(a.description) + '</td><td class="editor-only"><button class="link" data-delapp="' + a.id + '">Remove</button></td></tr>'; }).join('') +
         '</tbody></table></div><div class="editor-only"><div class="o-group-title" style="margin-top:14px">Add a vehicle</div><div class="cols2" id="newApp">' + [['make', 'Make'], ['model', 'Model'], ['model_code', 'Model / engine code'], ['engine_code', 'Engine'], ['years', 'Years'], ['position', 'Position'], ['description', 'Details']].map(function (f) { return '<label>' + f[1] + '<input data-f="' + f[0] + '"></label>'; }).join('') +
         '</div><div class="o-footer"><button type="button" class="btn ghost" id="addApp">Add vehicle</button></div></div>' });
-      tabs.push({ key: 'price', label: 'Prices', html: pricesTab(pr, pl, ed) });
+      tabs.push({ key: 'price', label: 'Prices', html: pricesTab(pr, pl, ed, p.subcategory) });
       tabs.push({ key: 'pack', label: 'Packaging', html: '<div class="o-groups">' + L.group('', PACK.slice(0, 6).map(function (f) { return [f[1], inp('k_' + f[0], pack[f[0]], f[2] ? ' inputmode="decimal"' : '')]; })) + L.group('', PACK.slice(6).map(function (f) { return [f[1], inp('k_' + f[0], pack[f[0]], f[2] ? ' inputmode="decimal"' : '')]; })) + '</div>' });
       tabs.push({ key: 'stock', label: 'Stock <span class="muted">(' + L.qty(avail) + ')</span>', html: stock.length ?
         '<table class="grid compact"><thead><tr><th>Warehouse</th><th>Bin</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th><th>Updated</th></tr></thead><tbody>' +
@@ -214,21 +217,6 @@
           if (!up.brand) up.brand = 'Stravik';
           var changed = {}; Object.keys(up).forEach(function (k) { if ((up[k] == null ? null : up[k]) !== (p[k] == null ? null : p[k])) changed[k] = up[k]; });
           if (Object.keys(changed).length) L.must(await sb.from('stravik_parts').update(changed).eq('sv_pn', pn));
-          // prices
-          var pv = {}, any = false, num = function (id, label, pct) { var v = $(id).value.trim(); if (v === '') return null; var n = L.num(v); if (Number.isNaN(n)) throw new Error(label + ' must be a number'); any = true; return pct ? Math.round(n * 1e6) / 1e8 : n; };
-          pv.fob_usd = num('g_fob_usd', 'FOB');
-          COSTS.forEach(function (c2) { var v = num('g_' + c2[0], c2[1] + ' %', true); if (v != null) pv[c2[0]] = v; else if (pr.sv_pn) pv[c2[0]] = 0; });
-          REGIONS.forEach(function (g) { pv['margin_' + g[0]] = num('g_m_' + g[0], g[1] + ' margin', true); });
-          var mq = num('g_moq', 'MOQ'); pv.moq = mq == null ? null : Math.round(mq);
-          ['price_list', 'price_source'].forEach(function (k) { var v = $('g_' + k).value.trim(); pv[k] = v || null; if (v) any = true; });
-          pv.notes = $('g_notes').value.trim() || null; if (pv.notes) any = true;
-          if (pr.sv_pn) {
-            var pch = {}; Object.keys(pv).forEach(function (k) { var a = pv[k], b0 = pr[k] == null ? null : (typeof a === 'number' ? Number(pr[k]) : pr[k]); if (!(a === b0 || (typeof a === 'number' && b0 != null && Math.abs(a - b0) < 1e-9))) pch[k] = a; });
-            if (Object.keys(pch).length) L.must(await sb.from('stravik_prices').update(pch).eq('sv_pn', pn));
-          } else if (any) {
-            var ins = { sv_pn: pn }; Object.keys(pv).forEach(function (k) { if (pv[k] != null) ins[k] = pv[k]; });
-            L.must(await sb.from('stravik_prices').insert(ins));   // empty margins / costs take the Stravik standard values
-          }
           // packaging
           var kv = { sv_pn: pn }, kany = false;
           PACK.forEach(function (f) { var v = $('k_' + f[0]).value.trim(); if (v === '') { kv[f[0]] = null; return; } if (f[2]) { var n = L.num(v); if (Number.isNaN(n)) throw new Error(f[1] + ' must be a number'); kv[f[0]] = n; } else kv[f[0]] = v; kany = true; });
@@ -485,71 +473,26 @@
     L.saveXlsx([{ name: 'Parts', widths: head.map(function (h) { return Math.max(12, h.length + 2); }), head: head, rows: [ex] }, { name: 'How to fill', widths: [18, 110], head: help[0], rows: help.slice(1) }], 'Stravik_parts_upload_template.xlsx').catch(L.fail);
   }
 
-  // ---------- prices: upload and coverage ----------
-  async function uploadPrices(f) {
-    L.modal('Upload prices', '<p class="muted">Reading ' + esc(f.name) + '…</p>', true);
-    try {
-      var raw = await L.readSheet(f), bad = [];
-      var rows = raw.map(function (o, i) {
-        return { line: i + 2, sv_pn: L.pnNorm(L.pick(o, L.PN_COLS)), fob: L.num(L.pick(o, ['fobusd', 'fob', 'fobprice', 'fobpriceusd', 'fobusdprice'])), moq: L.num(L.pick(o, ['moq', 'minimumorderquantity'])), list: L.pick(o, ['pricelist', 'pricelistname', 'list']), src: L.pick(o, ['pricesource', 'source']) };
-      }).filter(function (r) { return r.sv_pn && (r.fob != null || r.list || r.moq != null); });
-      if (!rows.length) return L.modal('Upload prices', '<p class="flag">No rows with a Stravik PN and a price were found. Columns: "Stravik PN" and "FOB USD" (optional "MOQ", "Price list", "Price source").</p>');
-      var rmap = await L.resolvePns(rows.map(function (r) { return r.sv_pn; })); rows.forEach(function (r) { if (rmap[r.sv_pn]) r.sv_pn = rmap[r.sv_pn]; });
-      rows.forEach(function (r) { if (Number.isNaN(r.fob) || Number.isNaN(r.moq)) bad.push('Row ' + r.line + ' (' + r.sv_pn + '): not a number'); else if (r.fob != null && r.fob < 0) bad.push('Row ' + r.line + ': negative price'); });
-      var known = {}, cur = {};
-      for (var ch of L.chunks(rows.map(function (r) { return r.sv_pn; }), 300)) {
-        L.must(await sb.from('stravik_parts').select('sv_pn,short_desc').in('sv_pn', ch)).forEach(function (p) { known[p.sv_pn] = p.short_desc; });
-        L.must(await sb.from('stravik_prices').select('sv_pn,fob_usd,moq,price_list,price_source').in('sv_pn', ch)).forEach(function (p) { cur[p.sv_pn] = p; });
-      }
-      var unknown = rows.filter(function (r) { return !(r.sv_pn in known); });
-      var ok = rows.filter(function (r) { return r.sv_pn in known && !Number.isNaN(r.fob) && !Number.isNaN(r.moq); });
-      var changed = ok.filter(function (r) { var c = cur[r.sv_pn]; if (!c) return true; return (r.fob != null && Number(c.fob_usd) !== r.fob) || (r.moq != null && Number(c.moq) !== r.moq) || (r.list && r.list !== c.price_list) || (r.src && r.src !== c.price_source); });
-      L.modal('Upload prices', '<p>' + esc(f.name) + ': <b>' + rows.length + '</b> rows, <b>' + changed.length + '</b> will change, ' + (ok.length - changed.length) + ' unchanged' + (unknown.length ? ', <span class="flag">' + unknown.length + ' part numbers not in the database (skipped)</span>' : '') + '. Blank cells never remove a value. Parts priced for the first time get the standard Stravik costs and margins.</p>' +
-        (bad.length ? '<div class="notice bad"><b>Fix these first:</b><ul>' + bad.slice(0, 30).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></div>' : '') +
-        (unknown.length ? '<p class="small muted">Not found: ' + esc(unknown.slice(0, 40).map(function (r) { return r.sv_pn; }).join(', ')) + (unknown.length > 40 ? '…' : '') + '</p>' : '') +
-        (changed.length ? '<div class="o-list"><table class="grid"><thead><tr><th>Stravik PN</th><th>Description</th><th class="num">FOB now</th><th class="num">FOB new</th><th class="num">MOQ</th><th>Price list</th></tr></thead><tbody>' +
-          changed.slice(0, 300).map(function (r) { var c = cur[r.sv_pn] || {}; return '<tr><td class="pn">' + esc(r.sv_pn) + '</td><td class="clip">' + esc(known[r.sv_pn]) + '</td><td class="num">' + money4(c.fob_usd) + '</td><td class="num"><b>' + (r.fob == null ? money4(c.fob_usd) : money4(r.fob)) + '</b></td><td class="num">' + L.qty(r.moq != null ? r.moq : c.moq) + '</td><td>' + esc(r.list || c.price_list || '') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') +
-        '<div class="o-footer"><button class="btn" id="prApply"' + (bad.length || !changed.length ? ' disabled' : '') + '>Update ' + changed.length + ' prices</button><button class="btn ghost" id="prX">Cancel</button></div>', true);
-      $('prX').onclick = L.closeModal;
-      $('prApply').onclick = async function () {
-        var btn = this; btn.disabled = true; btn.textContent = 'Updating…';
-        try {
-          for (var r of changed) {
-            var c = cur[r.sv_pn], v = {};
-            if (r.fob != null) v.fob_usd = r.fob; if (r.moq != null) v.moq = Math.round(r.moq); if (r.list) v.price_list = r.list; if (r.src) v.price_source = r.src;
-            if (c) L.must(await sb.from('stravik_prices').update(v).eq('sv_pn', r.sv_pn));
-            else L.must(await sb.from('stravik_prices').insert(Object.assign({ sv_pn: r.sv_pn }, v)));
-          }
-          L.closeModal(); L.toast('Updated ' + changed.length + ' prices'); L.render();
-        } catch (e) { L.fail(e); btn.disabled = false; btn.textContent = 'Try again'; }
-      };
-    } catch (e) { L.fail(e); }
-  }
-  async function template(sub, onlyMissing) {
-    var c = L.cat(sub);
-    var res = await Promise.all([L.fetchAll(function () { return sb.from('stravik_parts').select('sv_pn,short_desc,status,supplier_pn').eq('subcategory', sub).order('sv_pn'); }), L.fetchAll(function () { return sb.from('stravik_prices').select('sv_pn,fob_usd,moq,price_list').order('sv_pn'); })]);
-    var pr = {}; res[1].forEach(function (p) { pr[p.sv_pn] = p; });
-    var rows = res[0].filter(function (p) { return p.status !== 'Inactive' && (!onlyMissing || !pr[p.sv_pn] || pr[p.sv_pn].fob_usd == null); });
-    if (!rows.length) return L.toast('Every ' + c.name.toLowerCase() + ' part already has an FOB price');
-    await L.saveXlsx([{ name: 'Prices', widths: [16, 60, 20, 18, 10, 8, 16], head: ['Stravik PN', 'Description', 'Supplier PN', 'Range', 'FOB USD', 'MOQ', 'Price list'],
-      rows: rows.map(function (p) { var x = pr[p.sv_pn] || {}; return [p.sv_pn, p.short_desc, p.supplier_pn || '', c.name, x.fob_usd == null ? '' : Number(x.fob_usd), x.moq == null ? '' : Number(x.moq), x.price_list || '']; }) }], 'Stravik_prices_' + c.name.replace(/[^A-Za-z0-9]+/g, '_') + '.xlsx');
-  }
+  // coverage per range and region, from stravik_price_coverage() (counts only, so every staff member sees this page)
   async function coverage() {
-    L.cp({ crumbs: [['Parts & prices', BASE], ['Price coverage']], buttons: '<button type="button" class="btn editor-only" id="cvUp">Upload prices</button>' });
-    $('cvUp').onclick = function () { L.pickFile(uploadPrices); };
-    L.content('<div class="o-list" style="max-height:none;margin-bottom:16px"><table class="grid" id="cvTable"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table></div>' +
-      '<div class="card"><h2>Price list template</h2><p class="muted small">Download a range with its current prices, fill in FOB USD (and MOQ if you have it), then use "Upload prices". Landed cost and regional prices are calculated from the FOB.</p>' +
-      '<div class="o-bar"><select id="cvRange" style="width:auto">' + L.rangeOptions(false, S.range) + '</select><label class="check"><input type="checkbox" id="cvMissing" checked> Only parts without an FOB price</label><button class="btn ghost" id="cvTpl">Download template</button></div></div>');
-    $('cvTpl').onclick = function () { template($('cvRange').value, $('cvMissing').checked).catch(L.fail); };
+    L.cp({ crumbs: [['Parts & prices', BASE], ['Price coverage']], buttons: '<a class="btn" href="' + L.href('pricing', ['upload']) + '">Upload prices (Pricing app)</a>' });
+    L.content('<div class="o-list" style="max-height:none;margin-bottom:12px"><table class="grid" id="cvTable"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table></div>' +
+      '<p class="muted small">All prices are kept in the <a href="' + L.href('pricing') + '">Pricing app</a>: FOB and the cost build-up, South Africa (ZAR excl. VAT, T1–T5 and retail) and the USD regions (one price per region). Region columns: parts with a selling price.</p>');
     try {
-      var res = await Promise.all([L.fetchAll(function () { return sb.from('stravik_parts').select('sv_pn,subcategory,status').order('sv_pn'); }), L.fetchAll(function () { return sb.from('stravik_prices').select('sv_pn,fob_usd').order('sv_pn'); })]);
-      var price = {}; res[1].forEach(function (p) { price[p.sv_pn] = p; });
-      var by = {}; res[0].forEach(function (p) { if (p.status === 'Inactive') return; var b = by[p.subcategory] = by[p.subcategory] || { n: 0, fob: 0 }; b.n++; var x = price[p.sv_pn]; if (x && x.fob_usd != null) b.fob++; });
-      var tot = { n: 0, fob: 0 };
-      $('cvTable').innerHTML = '<thead><tr><th>Range</th><th class="num">Parts in use</th><th class="num">With FOB price</th><th class="num">Missing FOB</th><th class="num">Coverage</th></tr></thead><tbody>' +
-        L.CATS.map(function (c) { var b = by[c.subcategory_key] || { n: 0, fob: 0 }; tot.n += b.n; tot.fob += b.fob;
-          return '<tr class="click" data-href="' + esc(L.href('parts', [], { range: c.subcategory_key })) + '"><td>' + esc(c.name) + '</td><td class="num">' + b.n.toLocaleString() + '</td><td class="num">' + b.fob.toLocaleString() + '</td><td class="num">' + (b.n - b.fob ? '<span class="flag">' + (b.n - b.fob).toLocaleString() + '</span>' : '0') + '</td><td class="num">' + (b.n ? Math.round(b.fob / b.n * 100) : 0) + '%</td></tr>'; }).join('') +
-        '</tbody><tfoot><tr><td>Total</td><td class="num">' + tot.n.toLocaleString() + '</td><td class="num">' + tot.fob.toLocaleString() + '</td><td class="num">' + (tot.n - tot.fob).toLocaleString() + '</td><td class="num">' + (tot.n ? Math.round(tot.fob / tot.n * 100) : 0) + '%</td></tr></tfoot>';
+      var res = await Promise.all([sb.rpc('stravik_price_coverage'), sb.from('stravik_price_regions').select('code,name,sort').order('sort')]);
+      var rows = L.must(res[0]), REGS = L.must(res[1]);
+      var short = function (n) { return n.replace(' (excl. South Africa)', '*').replace('Indian Ocean Islands', 'Ocean Islands'); };
+      var by = {}; rows.forEach(function (r) { by[r.subcategory] = { n: Number(r.parts), fob: Number(r.with_fob), reg: r.regions || {} }; });
+      var tot = { n: 0, fob: 0, reg: {} };
+      var cell = function (v, n) { return '<td class="num">' + (v ? v.toLocaleString() : '<span class="muted">0</span>') + '</td>'; };
+      $('cvTable').innerHTML = '<thead><tr><th>Range</th><th class="num">Parts in use</th><th class="num">With FOB price</th><th class="num">Missing FOB</th><th class="num">Coverage</th>' +
+        REGS.map(function (g) { return '<th class="num small">' + esc(short(g.name)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        L.CATS.map(function (c) { var b = by[c.subcategory_key] || { n: 0, fob: 0, reg: {} }; tot.n += b.n; tot.fob += b.fob;
+          REGS.forEach(function (g) { tot.reg[g.code] = (tot.reg[g.code] || 0) + Number(b.reg[g.code] || 0); });
+          return '<tr class="click" data-href="' + esc(L.href('pricing', [], { range: c.subcategory_key })) + '"><td>' + esc(c.name) + '</td><td class="num">' + b.n.toLocaleString() + '</td><td class="num">' + b.fob.toLocaleString() + '</td><td class="num">' + (b.n - b.fob ? '<span class="flag">' + (b.n - b.fob).toLocaleString() + '</span>' : '0') + '</td><td class="num">' + (b.n ? Math.round(b.fob / b.n * 100) : 0) + '%</td>' +
+            REGS.map(function (g) { return cell(Number(b.reg[g.code] || 0)); }).join('') + '</tr>'; }).join('') +
+        '</tbody><tfoot><tr><td>Total</td><td class="num">' + tot.n.toLocaleString() + '</td><td class="num">' + tot.fob.toLocaleString() + '</td><td class="num">' + (tot.n - tot.fob).toLocaleString() + '</td><td class="num">' + (tot.n ? Math.round(tot.fob / tot.n * 100) : 0) + '%</td>' +
+        REGS.map(function (g) { return cell(tot.reg[g.code]); }).join('') + '</tr></tfoot>';
     } catch (e) { L.fail(e); }
   }
 
@@ -599,8 +542,8 @@
     icon: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/>',
     menus: [{ label: 'Parts', href: BASE }, { label: 'Price coverage', href: L.href('parts', ['coverage']) }, { label: 'Website', href: L.href('parts', ['publish']) },
       { label: 'History', children: [{ label: 'Change log', href: L.href('parts', ['history']) }, { label: 'Parts by inquiry', href: L.href('parts', ['inquiries']) }] },
-      { label: 'Data', editor: true, children: [{ label: 'New part', action: 'new' }, { label: 'Upload parts', action: 'imp' }, { label: 'Parts upload template', action: 'tpl' }, { label: 'Upload prices', action: 'prices' }, { label: 'Price list template', href: L.href('parts', ['coverage']) }, { label: 'Publish to website', action: 'publish' }] }],
-    actions: { new: function () { addPart(); }, imp: function () { L.pickFile(importParts); }, tpl: partsTemplate, prices: function () { L.pickFile(uploadPrices); }, publish: requestPublish },
+      { label: 'Data', editor: true, children: [{ label: 'New part', action: 'new' }, { label: 'Upload parts', action: 'imp' }, { label: 'Parts upload template', action: 'tpl' }, { label: 'Upload prices (Pricing app)', href: L.href('pricing', ['upload']) }, { label: 'Publish to website', action: 'publish' }] }],
+    actions: { new: function () { addPart(); }, imp: function () { L.pickFile(importParts); }, tpl: partsTemplate, publish: requestPublish },
     route: function (r) { if (r.parts[0] === 'p' && r.parts[1]) partForm(r.parts[1]); else if (r.parts[0] === 'coverage') coverage(); else if (r.parts[0] === 'publish') publishPage(); else if (r.parts[0] === 'history') historyPage(r); else if (r.parts[0] === 'inquiries') inquiryPage(r); else list(r); }
   });
 })(window.LS);
