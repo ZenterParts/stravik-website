@@ -47,68 +47,153 @@
   }
 
   // ---------- form ----------
+  // prices for the open inquiry: P = { me, region, tier, access, costs, rows: {item_id: {base, move, quoted, landed}} }
+  var P = null, curF = 'all';
+  function lineCalc(l) {
+    var pr = P && P.rows[l.item_id] || {}, base = pr.base == null ? null : Number(pr.base), move = Number(pr.move || 0);
+    var q = P && P.access ? L.bandPrice(base, move) : null, landed = pr.landed == null ? null : Number(pr.landed);
+    return { base: P && P.access ? base : null, move: move, quoted: q, line: q == null ? null : Math.round(q * l.qty * 100) / 100, landed: landed, gp: q && landed != null ? (q - landed) / q : null };
+  }
+  // the view's "No FOB price" flag is about the old FOB list (pricing team only); with a price region chosen it is about that region's price
+  function lineFlag(l) {
+    if (l.flag && l.flag !== 'No FOB price') return l.flag;
+    if (!l.sv_pn) return l.flag;
+    if (P && P.region && P.access) return lineCalc(l).base == null ? 'No price in ' + P.region.name : null;
+    return P && P.costs ? l.flag : null;
+  }
   async function form(ref, filter) {
     try {
       var h = L.must(await sb.from('stravik_inquiries').select('*').eq('ref', ref).single());
-      var lines = await L.fetchAll(function () { return sb.from('stravik_inquiry_lines').select('*').eq('ref', ref).order('line'); });
+      var got = await Promise.all([L.fetchAll(function () { return sb.from('stravik_inquiry_lines').select('*').eq('ref', ref).order('line'); }), sb.rpc('stravik_price_me'), sb.rpc('stravik_inquiry_prices', { p_ref: ref })]);
+      var lines = got[0], me = L.must(got[1]) || { sees_costs: false, regions: [], tiers: [] }, ip = L.must(got[2]);
+      if (me.band) L.BAND = { lo: Number(me.band.lo), hi: Number(me.band.hi), step: Number(me.band.step) };
+      P = { me: me, region: ip.region, tier: ip.tier, access: !!ip.access, costs: !!me.sees_costs, rows: {} };
+      (ip.rows || []).forEach(function (x) { P.rows[x.item_id] = x; });
+      curF = filter || 'all';
       var total = 0, sales = 0, pcs = 0, c = { all: lines.length, att: 0, nf: 0, sev: 0, np: 0 };
-      lines.forEach(function (l) { total += Number(l.line_fob_usd) || 0; sales += Number(l.line_sales_usd) || 0; pcs += l.qty; if (l.flag) c.att++; if (l.flag === 'Not found') c.nf++; if (/^Several/.test(l.flag || '')) c.sev++; if (l.flag === 'No FOB price') c.np++; });
-      var ed = L.isEditor();
+      lines.forEach(function (l) { l.flag = lineFlag(l); total += Number(l.line_fob_usd) || 0; sales += Number(l.line_sales_usd) || 0; pcs += l.qty; if (l.flag) c.att++; if (l.flag === 'Not found') c.nf++; if (/^Several/.test(l.flag || '')) c.sev++; if (/^No .*price/.test(l.flag || '')) c.np++; });
+      var ed = L.isEditor(), cur = P.region && P.region.currency || '';
       L.form({
         crumbs: [['Inquiries', BASE], [h.ref]],
         actions: '<button type="button" class="btn" id="fXls">Download Excel with prices</button>',
-        status: { steps: STEPS, current: h.status, clickable: ed, onClick: async function (s) { try { L.must(await sb.from('stravik_inquiries').update({ status: s }).eq('ref', h.ref)); L.toast('Status: ' + s); form(ref, filter); } catch (e) { L.fail(e); } } },
+        status: { steps: STEPS, current: h.status, clickable: ed, onClick: async function (s) { try { L.must(await sb.from('stravik_inquiries').update({ status: s }).eq('ref', h.ref)); L.toast('Status: ' + s); form(ref, curF); } catch (e) { L.fail(e); } } },
         sheet: '<div class="o-title"><h1>' + esc(h.ref) + '</h1>' + L.pill(h.source, h.source === 'Website' ? 'Website' : '') + '</div>' +
           '<div class="o-subtitle">' + esc(h.company || h.name || '') + '</div>' +
           '<div class="o-groups">' +
             L.group('Customer', [['Company', esc(h.company)], ['Contact', esc(h.name)], ['Email', h.email ? '<a href="mailto:' + esc(h.email) + '">' + esc(h.email) + '</a>' : ''], ['Phone', esc(h.phone)], ['Country', esc(h.country)], ['Customer type', esc(h.customer_type)]]) +
-            L.group('Inquiry', [['Received', esc(L.dt(h.created_at))], ['Source', esc(h.source)], ['Added by', esc(h.created_by || '')], ['Lines', L.qty(lines.length)], ['Pieces', L.qty(pcs)], ['Total FOB USD', '<b>' + L.money(total) + '</b>' + (c.att ? ' <span class="muted small">(lines with a price only)</span>' : '')], ['Total sales price USD', L.money(sales)]]) +
+            L.group('Inquiry', [['Received', esc(L.dt(h.created_at))], ['Source', esc(h.source)], ['Added by', esc(h.created_by || '')], ['Lines', L.qty(lines.length)], ['Pieces', L.qty(pcs)],
+              ['Price region', P.region ? esc(P.region.name) + (P.tier ? ' · ' + esc(tierName(P.tier)) : '') + (P.access ? '' : ' <span class="muted small">(no access to this region\'s prices)</span>') : '<span class="muted">Not chosen yet (Lines tab)</span>'],
+              ['Total quoted' + (cur ? ' ' + cur : ''), '<b id="fQuoted"></b>']]
+              .concat(P.costs ? [['Total FOB USD', '<b>' + L.money(total) + '</b>' + (c.att ? ' <span class="muted small">(lines with a price only)</span>' : '')], ['Total sales price USD', L.money(sales)]] : [])) +
           '</div>' +
           L.notebook([
-            { key: 'lines', label: 'Lines <span class="muted">(' + L.qty(lines.length) + ')</span>', html: linesTab(lines, c, filter || 'all') },
+            { key: 'lines', label: 'Lines <span class="muted">(' + L.qty(lines.length) + ')</span>', html: linesTab(lines, c, curF) },
             { key: 'msg', label: 'Customer message', html: h.message ? '<p style="white-space:pre-wrap">' + esc(h.message) + '</p>' : '<p class="muted">No message.</p>' },
             { key: 'notes', label: 'Internal notes', html: '<textarea id="fNotes"' + (ed ? '' : ' readonly') + ' rows="5">' + esc(h.staff_notes || '') + '</textarea>' + (ed ? '<div class="o-footer"><button type="button" class="btn" id="fSaveNotes">Save notes</button></div>' : '') }
           ], 'lines')
       });
+      var totals = function () {
+        var t = 0, n = 0; lines.forEach(function (l) { var k = lineCalc(l); if (k.line != null) { t += k.line; n++; } });
+        $('fQuoted').innerHTML = P.region && P.access ? (n ? esc(L.money(Math.round(t * 100) / 100)) + ' <span class="muted small">(' + n + ' priced line' + (n === 1 ? '' : 's') + ')</span>' : '<span class="muted">No priced lines</span>') : '<span class="muted">—</span>';
+      };
+      var repaint = function () { $('fLinesWrap').innerHTML = linesTable(lines, curF); totals(); };
+      totals();
       $('fXls').onclick = function () { excel(h, lines, total, pcs, sales).catch(L.fail); };
-      $('fFilter').onclick = function (e) { var b = e.target.closest('[data-f]'); if (b) { $('fLinesWrap').innerHTML = linesTable(lines, b.dataset.f); $('fFilter').querySelectorAll('.chip').forEach(function (x) { x.classList.toggle('on', x === b); }); } };
+      $('fFilter').onclick = function (e) { var b = e.target.closest('[data-f]'); if (b) { curF = b.dataset.f; $('fLinesWrap').innerHTML = linesTable(lines, curF); $('fFilter').querySelectorAll('.chip').forEach(function (x) { x.classList.toggle('on', x === b); }); } };
+      // price region, customer tier and price moves: anyone with access to the region's prices
+      if ($('fReg')) $('fReg').onchange = async function () {
+        var g = (me.regions || []).find(function (x) { return x.code === $('fReg').value; });
+        try { L.must(await sb.rpc('stravik_inquiry_set_pricing', { p_ref: h.ref, p_region: g ? g.code : null, p_tier: g && g.pricing !== 'single' ? 't1' : null })); L.toast(g ? 'Priced in ' + g.name : 'Price region cleared'); form(ref, curF); } catch (e) { L.fail(e); }
+      };
+      if ($('fTier')) $('fTier').onchange = async function () {
+        try { L.must(await sb.rpc('stravik_inquiry_set_pricing', { p_ref: h.ref, p_region: P.region.code, p_tier: $('fTier').value })); L.toast('Customer tier: ' + tierName($('fTier').value)); form(ref, curF); } catch (e) { L.fail(e); }
+      };
+      if ($('fMoveAll')) $('fMoveAll').onclick = async function () {
+        var m = Number($('fMoveAllV').value);
+        try { var n = L.must(await sb.rpc('stravik_inquiry_set_move', { p_ref: h.ref, p_items: null, p_move: m })); Object.keys(P.rows).forEach(function (k) { P.rows[k].move = m; }); repaint(); L.toast('All ' + n + ' lines moved to ' + L.bandPct(m)); } catch (e) { L.fail(e); }
+      };
+      $('fLinesWrap').addEventListener('change', async function (e) {
+        var s = e.target.closest('select[data-move]'); if (!s) return;
+        var id = Number(s.dataset.move), m = Number(s.value);
+        try { L.must(await sb.rpc('stravik_inquiry_set_move', { p_ref: h.ref, p_items: [id], p_move: m })); (P.rows[id] = P.rows[id] || {}).move = m; repaint(); } catch (err) { L.fail(err); repaint(); }
+      });
       if (!ed) return;
       $('fSaveNotes').onclick = async function () { try { L.must(await sb.from('stravik_inquiries').update({ staff_notes: $('fNotes').value }).eq('ref', h.ref)); L.toast('Notes saved'); } catch (e) { L.fail(e); } };
       $('fLinesWrap').addEventListener('change', async function (e) {
         var s = e.target.closest('select[data-item], input.pnfix'); if (!s) return;
         var pn = L.clean(s.value) || null;
-        try { L.must(await sb.rpc('stravik_choose_inquiry_match', { item_id: Number(s.dataset.item), pn: pn })); L.toast(pn ? 'Line set to ' + pn : 'Line cleared'); form(ref); } catch (err) { L.fail(err); }
+        try { L.must(await sb.rpc('stravik_choose_inquiry_match', { item_id: Number(s.dataset.item), pn: pn })); L.toast(pn ? 'Line set to ' + pn : 'Line cleared'); form(ref, curF); } catch (err) { L.fail(err); }
       });
     } catch (e) { L.fail(e); }
   }
+  function tierName(col) { var t = (P && P.me.tiers || []).find(function (x) { return x.col === col; }); return t ? t.name : String(col || '').toUpperCase(); }
+  function moveOptions(sel, base, cur) {
+    return L.bandSteps(L.BAND).map(function (m) { return '<option value="' + m + '"' + (m === sel ? ' selected' : '') + '>' + esc(L.bandPct(m) + (base != null ? ' · ' + L.money(L.bandPrice(base, m)) : '')) + '</option>'; }).join('');
+  }
+  function priceBar() {
+    var regs = P.me.regions || [], mine = !P.region || P.access;
+    if (!regs.length && !P.region) return '<p class="small muted">You do not have access to any region\'s prices, so this inquiry is shown without prices.</p>';
+    var h = '<div class="inq-price"><b>Price region</b>';
+    if (mine && regs.length) h += '<select id="fReg"><option value="">Choose…</option>' + regs.map(function (g) { return '<option value="' + esc(g.code) + '"' + (P.region && P.region.code === g.code ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select>';
+    else h += '<span>' + esc(P.region ? P.region.name : '') + '</span>';
+    if (P.region && P.access && P.region.pricing !== 'single') h += '<b>Customer tier</b><select id="fTier">' + (P.me.tiers || []).map(function (t) { return '<option value="' + esc(t.col) + '"' + (t.col === P.tier ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') + '</select>';
+    if (P.region && P.access) h += '<b>Move every line to</b><select id="fMoveAllV" class="move">' + moveOptions(0, null) + '</select><button type="button" class="btn ghost small" id="fMoveAll">Apply</button>' +
+      '<span class="small muted">' + esc(P.region.currency) + (P.region.pricing !== 'single' ? ' excl. VAT' : '') + ' · each line can move from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + ' of the recommended price</span>';
+    else if (P.region) h += '<span class="small muted">You do not have access to this region\'s prices.</span>';
+    else h += '<span class="small muted">Choose the region to see the recommended prices and set the quoted price per line.</span>';
+    return h + '</div>';
+  }
   function linesTab(lines, c, filter) {
-    return '<div class="chips" id="fFilter" style="margin-bottom:10px">' +
+    return priceBar() + '<div class="chips" id="fFilter" style="margin-bottom:10px">' +
       L.chip('All ' + c.all, filter === 'all' ? 'on' : '', 'all') + L.chip('Priced ' + (c.all - c.att), 'good' + (filter === 'ok' ? ' on' : ''), 'ok') +
-      (c.att ? L.chip('Needs attention ' + c.att, 'warn', 'att') : '') + (c.nf ? L.chip('Not found ' + c.nf, 'warn', 'nf') : '') +
-      (c.sev ? L.chip('Several matches ' + c.sev, 'warn', 'sev') : '') + (c.np ? L.chip('No FOB price ' + c.np, 'warn', 'np') : '') + '</div>' +
+      (c.att ? L.chip('Needs attention ' + c.att, 'warn' + (filter === 'att' ? ' on' : ''), 'att') : '') + (c.nf ? L.chip('Not found ' + c.nf, 'warn' + (filter === 'nf' ? ' on' : ''), 'nf') : '') +
+      (c.sev ? L.chip('Several matches ' + c.sev, 'warn' + (filter === 'sev' ? ' on' : ''), 'sev') : '') + (c.np ? L.chip('No price ' + c.np, 'warn' + (filter === 'np' ? ' on' : ''), 'np') : '') + '</div>' +
       '<div id="fLinesWrap">' + linesTable(lines, filter) + '</div>';
   }
   function linesTable(lines, f) {
-    var ed = L.isEditor(), MAX = 1500;
-    var shown = lines.filter(function (l) { return f === 'all' || (f === 'att' && l.flag) || (f === 'nf' && l.flag === 'Not found') || (f === 'sev' && /^Several/.test(l.flag || '')) || (f === 'np' && l.flag === 'No FOB price') || (f === 'ok' && !l.flag); });
+    var ed = L.isEditor(), MAX = 1500, costs = P && P.costs, priced = P && P.region && P.access;
+    var shown = lines.filter(function (l) { return f === 'all' || (f === 'att' && l.flag) || (f === 'nf' && l.flag === 'Not found') || (f === 'sev' && /^Several/.test(l.flag || '')) || (f === 'np' && /^No .*price/.test(l.flag || '')) || (f === 'ok' && !l.flag); });
     if (!shown.length) return '<p class="muted">No lines.</p>';
-    return '<div class="o-list"><table class="grid"><thead><tr><th>#</th><th>Requested</th><th>Matched as</th><th>Stravik PN</th><th>Description</th><th>Type</th><th class="num">Qty</th><th class="num">FOB USD</th><th class="num">Line FOB USD</th><th class="num">Sales price USD</th><th class="num">Available</th><th>Note</th></tr></thead><tbody>' +
+    return '<div class="o-list"><table class="grid"><thead><tr><th>#</th><th>Requested</th><th>Matched as</th><th>Stravik PN</th><th>Description</th><th>Type</th><th class="num">Qty</th>' +
+      (costs ? '<th class="num">FOB USD</th><th class="num">Line FOB USD</th><th class="num">Sales price USD</th>' : '') +
+      (priced ? '<th class="num">Recommended</th><th>Move</th><th class="num">Quoted</th><th class="num">Line total</th>' + (costs ? '<th class="num">GP</th>' : '') : '') +
+      '<th class="num">Available</th><th>Note</th></tr></thead><tbody>' +
       shown.slice(0, MAX).map(function (l) {
         var pn = l.sv_pn ? '<a href="' + L.href('parts', ['p', l.sv_pn]) + '">' + esc(l.sv_pn) + '</a>' : '';
         if (ed && l.candidates && l.candidates.length) pn = '<select data-item="' + l.item_id + '"><option value="">Choose…</option>' + l.candidates.map(function (x) { return '<option' + (x === l.sv_pn ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>';
         else if (ed && !l.sv_pn) pn = '<input class="pnfix" data-item="' + l.item_id + '" placeholder="Stravik PN" size="14">';
         else if (!l.sv_pn && l.candidates) pn = '<span class="muted">' + esc(l.candidates.join(', ')) + '</span>';
+        var k = priced ? lineCalc(l) : null;
         return '<tr><td>' + l.line + '</td><td>' + esc(l.requested_no) + '</td><td class="clip small" title="' + esc(l.matched_via || '') + '">' + esc(l.matched_via || '') + '</td><td class="pn">' + pn + '</td><td class="clip">' + esc(l.description) + '</td><td>' + esc(l.part_type || l.subcategory || '') +
-          '</td><td class="num">' + L.qty(l.qty) + '</td><td class="num">' + L.money(l.fob_usd) + '</td><td class="num">' + L.money(l.line_fob_usd) + '</td><td class="num">' + L.money(l.sales_price) + '</td><td class="num">' + L.qty(l.available) + '</td><td>' + (l.flag ? '<span class="flag">' + esc(l.flag) + '</span>' : '') + '</td></tr>';
+          '</td><td class="num">' + L.qty(l.qty) + '</td>' +
+          (costs ? '<td class="num">' + L.money(l.fob_usd) + '</td><td class="num">' + L.money(l.line_fob_usd) + '</td><td class="num">' + L.money(l.sales_price) + '</td>' : '') +
+          (priced ? '<td class="num">' + L.money(k.base) + '</td><td>' + (k.base != null ? '<select class="move" data-move="' + l.item_id + '" style="background:' + L.bandColor(k.move) + '">' + moveOptions(k.move, k.base) + '</select>' : '') + '</td>' +
+            '<td class="num"><b>' + L.money(k.quoted) + '</b></td><td class="num">' + L.money(k.line) + '</td>' + (costs ? '<td class="num">' + (k.gp == null ? '' : (Math.round(k.gp * 1000) / 10).toFixed(1) + '%') + '</td>' : '') : '') +
+          '<td class="num">' + L.qty(l.available) + '</td><td>' + (l.flag ? '<span class="flag">' + esc(l.flag) + '</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>' + (shown.length > MAX ? '<p class="muted small">Showing the first ' + MAX + ' of ' + shown.length + ' lines. The Excel download has all of them.</p>' : '');
   }
   function excel(h, lines, total, pcs, sales) {
-    var head = ['#', 'Requested', 'Matched as', 'Stravik PN', 'Description', 'Range', 'Type', 'Qty', 'FOB USD', 'Line FOB USD', 'Sales price USD', 'Line sales USD', 'Available', 'Note', 'Other possible parts'];
+    var costs = P && P.costs, priced = P && P.region && P.access, cur = priced ? P.region.currency : '';
     var n = function (v) { return v == null ? '' : Number(v); };
-    var row = function (l) { return [l.line, l.requested_no, l.matched_via || '', l.sv_pn || '', l.description || '', l.subcategory || '', l.part_type || '', l.qty, n(l.fob_usd), n(l.line_fob_usd), n(l.sales_price), n(l.line_sales_usd), n(l.available), l.flag || '', (l.candidates || []).join(', ')]; };
-    var w = [6, 18, 30, 16, 50, 18, 18, 8, 10, 12, 12, 12, 10, 24, 30];
-    var sheets = [{ name: 'Inquiry', widths: w, top: [['Inquiry ' + h.ref], ['Source', h.source || ''], ['Received', L.dt(h.created_at)], ['Company', h.company || ''], ['Name', h.name || ''], ['Email', h.email || ''], ['Phone', h.phone || ''], ['Country', h.country || ''], []],
-      head: head, rows: lines.map(row), foot: [['', '', '', '', 'Total (priced lines)', '', '', pcs, '', Math.round(total * 100) / 100, '', Math.round((sales || 0) * 100) / 100]] }];
+    var head = ['#', 'Requested', 'Matched as', 'Stravik PN', 'Description', 'Range', 'Type', 'Qty'], w = [6, 18, 30, 16, 50, 18, 18, 8];
+    if (costs) { head.push('FOB USD', 'Line FOB USD', 'Sales price USD', 'Line sales USD'); w.push(10, 12, 12, 12); }
+    if (priced) { head.push('Recommended ' + cur, 'Move', 'Quoted ' + cur, 'Line quoted ' + cur); w.push(14, 8, 12, 14); if (costs) { head.push('GP margin'); w.push(10); } }
+    head.push('Available', 'Note', 'Other possible parts'); w.push(10, 24, 30);
+    var qt = 0;
+    var row = function (l) {
+      var o = [l.line, l.requested_no, l.matched_via || '', l.sv_pn || '', l.description || '', l.subcategory || '', l.part_type || '', l.qty];
+      if (costs) o.push(n(l.fob_usd), n(l.line_fob_usd), n(l.sales_price), n(l.line_sales_usd));
+      if (priced) { var k = lineCalc(l); o.push(n(k.base), k.base == null ? '' : L.bandPct(k.move), n(k.quoted), n(k.line)); if (costs) o.push(k.gp == null ? '' : Math.round(k.gp * 1000) / 1000); }
+      o.push(n(l.available), l.flag || '', (l.candidates || []).join(', ')); return o;
+    };
+    lines.forEach(function (l) { var k = priced ? lineCalc(l) : null; if (k && k.line != null) qt += k.line; });
+    var foot = ['', '', '', '', 'Total (priced lines)', '', '', pcs];
+    if (costs) foot.push('', Math.round(total * 100) / 100, '', Math.round((sales || 0) * 100) / 100);
+    if (priced) foot.push('', '', '', Math.round(qt * 100) / 100);
+    var top = [['Inquiry ' + h.ref], ['Source', h.source || ''], ['Received', L.dt(h.created_at)], ['Company', h.company || ''], ['Name', h.name || ''], ['Email', h.email || ''], ['Phone', h.phone || ''], ['Country', h.country || '']];
+    if (P && P.region) top.push(['Price region', P.region.name + (P.tier ? ' · ' + tierName(P.tier) : '') + (priced ? ' · ' + cur + (P.region.pricing !== 'single' ? ' excl. VAT' : '') : '')]);
+    top.push([]);
+    var sheets = [{ name: 'Inquiry', widths: w, top: top, head: head, rows: lines.map(row), foot: [foot] }];
     var att = lines.filter(function (l) { return l.flag; });
     if (att.length) sheets.push({ name: 'Needs attention', widths: w, head: head, rows: att.map(row) });
     return L.saveXlsx(sheets, h.ref + '_Stravik_prices.xlsx');

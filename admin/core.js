@@ -34,6 +34,26 @@ window.LS = (function () {
   };
   L.isEditor = function () { return L.ROLE === 'editor'; };
   L.money = function (v) { return v == null || v === '' ? '' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  // price band (from stravik_price_me().band): the sales team may move a recommended price from band.lo to band.hi in band.step steps
+  L.BAND = { lo: -0.02, hi: 0.02, step: 0.005 };
+  L.bandSteps = function (b) { b = b || L.BAND; var o = [], n = Math.round((b.hi - b.lo) / b.step); for (var i = 0; i <= n; i++) o.push(Math.round((b.lo + i * b.step) * 1000) / 1000); return o; };
+  // the moved price, rounded to the cent the way the database rounds it (whole-number maths, so 4.2355 becomes 4.24 as in Postgres)
+  L.bandPrice = function (base, move) {
+    if (base == null || base === '') return null;
+    var c = Math.round(Number(base) * 100), m = Math.round(move * 1000), n = c * (1000 + m), s = n < 0 ? -1 : 1;
+    return s * Math.floor((Math.abs(n) + 500) / 1000) / 100;
+  };
+  L.bandPct = function (m) { return (m > 0 ? '+' : m < 0 ? '−' : '') + Math.abs(m * 100).toFixed(1) + '%'; };
+  L.bandStatus = function (m, b) {
+    b = b || L.BAND;
+    if (m === 0) return 'Recommended price';
+    if (m <= b.lo + 1e-9) return 'Lowest allowed price';
+    if (m < 0) return 'Discount – within limit';
+    if (m >= b.hi - 1e-9) return 'Highest price in the band';
+    return 'Above recommended – within limit';
+  };
+  // background for a step: red at the lowest, amber at the recommended price, green at the highest
+  L.bandColor = function (m, b) { b = b || L.BAND; var h = m < 0 ? 45 * (1 - m / b.lo) : 45 + 75 * (m / b.hi); return 'hsl(' + Math.round(h) + ',78%,' + (m === 0 ? 82 : 86) + '%)'; };
   L.qty = function (v) { return v == null || v === '' ? '' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }); };
   L.dt = function (v) { if (!v) return ''; var d = new Date(v); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
   L.label = function (k) {

@@ -17,6 +17,7 @@
     if (ME) return Promise.resolve(ME);
     return meP || (meP = Promise.all([sb.rpc('stravik_price_me'), sb.rpc('stravik_price_coverage').then(null, function () { return {}; })]).then(function (r) {
       ME = L.must(r[0]) || { sees_costs: false, regions: [], tiers: [], ranges: [] };
+      if (ME.band) L.BAND = { lo: Number(ME.band.lo), hi: Number(ME.band.hi), step: Number(ME.band.step) };
       // which regions each range has prices for (Filters and Ignition Coils have no South Africa price, so South Africa is not offered there)
       ME.cover = null;
       if (r[1] && !r[1].error && Array.isArray(r[1].data)) { ME.cover = {}; r[1].data.forEach(function (c) { ME.cover[c.subcategory] = c.regions || {}; }); }
@@ -133,26 +134,38 @@
       cols = cols.concat(TIER.map(function (t) { return { label: t[1], num: true, render: function (x) { return two(sell(x, t[0])); } }; }))
         .concat([{ label: 'Market', num: true, render: function (x) { return esc((S.data.costs ? x[px + '_market_price'] : x.market_price) || ''); } }]);
     }
-    $('prList').innerHTML = L.listView(cols, page, costs() ? function (x) { return L.href('pricing', ['part', x.sv_pn], { range: S.range }); } : null) +
+    $('prList').innerHTML = L.listView(cols, page, function (x) { return L.href('pricing', ['part', x.sv_pn], { range: S.range }); }) +
       (single(reg) ? '<p class="small muted" style="margin-top:8px">FOB China = landed cost ÷ (1 − margin), rounded to 0.1.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
   }
 
-  // one part's full costing (pricing team)
+  // one part: the price band for everyone with access to the region, and the full costing for the pricing team
   async function part(r) {
     try {
       await me();
-      if (!costs()) return L.go(BASE);
+      if (!ME.regions.length) return noAccess();
       if (r.q.range) S.range = r.q.range;
+      if (r.q.region) S.region = r.q.region;
       if (!S.region) S.region = ME.regions[0].code;
+      S.region = region().code;
       await load();
       var pn = r.parts[1], x = (S.data.rows || []).find(function (y) { return y.sv_pn === pn; }), reg = S.data.region;
       var sa = (ME.regions || []).find(function (g) { return g.code === 'south_africa'; }) || { prefix: 'sa', currency: 'ZAR', vat: 0.15 }, px = sa.prefix, cur = sa.currency, vat = Number(sa.vat);
       var crumbs = [['Pricing', BASE], [S.range, L.href('pricing', [], { range: S.range })], [pn]];
       if (!x) { L.cp({ crumbs: crumbs }); return L.content(L.empty('No price for ' + pn, 'This part is not in the ' + S.range + ' price list.')); }
+      var head = '<div class="o-title"><h1>' + esc(pn) + '</h1></div><div class="o-subtitle">' + esc(x.short_desc || '') + (x.lucas_pn ? ' · Lucas ' + esc(x.lucas_pn) : '') + '</div>';
+      if (!S.data.costs) {
+        var n0 = function (v) { return v == null || v === '' ? '' : esc(String(v)); };
+        L.form({ crumbs: crumbs, buttons: '<button type="button" class="btn ghost" id="pcPart">Open the part</button>',
+          sheet: head + bandHtml() + '<div class="o-groups">' + L.group('Part', single(reg) ? [['OE ref', n0(x.oe_ref)], ['Tech info', n0(x.tech_info)], ['MOQ', n0(x.moq)], ['Customer MOQ', n0(x.customer_moq)]]
+            : [['Market price', n0(x.market_price)], ['Effective', esc(dmy(x.effective))]]) + '</div>' });
+        bandMount(x, pn);
+        $('pcPart').onclick = function () { L.openPart(pn); };
+        return;
+      }
       var hist = L.must(await sb.from('stravik_price_history').select('at,by_email,action,changes,source').eq('sv_pn', pn).order('at', { ascending: false }).limit(30));
       var line = function (label, pctKey, valKey, valCur) { return [label, (pctKey ? '<span class="muted">' + esc(pct(x[pctKey])) + '</span> ' : '') + (valKey ? '<b>' + esc(money(x[valKey], valCur)) + '</b>' : '')]; };
       L.form({ crumbs: crumbs, buttons: '<button type="button" class="btn ghost" id="pcPart">Open the part</button>',
-        sheet: '<div class="o-title"><h1>' + esc(pn) + '</h1></div><div class="o-subtitle">' + esc(x.short_desc || '') + (x.lucas_pn ? ' · Lucas ' + esc(x.lucas_pn) : '') + '</div>' +
+        sheet: head + bandHtml() +
           '<div class="o-groups">' +
           L.group('Supplier and Zenter Parts costs (USD)', [[(x.price_basis || 'FOB') + ' price', '<b>' + esc(money(x.fob_usd, 'USD')) + '</b>' + (x.fob_port ? ' <span class="muted">' + esc(x.fob_port) + '</span>' : '')],
             line('Consolidation', 'c_cons'), line('Finance', 'c_finance'), line('Customer rebate / discount', 'c_customer_rebate'), line('Shipping', 'c_ship'), line('Insurance', 'c_ins'),
@@ -173,8 +186,62 @@
           '</div>' +
           '<h3 style="margin-top:22px">History</h3>' + historyTable(hist, false)
       });
+      bandMount(x, pn);
       $('pcPart').onclick = function () { L.openPart(pn); };
     } catch (e) { L.fail(e); }
+  }
+
+  // ---------------------------------------------------------------- price band
+  // The recommended price in the region, moved from the band's lowest to highest step (−2% to +2% in 0.5% steps).
+  // The sales team sees prices only; the pricing team also sees landed cost, GP margin and gross profit.
+  function bandHtml() { return '<div class="band" id="pbBand"></div>'; }
+  function bandMount(x, pn) {
+    var reg = S.data.region, cur = reg.currency, tiers = !single(reg), withCost = !!S.data.costs, px = reg.prefix, vat = Number(reg.vat);
+    var st = { move: 0, qty: Number(x.customer_moq || x.moq) || 1, tier: 't1' }, regs = regsFor(S.range), steps = L.bandSteps(L.BAND), box = $('pbBand');
+    var base = function () { return r2(sell(x, tiers ? st.tier : 'price')); };
+    var landed = function () { var v = withCost ? (tiers ? x[px + '_landed'] : x.cif_usd) : null; return v == null ? null : Number(v); };
+    var m2 = function (v) { return v == null ? '–' : money(v, cur); };
+    var sum = [['Recommended price', 'bRec'], ['Lowest price', 'bLo'], ['Highest price', 'bHi'], ['Qty (units)', 'bQty'], ['Selected move', 'bMove'], ['Selected price', 'bPrice']]
+      .concat(withCost ? [['GP margin', 'bGp'], ['Gross profit', 'bGpv']] : []).concat([['Revenue', 'bRev'], ['Status', 'bStatus']]);
+    if (withCost) sum.unshift(['Landed cost', 'bLanded']);
+    box.innerHTML = '<div class="band-head"><h2>Price band</h2>' +
+      (regs.length > 1 ? '<select id="bReg">' + regs.map(function (g) { return '<option value="' + esc(g.code) + '"' + (g.code === reg.code ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select>' : '<span class="muted">' + esc(reg.name) + '</span>') +
+      (tiers ? '<select id="bTier">' + TIER.map(function (t) { return '<option value="' + t[0] + '">' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select>' : '') +
+      '<span class="small muted">' + esc(cur) + (tiers ? ' excl. VAT' : '') + ' · move the price from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + '</span></div>' +
+      '<div class="o-list"><table class="grid band-sum"><thead><tr>' + sum.map(function (c) { return '<th class="num">' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
+      sum.map(function (c) { return '<td class="num" id="' + c[1] + '">' + (c[1] === 'bQty' ? '<input id="bQtyIn" type="number" min="1" step="1" value="' + st.qty + '">' : '') + '</td>'; }).join('') + '</tr></tbody></table></div>' +
+      '<div class="band-steps" id="bSteps" role="radiogroup" aria-label="Price move">' + steps.map(function (m) {
+        return '<button type="button" role="radio" data-m="' + m + '" style="background:' + L.bandColor(m) + '"><span class="band-pct">' + esc(L.bandPct(m)) + '</span><span class="band-px" data-px></span></button>';
+      }).join('') + '</div><div id="bNone" class="small flag" hidden></div>';
+    function draw() {
+      var b = base(), p = L.bandPrice(b, st.move), lc = landed(), q = st.qty, set = function (id, h) { var e = $(id); if (e) e.innerHTML = h; };
+      $('bNone').hidden = b != null; $('bNone').textContent = b == null ? 'No ' + (tiers ? tierName(st.tier) + ' ' : '') + 'price for ' + pn + ' in ' + reg.name + '.' : '';
+      set('bLanded', esc(lc == null ? '–' : money(Math.round(lc * 1000) / 1000, cur)));
+      set('bRec', '<b>' + esc(m2(b)) + '</b>'); set('bLo', esc(m2(L.bandPrice(b, L.BAND.lo)))); set('bHi', esc(m2(L.bandPrice(b, L.BAND.hi))));
+      set('bMove', '<b>' + esc(L.bandPct(st.move)) + '</b>');
+      set('bPrice', '<b>' + esc(m2(p)) + '</b>' + (tiers && p != null ? '<div class="small muted">incl. VAT ' + esc(money(incl(p, vat), cur)) + '</div>' : ''));
+      set('bRev', esc(p == null ? '–' : money(p * q, cur)));
+      if (withCost) {
+        set('bGp', esc(p && lc != null ? (Math.round((p - lc) / p * 1000) / 10).toFixed(1) + '%' : '–'));
+        set('bGpv', esc(p != null && lc != null ? money((p - lc) * q, cur) : '–'));
+      }
+      set('bStatus', esc(b == null ? '' : L.bandStatus(st.move)));
+      $('bSteps').querySelectorAll('[data-m]').forEach(function (e) {
+        var m = Number(e.dataset.m), on = m === st.move;
+        e.classList.toggle('on', on); e.setAttribute('aria-checked', on ? 'true' : 'false'); e.tabIndex = on ? 0 : -1;
+        e.querySelector('[data-px]').textContent = b == null ? '' : money(L.bandPrice(b, m), cur);
+      });
+    }
+    $('bSteps').onclick = function (e) { var t = e.target.closest('[data-m]'); if (t) { st.move = Number(t.dataset.m); draw(); t.focus(); } };
+    $('bSteps').onkeydown = function (e) {
+      var i = steps.indexOf(st.move), j = e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowUp' ? i + 1 : -2;
+      if (j === -2 || j < 0 || j >= steps.length) return;
+      e.preventDefault(); st.move = steps[j]; draw(); $('bSteps').querySelector('[data-m="' + st.move + '"]').focus();
+    };
+    $('bQtyIn').oninput = function () { var v = Math.floor(Number(this.value)); st.qty = v > 0 ? v : 0; draw(); };
+    if ($('bTier')) $('bTier').onchange = function () { st.tier = this.value; draw(); };
+    if ($('bReg')) $('bReg').onchange = function () { L.go(L.href('pricing', ['part', pn], { range: S.range, region: this.value })); };
+    draw();
   }
 
   // ======================================================================== Excel download (what the person may see)
