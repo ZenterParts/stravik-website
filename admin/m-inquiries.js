@@ -50,10 +50,12 @@
   // prices for the open inquiry: P = { me, region, tier, access, costs, rows: {item_id: {base, move, quoted, landed}} }
   var P = null, curF = 'all';
   function lineCalc(l) {
-    var pr = P && P.rows[l.item_id] || {}, base = pr.base == null ? null : Number(pr.base), move = Number(pr.move || 0);
+    // the band is for the USD regions only: South Africa quotes its tier price as it is
+    var pr = P && P.rows[l.item_id] || {}, base = pr.base == null ? null : Number(pr.base), move = bandOn() ? Number(pr.move || 0) : 0;
     var q = P && P.access ? L.bandPrice(base, move) : null, landed = pr.landed == null ? null : Number(pr.landed);
     return { base: P && P.access ? base : null, move: move, quoted: q, line: q == null ? null : Math.round(q * l.qty * 100) / 100, landed: landed, gp: q && landed != null ? (q - landed) / q : null };
   }
+  function bandOn() { return !!(P && P.region && P.access && P.region.pricing === 'single'); }
   // the view's "No FOB price" flag is about the old FOB list (pricing team only); with a price region chosen it is about that region's price
   function lineFlag(l) {
     if (l.flag && l.flag !== 'No FOB price') return l.flag;
@@ -137,8 +139,9 @@
     if (mine && regs.length) h += '<select id="fReg"><option value="">Choose…</option>' + regs.map(function (g) { return '<option value="' + esc(g.code) + '"' + (P.region && P.region.code === g.code ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select>';
     else h += '<span>' + esc(P.region ? P.region.name : '') + '</span>';
     if (P.region && P.access && P.region.pricing !== 'single') h += '<b>Customer tier</b><select id="fTier">' + (P.me.tiers || []).map(function (t) { return '<option value="' + esc(t.col) + '"' + (t.col === P.tier ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') + '</select>';
-    if (P.region && P.access) h += '<b>Move every line to</b><select id="fMoveAllV" class="move">' + moveOptions(0, null) + '</select><button type="button" class="btn ghost small" id="fMoveAll">Apply</button>' +
-      '<span class="small muted">' + esc(P.region.currency) + (P.region.pricing !== 'single' ? ' excl. VAT' : '') + ' · each line can move from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + ' of the recommended price</span>';
+    if (bandOn()) h += '<b>Move every line to</b><select id="fMoveAllV" class="move">' + moveOptions(0, null) + '</select><button type="button" class="btn ghost small" id="fMoveAll">Apply</button>' +
+      '<span class="small muted">' + esc(P.region.currency) + ' · each line can move from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + ' of the recommended price</span>';
+    else if (P.region && P.access) h += '<span class="small muted">' + esc(P.region.currency) + ' excl. VAT · ' + esc(P.region.name) + ' is quoted at the tier price (no price band)</span>';
     else if (P.region) h += '<span class="small muted">You do not have access to this region\'s prices.</span>';
     else h += '<span class="small muted">Choose the region to see the recommended prices and set the quoted price per line.</span>';
     return h + '</div>';
@@ -156,7 +159,7 @@
     if (!shown.length) return '<p class="muted">No lines.</p>';
     return '<div class="o-list"><table class="grid"><thead><tr><th>#</th><th>Requested</th><th>Matched as</th><th>Stravik PN</th><th>Description</th><th>Type</th><th class="num">Qty</th>' +
       (costs ? '<th class="num">FOB USD</th><th class="num">Line FOB USD</th><th class="num">Sales price USD</th>' : '') +
-      (priced ? '<th class="num">Recommended</th><th>Move</th><th class="num">Quoted</th><th class="num">Line total</th>' + (costs ? '<th class="num">GP</th>' : '') : '') +
+      (priced ? '<th class="num">' + (bandOn() ? 'Recommended' : 'Tier price') + '</th>' + (bandOn() ? '<th>Move</th>' : '') + '<th class="num">Quoted</th><th class="num">Line total</th>' + (costs ? '<th class="num">GP</th>' : '') : '') +
       '<th class="num">Available</th><th>Note</th></tr></thead><tbody>' +
       shown.slice(0, MAX).map(function (l) {
         var pn = l.sv_pn ? '<a href="' + L.href('parts', ['p', l.sv_pn]) + '">' + esc(l.sv_pn) + '</a>' : '';
@@ -167,7 +170,7 @@
         return '<tr><td>' + l.line + '</td><td>' + esc(l.requested_no) + '</td><td class="clip small" title="' + esc(l.matched_via || '') + '">' + esc(l.matched_via || '') + '</td><td class="pn">' + pn + '</td><td class="clip">' + esc(l.description) + '</td><td>' + esc(l.part_type || l.subcategory || '') +
           '</td><td class="num">' + L.qty(l.qty) + '</td>' +
           (costs ? '<td class="num">' + L.money(l.fob_usd) + '</td><td class="num">' + L.money(l.line_fob_usd) + '</td><td class="num">' + L.money(l.sales_price) + '</td>' : '') +
-          (priced ? '<td class="num">' + L.money(k.base) + '</td><td>' + (k.base != null ? '<select class="move" data-move="' + l.item_id + '" style="background:' + L.bandColor(k.move) + '">' + moveOptions(k.move, k.base) + '</select>' : '') + '</td>' +
+          (priced ? '<td class="num">' + L.money(k.base) + '</td>' + (bandOn() ? '<td>' + (k.base != null ? '<select class="move" data-move="' + l.item_id + '" style="background:' + L.bandColor(k.move) + '">' + moveOptions(k.move, k.base) + '</select>' : '') + '</td>' : '') +
             '<td class="num"><b>' + L.money(k.quoted) + '</b></td><td class="num">' + L.money(k.line) + '</td>' + (costs ? '<td class="num">' + (k.gp == null ? '' : (Math.round(k.gp * 1000) / 10).toFixed(1) + '%') + '</td>' : '') : '') +
           '<td class="num">' + L.qty(l.available) + '</td><td>' + (l.flag ? '<span class="flag">' + esc(l.flag) + '</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>' + (shown.length > MAX ? '<p class="muted small">Showing the first ' + MAX + ' of ' + shown.length + ' lines. The Excel download has all of them.</p>' : '');
@@ -177,19 +180,20 @@
     var n = function (v) { return v == null ? '' : Number(v); };
     var head = ['#', 'Requested', 'Matched as', 'Stravik PN', 'Description', 'Range', 'Type', 'Qty'], w = [6, 18, 30, 16, 50, 18, 18, 8];
     if (costs) { head.push('FOB USD', 'Line FOB USD', 'Sales price USD', 'Line sales USD'); w.push(10, 12, 12, 12); }
-    if (priced) { head.push('Recommended ' + cur, 'Move', 'Quoted ' + cur, 'Line quoted ' + cur); w.push(14, 8, 12, 14); if (costs) { head.push('GP margin'); w.push(10); } }
+    var band = bandOn();
+    if (priced) { head.push((band ? 'Recommended ' : 'Tier price ') + cur); w.push(14); if (band) { head.push('Move'); w.push(8); } head.push('Quoted ' + cur, 'Line quoted ' + cur); w.push(12, 14); if (costs) { head.push('GP margin'); w.push(10); } }
     head.push('Available', 'Note', 'Other possible parts'); w.push(10, 24, 30);
     var qt = 0;
     var row = function (l) {
       var o = [l.line, l.requested_no, l.matched_via || '', l.sv_pn || '', l.description || '', l.subcategory || '', l.part_type || '', l.qty];
       if (costs) o.push(n(l.fob_usd), n(l.line_fob_usd), n(l.sales_price), n(l.line_sales_usd));
-      if (priced) { var k = lineCalc(l); o.push(n(k.base), k.base == null ? '' : L.bandPct(k.move), n(k.quoted), n(k.line)); if (costs) o.push(k.gp == null ? '' : Math.round(k.gp * 1000) / 1000); }
+      if (priced) { var k = lineCalc(l); o.push(n(k.base)); if (band) o.push(k.base == null ? '' : L.bandPct(k.move)); o.push(n(k.quoted), n(k.line)); if (costs) o.push(k.gp == null ? '' : Math.round(k.gp * 1000) / 1000); }
       o.push(n(l.available), l.flag || '', (l.candidates || []).join(', ')); return o;
     };
     lines.forEach(function (l) { var k = priced ? lineCalc(l) : null; if (k && k.line != null) qt += k.line; });
     var foot = ['', '', '', '', 'Total (priced lines)', '', '', pcs];
     if (costs) foot.push('', Math.round(total * 100) / 100, '', Math.round((sales || 0) * 100) / 100);
-    if (priced) foot.push('', '', '', Math.round(qt * 100) / 100);
+    if (priced) { foot.push(''); if (band) foot.push(''); foot.push('', Math.round(qt * 100) / 100); }
     var top = [['Inquiry ' + h.ref], ['Source', h.source || ''], ['Received', L.dt(h.created_at)], ['Company', h.company || ''], ['Name', h.name || ''], ['Email', h.email || ''], ['Phone', h.phone || ''], ['Country', h.country || '']];
     if (P && P.region) top.push(['Price region', P.region.name + (P.tier ? ' · ' + tierName(P.tier) : '') + (priced ? ' · ' + cur + (P.region.pricing !== 'single' ? ' excl. VAT' : '') : '')]);
     top.push([]);

@@ -11,7 +11,7 @@
   'use strict';
   var esc = L.esc, sb = L.sb, $ = L.$;
   var BASE = L.href('pricing');
-  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves(), bandTier: 't1' };
+  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves() };
   // the price moves a salesperson chose (region|Stravik PN -> move, e.g. -0.01), kept in this browser so they survive a reload
   function loadMoves() { try { return JSON.parse(localStorage.getItem('stravik.priceMoves') || '{}') || {}; } catch (e) { return {}; } }
   function saveMoves() { try { localStorage.setItem('stravik.priceMoves', JSON.stringify(S.moves)); } catch (e) { /* private mode: moves last until the page closes */ } }
@@ -153,43 +153,40 @@
 
   // ---------------------------------------------------------------- price band in the list
   // Move and Your price on every line, so the sales team can set prices without opening each part.
-  function bandBase(x) { return r2(sell(x, single(S.data.region) ? 'price' : S.bandTier)); }
-  function bandLanded(x) { if (!S.data.costs) return null; var v = single(S.data.region) ? x.cif_usd : x[S.data.region.prefix + '_landed']; return v == null ? null : Number(v); }
+  // the band is for the USD regions (one price per region); South Africa sells on its tier prices and has no band
+  function bandBase(x) { return r2(sell(x, 'price')); }
+  function bandLanded(x) { if (!S.data.costs) return null; var v = x.cif_usd; return v == null ? null : Number(v); }
   function gpTxt(p, lc) { return p && lc != null ? (Math.round((p - lc) / p * 1000) / 10).toFixed(1) + '%' : ''; }
   function bandCols() {
-    var cur = S.data.region.currency, tiers = !single(S.data.region), withGp = S.costs && S.data.costs;
+    if (!single(S.data.region)) return [];
+    var cur = S.data.region.currency, withGp = S.costs && S.data.costs;
     var c = [{ label: 'Move', render: function (x) {
         var b = bandBase(x), m = getMove(x.sv_pn); if (b == null) return '';
         return '<select class="move" data-mv="' + esc(x.sv_pn) + '" aria-label="Price move for ' + esc(x.sv_pn) + '" style="background:' + L.bandColor(m) + '">' +
           L.bandSteps(L.BAND).map(function (s) { return '<option value="' + s + '"' + (s === m ? ' selected' : '') + '>' + esc(L.bandPct(s)) + '</option>'; }).join('') + '</select>';
       } },
-      { label: 'Your price' + (tiers ? ' (' + S.bandTier.toUpperCase() + ')' : ''), num: true, render: function (x) {
-        var p = L.bandPrice(bandBase(x), getMove(x.sv_pn));
-        return '<b data-yp="' + esc(x.sv_pn) + '">' + esc(money(p, cur)) + '</b>' + (tiers && p != null ? '<div class="small muted" data-ypv="' + esc(x.sv_pn) + '">' + esc(money(incl(p, Number(S.data.region.vat)), cur)) + '</div>' : '');
-      } }];
+      { label: 'Your price', num: true, render: function (x) { return '<b data-yp="' + esc(x.sv_pn) + '">' + esc(money(L.bandPrice(bandBase(x), getMove(x.sv_pn)), cur)) + '</b>'; } }];
     if (withGp) c.push({ label: 'GP', num: true, render: function (x) { return '<span data-gp="' + esc(x.sv_pn) + '">' + esc(gpTxt(L.bandPrice(bandBase(x), getMove(x.sv_pn)), bandLanded(x))) + '</span>'; } });
     return c;
   }
   // update one line after its move changed (no full repaint, so the list keeps its scroll and focus)
   function bandCells(x) {
     var pn = x.sv_pn, m = getMove(pn), p = L.bandPrice(bandBase(x), m), cur = S.data.region.currency, q = function (a) { return $('prList').querySelector('[' + a + '="' + CSS.escape(pn) + '"]'); };
-    var sel = q('data-mv'), yp = q('data-yp'), ypv = q('data-ypv'), gp = q('data-gp');
+    var sel = q('data-mv'), yp = q('data-yp'), gp = q('data-gp');
     if (sel) { sel.value = String(m); sel.style.background = L.bandColor(m); }
     if (yp) yp.textContent = money(p, cur);
-    if (ypv) ypv.textContent = money(incl(p, Number(S.data.region.vat)), cur);
     if (gp) gp.textContent = gpTxt(p, bandLanded(x));
   }
-  // the bar above the list: tier for "Your price" (South Africa), move every part shown, clear
+  // the bar above the list: move every part shown, clear (USD regions only)
   function bandBar(shown) {
-    var reg = S.data.region, tiers = !single(reg), n = 0;
+    var reg = S.data.region, n = 0;
+    if (!single(reg)) { $('prBand').innerHTML = ''; return; }
     (S.data.rows || []).forEach(function (x) { if (getMove(x.sv_pn)) n++; });
     $('prBand').innerHTML = '<div class="inq-price"><b>Price band</b>' +
-      (tiers ? '<span>Your price from</span><select id="pbTierL">' + TIER.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === S.bandTier ? ' selected' : '') + '>' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select>' : '') +
       '<span>Move every part shown (' + shown.length.toLocaleString() + ') to</span><select id="pbAllV" class="move">' + L.bandSteps(L.BAND).map(function (s) { return '<option value="' + s + '"' + (s === 0 ? ' selected' : '') + '>' + esc(L.bandPct(s)) + '</option>'; }).join('') + '</select>' +
       '<button type="button" class="btn ghost small" id="pbAll">Apply</button>' +
       (n ? '<button type="button" class="btn ghost small" id="pbClear">Clear all moves (' + n.toLocaleString() + ')</button>' : '') +
       '<span class="small muted">From ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + ' of the recommended price · your moves are kept in this browser and go into the Download</span></div>';
-    if ($('pbTierL')) $('pbTierL').onchange = function () { S.bandTier = this.value; paint(); };
     $('pbAll').onclick = function () { var m = Number($('pbAllV').value); shown.forEach(function (x) { if (bandBase(x) != null) setMove(x.sv_pn, m); }); paint(); L.toast(shown.length.toLocaleString() + ' parts moved to ' + L.bandPct(m)); };
     if ($('pbClear')) $('pbClear').onclick = function () { (S.data.rows || []).forEach(function (x) { setMove(x.sv_pn, 0); }); paint(); L.toast('Moves cleared for ' + reg.name + ' · ' + S.range); };
   }
@@ -212,8 +209,9 @@
       if (!S.data.costs) {
         var n0 = function (v) { return v == null || v === '' ? '' : esc(String(v)); };
         L.form({ crumbs: crumbs, buttons: '<button type="button" class="btn ghost" id="pcPart">Open the part</button>',
-          sheet: head + bandHtml() + '<div class="o-groups">' + L.group('Part', single(reg) ? [['OE ref', n0(x.oe_ref)], ['Tech info', n0(x.tech_info)], ['MOQ', n0(x.moq)], ['Customer MOQ', n0(x.customer_moq)]]
-            : [['Market price', n0(x.market_price)], ['Effective', esc(dmy(x.effective))]]) + '</div>' });
+          sheet: head + bandHtml() + '<div class="o-groups">' + L.group(single(reg) ? 'Part' : 'Prices (' + reg.currency + ', excl. VAT)', single(reg) ? [['OE ref', n0(x.oe_ref)], ['Tech info', n0(x.tech_info)], ['MOQ', n0(x.moq)], ['Customer MOQ', n0(x.customer_moq)]]
+            : TIER.map(function (t) { var v = x[t[0]]; return [tierName(t[0]), v == null ? '' : '<b>' + esc(money(v, reg.currency)) + '</b> <span class="muted">· incl. VAT ' + esc(money(incl(v, Number(reg.vat)), reg.currency)) + '</span>']; })
+              .concat([['Market price', n0(x.market_price)], ['Effective', esc(dmy(x.effective))]])) + '</div>' });
         bandMount(x, pn);
         $('pcPart').onclick = function () { L.openPart(pn); };
         return;
@@ -252,18 +250,23 @@
   // The sales team sees prices only; the pricing team also sees landed cost, GP margin and gross profit.
   function bandHtml() { return '<div class="band" id="pbBand"></div>'; }
   function bandMount(x, pn) {
-    var reg = S.data.region, cur = reg.currency, tiers = !single(reg), withCost = !!S.data.costs, px = reg.prefix, vat = Number(reg.vat);
-    var st = { move: getMove(pn), qty: Number(x.customer_moq || x.moq) || 1, tier: S.bandTier }, regs = regsFor(S.range), steps = L.bandSteps(L.BAND), box = $('pbBand');
-    var base = function () { return r2(sell(x, tiers ? st.tier : 'price')); };
-    var landed = function () { var v = withCost ? (tiers ? x[px + '_landed'] : x.cif_usd) : null; return v == null ? null : Number(v); };
+    var reg = S.data.region, cur = reg.currency, withCost = !!S.data.costs;
+    var st = { move: getMove(pn), qty: Number(x.customer_moq || x.moq) || 1 }, regs = regsFor(S.range), steps = L.bandSteps(L.BAND), box = $('pbBand');
+    var regSel = regs.length > 1 ? '<select id="bReg">' + regs.map(function (g) { return '<option value="' + esc(g.code) + '"' + (g.code === reg.code ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select>' : '<span class="muted">' + esc(reg.name) + '</span>';
+    var onReg = function () { if ($('bReg')) $('bReg').onchange = function () { L.go(L.href('pricing', ['part', pn], { range: S.range, region: this.value })); }; };
+    if (!single(reg)) {   // South Africa: tier prices, no band (only the region picker, when the range has USD regions too)
+      if (regs.length < 2) { box.remove(); return; }
+      box.innerHTML = '<div class="band-head"><h2>Price band</h2>' + regSel + '<span class="small muted">' + esc(reg.name) + ' sells on its tier prices, so there is no price band. Choose a USD region to use the band.</span></div>';
+      onReg(); return;
+    }
+    var base = function () { return r2(sell(x, 'price')); };
+    var landed = function () { var v = withCost ? x.cif_usd : null; return v == null ? null : Number(v); };
     var m2 = function (v) { return v == null ? '–' : money(v, cur); };
     var sum = [['Recommended price', 'bRec'], ['Lowest price', 'bLo'], ['Highest price', 'bHi'], ['Qty (units)', 'bQty'], ['Selected move', 'bMove'], ['Selected price', 'bPrice']]
       .concat(withCost ? [['GP margin', 'bGp'], ['Gross profit', 'bGpv']] : []).concat([['Revenue', 'bRev'], ['Status', 'bStatus']]);
     if (withCost) sum.unshift(['Landed cost', 'bLanded']);
-    box.innerHTML = '<div class="band-head"><h2>Price band</h2>' +
-      (regs.length > 1 ? '<select id="bReg">' + regs.map(function (g) { return '<option value="' + esc(g.code) + '"' + (g.code === reg.code ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select>' : '<span class="muted">' + esc(reg.name) + '</span>') +
-      (tiers ? '<select id="bTier">' + TIER.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === st.tier ? ' selected' : '') + '>' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select>' : '') +
-      '<span class="small muted">' + esc(cur) + (tiers ? ' excl. VAT' : '') + ' · move the price from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + '</span></div>' +
+    box.innerHTML = '<div class="band-head"><h2>Price band</h2>' + regSel +
+      '<span class="small muted">' + esc(cur) + ' · move the price from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + '</span></div>' +
       '<div class="o-list"><table class="grid band-sum"><thead><tr>' + sum.map(function (c) { return '<th class="num">' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
       sum.map(function (c) { return '<td class="num" id="' + c[1] + '">' + (c[1] === 'bQty' ? '<input id="bQtyIn" type="number" min="1" step="1" value="' + st.qty + '">' : '') + '</td>'; }).join('') + '</tr></tbody></table></div>' +
       '<div class="band-steps" id="bSteps" role="radiogroup" aria-label="Price move">' + steps.map(function (m) {
@@ -271,11 +274,11 @@
       }).join('') + '</div><div id="bNone" class="small flag" hidden></div>';
     function draw() {
       var b = base(), p = L.bandPrice(b, st.move), lc = landed(), q = st.qty, set = function (id, h) { var e = $(id); if (e) e.innerHTML = h; };
-      $('bNone').hidden = b != null; $('bNone').textContent = b == null ? 'No ' + (tiers ? tierName(st.tier) + ' ' : '') + 'price for ' + pn + ' in ' + reg.name + '.' : '';
+      $('bNone').hidden = b != null; $('bNone').textContent = b == null ? 'No price for ' + pn + ' in ' + reg.name + '.' : '';
       set('bLanded', esc(lc == null ? '–' : money(Math.round(lc * 1000) / 1000, cur)));
       set('bRec', '<b>' + esc(m2(b)) + '</b>'); set('bLo', esc(m2(L.bandPrice(b, L.BAND.lo)))); set('bHi', esc(m2(L.bandPrice(b, L.BAND.hi))));
       set('bMove', '<b>' + esc(L.bandPct(st.move)) + '</b>');
-      set('bPrice', '<b>' + esc(m2(p)) + '</b>' + (tiers && p != null ? '<div class="small muted">incl. VAT ' + esc(money(incl(p, vat), cur)) + '</div>' : ''));
+      set('bPrice', '<b>' + esc(m2(p)) + '</b>');
       set('bRev', esc(p == null ? '–' : money(p * q, cur)));
       if (withCost) {
         set('bGp', esc(p && lc != null ? (Math.round((p - lc) / p * 1000) / 10).toFixed(1) + '%' : '–'));
@@ -295,8 +298,7 @@
       e.preventDefault(); st.move = steps[j]; setMove(pn, st.move); draw(); $('bSteps').querySelector('[data-m="' + st.move + '"]').focus();
     };
     $('bQtyIn').oninput = function () { var v = Math.floor(Number(this.value)); st.qty = v > 0 ? v : 0; draw(); };
-    if ($('bTier')) $('bTier').onchange = function () { st.tier = S.bandTier = this.value; draw(); };
-    if ($('bReg')) $('bReg').onchange = function () { L.go(L.href('pricing', ['part', pn], { range: S.range, region: this.value })); };
+    onReg();
     draw();
   }
 
@@ -312,8 +314,6 @@
     var head = ['Stravik PN', 'Lucas PN', 'Description', 'Range'], widths = [14, 14, 46, 16];
     TIER.forEach(function (t) { head.push(tierName(t[0]) + ' ' + cur + ' excl. VAT', tierName(t[0]) + ' ' + cur + ' incl. VAT'); widths.push(16, 16); });
     head.push('Market price', 'Effective'); widths.push(16, 12);
-    var mv = hasMoves(reg.code), bt = S.bandTier;
-    if (mv) { head.push('Move', 'Your price (' + tierName(bt) + ') ' + cur + ' excl. VAT', 'Your price ' + cur + ' incl. VAT'); widths.push(8, 22, 18); }
     var all = [];
     views.forEach(function (v) { v.rows.forEach(function (x) { if (!keep || keep(x, v)) all.push([v, x]); }); });
     var sheets = [{ name: 'Prices', head: head, widths: widths, top: [[reg.name + ' · ' + views.map(function (v) { return v.subcategory; }).join(', ') + ' · ' + cur + ' · excl. VAT and incl. ' + pct(vat) + ' VAT']],
@@ -321,7 +321,6 @@
         var v = p[0], x = p[1], o = [x.sv_pn, x.lucas_pn || '', x.short_desc || '', v.subcategory];
         TIER.forEach(function (t) { var y = sell_(v, x, t[0]); o.push(r2(y), incl(y, vat)); });
         o.push((v.costs ? x[px + '_market_price'] : x.market_price) || '', (v.costs ? x[px + '_effective'] : x.effective) || '');
-        if (mv) { var b = r2(sell_(v, x, bt)), m = getMove(x.sv_pn, reg.code), yp = L.bandPrice(b, m); o.push(b == null ? '' : L.bandPct(m), yp == null ? '' : yp, yp == null ? '' : incl(yp, vat)); }
         return o;
       }) }];
     if (withCost) {
