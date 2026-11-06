@@ -70,7 +70,7 @@
         buttons: (costs() ? '<button type="button" class="btn" id="prUp">Upload price list</button>' : '') + '<button type="button" class="btn ghost" id="prXls">Download</button>' + (ME.ranges.length > 1 ? '<button type="button" class="btn ghost" id="prXlsAll">Download all ranges</button>' : '') +
           (regs.length > 1 ? '<select id="prReg" style="width:auto">' + regs.map(function (x) { return '<option value="' + esc(x.code) + '"' + (x.code === reg.code ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
           (costs() ? '<span class="chips" style="margin-left:6px"><button type="button" class="chip' + (S.costs ? '' : ' on') + '" data-v="0">Prices</button><button type="button" class="chip' + (S.costs ? ' on' : '') + '" data-v="1">Costing</button></span>' : '') });
-      L.searchBar({ placeholder: 'Search Stravik PN, Lucas PN or description…', text: S.text, filters: [], onChange: function (s) { S.text = s.text; S.offset = 0; paint(); } });
+      L.searchBar({ placeholder: 'Search Stravik PN, Lucas PN, OE ref or description…', text: S.text, filters: [], onChange: function (s) { S.text = s.text; S.offset = 0; paint(); } });
       L.content('<div class="o-with-panel"><nav class="o-panel"><div class="o-panel-title">Range</div>' +
         (ME.ranges.length ? ME.ranges.map(function (x) { return '<a href="' + L.href('pricing', [], { range: x.subcategory }) + '" class="' + (x.subcategory === S.range ? 'on' : '') + '">' + esc(x.subcategory) + '</a>'; }).join('') : '<p class="small muted" style="padding:6px 14px">No price lists yet.</p>') +
         '</nav><div><div id="prNote" class="small muted" style="margin:0 0 10px"></div><div id="prList"><p class="muted">Loading…</p></div></div></div>');
@@ -88,7 +88,7 @@
     var t = L.clean(S.text), words = String(S.text || '').toLowerCase().split(/\s+/).filter(Boolean);
     return (S.data.rows || []).filter(function (x) {
       if (!t) return true;
-      if (L.clean(x.sv_pn).indexOf(t) >= 0 || L.clean(x.lucas_pn).indexOf(t) >= 0) return true;
+      if (L.clean(x.sv_pn).indexOf(t) >= 0 || L.clean(x.lucas_pn).indexOf(t) >= 0 || L.clean(x.oe_ref).indexOf(t) >= 0) return true;
       var d = String(x.short_desc || '').toLowerCase(); return words.every(function (w) { return d.indexOf(w) >= 0; });
     });
   }
@@ -105,12 +105,19 @@
     var cols = [{ label: 'Stravik PN', render: function (x) { return '<span class="pn">' + esc(x.sv_pn) + '</span>' + (x.lucas_pn ? '<div class="small muted">' + esc(x.lucas_pn) + '</div>' : ''); } },
       { label: 'Description', cls: 'clip', render: function (x) { return esc(x.short_desc || ''); } }];
     if (single(reg)) {
+      // USD regions: Stravik PN · OE ref · Standard description · Tech info · (costs) · FOB China · MOQ · Customer MOQ
+      var n0 = function (v) { return v == null || v === '' ? '' : esc(String(v)); };
+      cols = [cols[0],
+        { label: 'OE ref', cls: 'clip', render: function (x) { return n0(x.oe_ref); } },
+        { label: 'Standard description', cls: 'clip', render: function (x) { return n0(x.short_desc); } },
+        { label: 'Tech info', cls: 'clip', render: function (x) { return x.tech_info ? '<span class="small">' + esc(x.tech_info) + '</span>' : ''; } }];
       if (S.costs) cols = cols.concat([
-        { label: 'FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
+        { label: 'Cost FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
         { label: 'Landed USD', num: true, render: function (x) { return esc(money(x.cif_usd, 'USD')); } },
         { label: 'Margin', num: true, render: function (x) { return esc(pct(x[px + '_margin'])); } }]);
-      cols = cols.concat([{ label: 'Price ' + cur, num: true, render: function (x) { return '<b>' + esc(money(S.data.costs ? x[px + '_price'] : x.price, cur)) + '</b>'; } },
-        { label: 'MOQ', num: true, render: function (x) { return x.moq == null ? '' : esc(String(x.moq)); } }]);
+      cols = cols.concat([{ label: 'FOB China', num: true, render: function (x) { return '<b>' + esc(money(S.data.costs ? x[px + '_price'] : x.price, cur)) + '</b>'; } },
+        { label: 'MOQ', num: true, render: function (x) { return n0(x.moq); } },
+        { label: 'Customer MOQ', num: true, render: function (x) { return n0(x.customer_moq); } }]);
     } else if (S.costs) {
       cols = cols.concat([
         { label: 'FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
@@ -127,7 +134,7 @@
         .concat([{ label: 'Market', num: true, render: function (x) { return esc((S.data.costs ? x[px + '_market_price'] : x.market_price) || ''); } }]);
     }
     $('prList').innerHTML = L.listView(cols, page, costs() ? function (x) { return L.href('pricing', ['part', x.sv_pn], { range: S.range }); } : null) +
-      (single(reg) ? '<p class="small muted" style="margin-top:8px">Price = landed cost ÷ (1 − margin), rounded to 0.1.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
+      (single(reg) ? '<p class="small muted" style="margin-top:8px">FOB China = landed cost ÷ (1 − margin), rounded to 0.1.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
   }
 
   // one part's full costing (pricing team)
@@ -150,7 +157,7 @@
           L.group('Supplier and Zenter Parts costs (USD)', [[(x.price_basis || 'FOB') + ' price', '<b>' + esc(money(x.fob_usd, 'USD')) + '</b>' + (x.fob_port ? ' <span class="muted">' + esc(x.fob_port) + '</span>' : '')],
             line('Consolidation', 'c_cons'), line('Finance', 'c_finance'), line('Customer rebate / discount', 'c_customer_rebate'), line('Shipping', 'c_ship'), line('Insurance', 'c_ins'),
             line('Warehousing', 'c_whs'), line('Warranty', 'c_warr'), line('Marketing', 'c_mar'), line('Royalty', 'c_roy'), line('ZP margin', 'zp_mar'), line('CIF Zenter Parts / landed cost', null, 'cif_usd', 'USD'),
-            ['MOQ', esc(x.moq == null ? '' : String(x.moq))], ['Price source', esc(x.price_source || '')], ['Remarks', esc(x.remarks || '')]]) +
+            ['MOQ', esc(x.moq == null ? '' : String(x.moq))], ['Customer MOQ', esc(x.customer_moq == null ? '' : String(x.customer_moq))], ['Price source', esc(x.price_source || '')], ['Remarks', esc(x.remarks || '')]]) +
           (USDREG().some(function (g) { return x[g.prefix + '_price'] != null; }) ? L.group('USD regions (one price per region)', USDREG().map(function (g) {
             return [g.name, '<span class="muted">' + esc(pct(x[g.prefix + '_margin'])) + '</span> <b>' + esc(money(x[g.prefix + '_price'], 'USD')) + '</b>'];
           })) : '') +
@@ -208,12 +215,13 @@
   function exportSingle(views, keep, withCost) {
     var reg = views[0].region, px = reg.prefix, all = [];
     views.forEach(function (v) { v.rows.forEach(function (x) { if (!keep || keep(x, v)) all.push([v, x]); }); });
-    var sheets = [{ name: 'Prices', head: ['Stravik PN', 'Lucas PN', 'Description', 'Range', 'Price USD', 'MOQ'], widths: [14, 14, 46, 16, 14, 8],
+    var sheets = [{ name: 'Prices', head: ['Stravik PN', 'Lucas PN', 'OE ref', 'Standard description', 'Tech info', 'Range', 'FOB China USD', 'MOQ', 'Customer MOQ'], widths: [14, 14, 28, 46, 40, 16, 14, 8, 13],
       top: [[reg.name + ' · ' + views.map(function (v) { return v.subcategory; }).join(', ') + ' · USD · one price for every customer']],
-      rows: all.map(function (p) { var v = p[0], x = p[1]; return [x.sv_pn, x.lucas_pn || '', x.short_desc || '', v.subcategory, r2(v.costs ? x[px + '_price'] : x.price), x.moq == null ? '' : x.moq]; }) }];
+      rows: all.map(function (p) { var v = p[0], x = p[1], e = function (y) { return y == null ? '' : y; };
+        return [x.sv_pn, e(x.lucas_pn), e(x.oe_ref), e(x.short_desc), e(x.tech_info), v.subcategory, r2(v.costs ? x[px + '_price'] : x.price), e(x.moq), e(x.customer_moq)]; }) }];
     if (withCost) {
       var C = [['sv_pn', 'Stravik PN'], ['_range', 'Range'], ['price_basis', 'Basis'], ['fob_usd', 'FOB / EXW USD'], ['c_cons', 'C_CONS'], ['c_finance', 'C_FINANCE'], ['c_customer_rebate', 'C_CUSTOMER DISCOUNT'], ['c_ship', 'C_SHIP'], ['c_ins', 'C_INS'],
-        ['c_whs', 'C_WHS'], ['c_warr', 'C_WARR'], ['c_mar', 'C_MAR'], ['c_roy', 'C_ROY'], ['zp_mar', 'ZP MAR'], ['cif_usd', 'LANDED COST USD'], ['moq', 'MOQ']];
+        ['c_whs', 'C_WHS'], ['c_warr', 'C_WARR'], ['c_mar', 'C_MAR'], ['c_roy', 'C_ROY'], ['zp_mar', 'ZP MAR'], ['cif_usd', 'LANDED COST USD'], ['moq', 'MOQ'], ['customer_moq', 'CUSTOMER MOQ']];
       USDREG().forEach(function (g) { C.push([g.prefix + '_margin', 'MARGIN ' + g.name.toUpperCase()], [g.prefix + '_price', 'PRICE ' + g.name.toUpperCase()]); });
       C.push(['price_source', 'PRICE SOURCE'], ['remarks', 'REMARKS']);
       sheets.push({ name: 'Costing', head: C.map(function (c) { return c[1]; }), rows: all.map(function (p) {
@@ -354,7 +362,7 @@
     t1uplift: 'sa_t1_uplift', t2chainuplift: 'sa_t2_uplift', t2chainprices: 'sa_t2', t3upliftbigretailers: 'sa_t3_uplift', bigretailers: 'sa_t3', t3bigretailers: 'sa_t3', t4uplifttomediumretailers: 'sa_t4_uplift', t4mediumretailers: 'sa_t4',
     t5uplifttosmallretailers: 'sa_t5_uplift', t5smallretailers: 'sa_t5', salesmarginretailprice: 'sa_retail_margin', retailprice: 'sa_retail', marketpricezar: 'sa_market_price', marketprice: 'sa_market_price' };
   var TEXT = { sv_pn: 1, _lucas: 1, fob_port: 1, remarks: 1, sa_market_price: 1, price_source: 1 };
-  MAP.moq = 'moq'; MAP.pricesource = 'price_source'; MAP.landedcostusd = 'cif_usd'; MAP.cwar = 'c_warr'; MAP.cmark = 'c_mar';
+  MAP.moq = 'moq'; MAP.customermoq = 'customer_moq'; MAP.moqcustomer = 'customer_moq'; MAP.pricesource = 'price_source'; MAP.landedcostusd = 'cif_usd'; MAP.cwar = 'c_warr'; MAP.cmark = 'c_mar';
   // USD regions: "MARGIN NORTH AFRICA" / "PRICE NORTH AFRICA" (also "margin_north_africa", "North Africa margin")
   function regionHeads() {
     USDREG().forEach(function (g) {
