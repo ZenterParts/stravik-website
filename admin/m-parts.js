@@ -248,7 +248,7 @@
     prefill = prefill || {};
     var c = prefill.subcategory ? L.cat(prefill.subcategory) : cat();
     L.modal('New part', '<p class="muted">After creating it you can add its prices, specifications, OE numbers, cross references and vehicles.</p><div class="o-groups">' +
-      L.group('', [['Stravik part no.', '<input id="aPn" value="' + esc(prefill.sv_pn || '') + '" placeholder="e.g. SV-OFL-0132-00">'], ['Range', '<select id="aRange">' + L.rangeOptions(false, c && c.subcategory_key) + '</select>'],
+      L.group('', [['Stravik part no.', '<input id="aPn" value="' + esc(prefill.sv_pn || '') + '" placeholder="e.g. OR126 or SEIC0962">'], ['Range', '<select id="aRange">' + L.rangeOptions(false, c && c.subcategory_key) + '</select>'],
         ['Type', '<select id="aType">' + typeOptions(c.subcategory_key, prefill.part_type) + '</select>'], ['Description', '<input id="aDesc" value="' + esc(prefill.short_desc || '') + '">'],
         ['Status', '<select id="aStatus">' + STATUSES.map(function (s) { return '<option' + (s === (prefill.status || 'Active') ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>']]) +
       L.group('', [['Brand', '<input id="aBrand" value="' + esc(prefill.brand || 'Stravik') + '">'], ['Supplier PN', '<input id="aSup" value="' + esc(prefill.supplier_pn || '') + '">'], ['Origin', '<input id="aOrigin" value="' + esc(prefill.origin || '') + '">'], ['Source inquiry', '<input id="aInq" value="' + esc(prefill.source_inquiry || '') + '" placeholder="e.g. Kenya CU-009">'],
@@ -461,8 +461,8 @@
   L.importParts = importParts;   // also used by Part numbers → Many at once when the sheet already has Stravik PNs
   function partsTemplate() {
     var head = ['Stravik PN', 'Range', 'Type', 'Description', 'Website description', 'Status', 'Source inquiry', 'OE numbers', 'Vehicle makes', 'Cross ref: GUD', 'Cross ref: MANN', 'Cross ref: CTR', 'Spec: Dimensions', 'Spec: Position', 'Brand', 'Origin', 'Barcode', 'Supplier PN', 'HS code', 'Notes'];
-    var ex = ['SV-OFL-0132-00', 'Filters', 'OFL', 'Spin-on oil filter', 'Oil filter, spin-on, 1.5L', 'Proposed', 'Kenya CU-009', '90915-YZZJ3 (Toyota), 90915-10003', 'Toyota, Lexus', 'Z418', 'W 68/3', '', '76×68×68', '', 'Stravik', 'China', '', '', '', ''];
-    var help = [['Column', 'How to fill it'], ['Stravik PN', 'Required. New number = new part; existing number = the part is updated. Hyphens may be left out for existing parts (SVAFL000100 = SV-AFL-0001-00).'],
+    var ex = ['OR126', 'Filters', 'OFL', 'Oil filter, spin-on', 'Oil filter, spin-on – H 86 × OD 68 × ID 62 mm, thread M20 x 1.5', 'Proposed', 'Kenya CU-009', '90915-YZZJ3 (Toyota), 90915-10003', 'Toyota, Lexus', 'Z418', 'W 68/3', '', '76×68×68', '', 'Stravik', 'China', '', '', '', ''];
+    var help = [['Column', 'How to fill it'], ['Stravik PN', 'Required. New number = new part; existing number = the part is updated. Hyphens may be left out for existing parts (SVBJ0001L = SVBJ-0001L). Filters: code + 3 digits, e.g. OR126 (see Part numbers).'],
       ['Range', 'Required for new parts: ' + L.CATS.map(function (c) { return c.name; }).join(', ')],
       ['Type', 'Part type, by code or name: ' + L.CATS.map(function (c) { return c.name + ': ' + L.typesOf(c.subcategory_key).map(function (t) { return t.code; }).join(', '); }).join('; ')],
       ['Description', 'Required for new parts. Internal description.'], ['Website description', 'Optional short description shown on the Stravik website (filters).'],
