@@ -190,3 +190,21 @@ svg.ean{height:34px; width:auto; display:block;}
 /* Stravik touches */
 .o-nav{border-bottom:3px solid var(--sv-gold);}
 h1,.o-appname,.stat{font-family:var(--sv-display);}
+
+/* ---------- price band (Pricing part page, Inquiries) ---------- */
+.band{border:1px solid #e1e4e1; border-radius:4px; padding:14px 16px 12px; margin:4px 0 20px; background:#fbfbfa;}
+.band-head{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-bottom:10px;}
+.band-head h2{margin:0;} .band-head select{width:auto; margin:0;}
+.band-sum td,.band-sum th{text-align:right; white-space:nowrap;}
+.band-sum td{background:#fff;} .band-sum input{width:90px; text-align:right; margin:0; padding:4px 6px 2px;}
+.band-steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(64px,1fr)); gap:4px; margin-top:12px;}
+.band-steps button{border:1px solid rgba(0,0,0,.08); border-radius:4px; padding:7px 4px 5px; font:inherit; color:var(--sv-ink); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; position:relative;}
+.band-steps button:hover{border-color:var(--sv-navy);}
+.band-steps button.on{outline:3px solid var(--sv-ink); outline-offset:-1px; font-weight:700;}
+.band-steps button.on::after{content:"▲"; position:absolute; bottom:-17px; font-size:.75rem; color:var(--sv-ink);}
+.band-steps button:focus-visible{outline:3px solid var(--sv-focus);}
+.band-pct{font-weight:700; font-size:.86rem;} .band-px{font-size:.84rem;}
+#bNone{margin-top:14px;}
+.inq-price{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin:0 0 10px;}
+.inq-price select{width:auto; margin:0;}
+select.move{width:auto; margin:0; padding:3px 6px 1px; font-size:.84rem;}
