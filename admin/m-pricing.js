@@ -11,7 +11,13 @@
   'use strict';
   var esc = L.esc, sb = L.sb, $ = L.$;
   var BASE = L.href('pricing');
-  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null };
+  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves(), bandTier: 't1' };
+  // the price moves a salesperson chose (region|Stravik PN -> move, e.g. -0.01), kept in this browser so they survive a reload
+  function loadMoves() { try { return JSON.parse(localStorage.getItem('stravik.priceMoves') || '{}') || {}; } catch (e) { return {}; } }
+  function saveMoves() { try { localStorage.setItem('stravik.priceMoves', JSON.stringify(S.moves)); } catch (e) { /* private mode: moves last until the page closes */ } }
+  function getMove(pn, regCode) { var m = S.moves[(regCode || S.data.region.code) + '|' + pn]; return typeof m === 'number' && L.bandSteps(L.BAND).indexOf(m) >= 0 ? m : 0; }
+  function setMove(pn, m) { var k = S.data.region.code + '|' + pn; if (m) S.moves[k] = m; else delete S.moves[k]; saveMoves(); }
+  function hasMoves(regCode) { var p = regCode + '|'; return Object.keys(S.moves).some(function (k) { return k.indexOf(p) === 0; }); }
   var ME = null, meP = null;
   function me() {
     if (ME) return Promise.resolve(ME);
@@ -74,7 +80,7 @@
       L.searchBar({ placeholder: 'Search Stravik PN, Lucas PN, OE ref or description…', text: S.text, filters: [], onChange: function (s) { S.text = s.text; S.offset = 0; paint(); } });
       L.content('<div class="o-with-panel"><nav class="o-panel"><div class="o-panel-title">Range</div>' +
         (ME.ranges.length ? ME.ranges.map(function (x) { return '<a href="' + L.href('pricing', [], { range: x.subcategory }) + '" class="' + (x.subcategory === S.range ? 'on' : '') + '">' + esc(x.subcategory) + '</a>'; }).join('') : '<p class="small muted" style="padding:6px 14px">No price lists yet.</p>') +
-        '</nav><div><div id="prNote" class="small muted" style="margin:0 0 10px"></div><div id="prList"><p class="muted">Loading…</p></div></div></div>');
+        '</nav><div><div id="prNote" class="small muted" style="margin:0 0 10px"></div><div id="prBand"></div><div id="prList"><p class="muted">Loading…</p></div></div></div>');
       if ($('prUp')) $('prUp').onclick = function () { L.pickFile(upload); };
       $('prXls').onclick = excel;
       if ($('prXlsAll')) $('prXlsAll').onclick = excelAll;
@@ -116,7 +122,8 @@
         { label: 'Cost FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
         { label: 'Landed USD', num: true, render: function (x) { return esc(money(x.cif_usd, 'USD')); } },
         { label: 'Margin', num: true, render: function (x) { return esc(pct(x[px + '_margin'])); } }]);
-      cols = cols.concat([{ label: 'FOB China', num: true, render: function (x) { return '<b>' + esc(money(S.data.costs ? x[px + '_price'] : x.price, cur)) + '</b>'; } },
+      cols = cols.concat([{ label: 'FOB China', num: true, render: function (x) { return '<b>' + esc(money(S.data.costs ? x[px + '_price'] : x.price, cur)) + '</b>'; } }])
+        .concat(bandCols()).concat([
         { label: 'MOQ', num: true, render: function (x) { return n0(x.moq); } },
         { label: 'Customer MOQ', num: true, render: function (x) { return n0(x.customer_moq); } }]);
     } else if (S.costs) {
@@ -129,13 +136,62 @@
       ]).concat(TIER.map(function (t) {
         var up = t[0] === 'retail' ? px + '_retail_margin' : px + '_' + t[0] + '_uplift';
         return { label: t[1], num: true, render: function (x) { return '<b>' + esc(money(x[px + '_' + t[0]], cur)) + '</b><div class="small muted">+' + esc(pct(x[up])) + '</div>'; } };
-      })).concat([{ label: 'Market', num: true, render: function (x) { return esc(x[px + '_market_price'] || ''); } }]);
+      })).concat([{ label: 'Market', num: true, render: function (x) { return esc(x[px + '_market_price'] || ''); } }]).concat(bandCols());
     } else {
       cols = cols.concat(TIER.map(function (t) { return { label: t[1], num: true, render: function (x) { return two(sell(x, t[0])); } }; }))
-        .concat([{ label: 'Market', num: true, render: function (x) { return esc((S.data.costs ? x[px + '_market_price'] : x.market_price) || ''); } }]);
+        .concat([{ label: 'Market', num: true, render: function (x) { return esc((S.data.costs ? x[px + '_market_price'] : x.market_price) || ''); } }]).concat(bandCols());
     }
     $('prList').innerHTML = L.listView(cols, page, function (x) { return L.href('pricing', ['part', x.sv_pn], { range: S.range }); }) +
       (single(reg) ? '<p class="small muted" style="margin-top:8px">FOB China = landed cost ÷ (1 − margin), rounded to 0.1.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
+    bandBar(all);
+    $('prList').onchange = function (e) {
+      var sel = e.target.closest('select[data-mv]'); if (!sel) return;
+      var pn = sel.dataset.mv, x = (S.data.rows || []).find(function (y) { return y.sv_pn === pn; });
+      setMove(pn, Number(sel.value)); if (x) bandCells(x); bandBar(rows());
+    };
+  }
+
+  // ---------------------------------------------------------------- price band in the list
+  // Move and Your price on every line, so the sales team can set prices without opening each part.
+  function bandBase(x) { return r2(sell(x, single(S.data.region) ? 'price' : S.bandTier)); }
+  function bandLanded(x) { if (!S.data.costs) return null; var v = single(S.data.region) ? x.cif_usd : x[S.data.region.prefix + '_landed']; return v == null ? null : Number(v); }
+  function gpTxt(p, lc) { return p && lc != null ? (Math.round((p - lc) / p * 1000) / 10).toFixed(1) + '%' : ''; }
+  function bandCols() {
+    var cur = S.data.region.currency, tiers = !single(S.data.region), withGp = S.costs && S.data.costs;
+    var c = [{ label: 'Move', render: function (x) {
+        var b = bandBase(x), m = getMove(x.sv_pn); if (b == null) return '';
+        return '<select class="move" data-mv="' + esc(x.sv_pn) + '" aria-label="Price move for ' + esc(x.sv_pn) + '" style="background:' + L.bandColor(m) + '">' +
+          L.bandSteps(L.BAND).map(function (s) { return '<option value="' + s + '"' + (s === m ? ' selected' : '') + '>' + esc(L.bandPct(s)) + '</option>'; }).join('') + '</select>';
+      } },
+      { label: 'Your price' + (tiers ? ' (' + S.bandTier.toUpperCase() + ')' : ''), num: true, render: function (x) {
+        var p = L.bandPrice(bandBase(x), getMove(x.sv_pn));
+        return '<b data-yp="' + esc(x.sv_pn) + '">' + esc(money(p, cur)) + '</b>' + (tiers && p != null ? '<div class="small muted" data-ypv="' + esc(x.sv_pn) + '">' + esc(money(incl(p, Number(S.data.region.vat)), cur)) + '</div>' : '');
+      } }];
+    if (withGp) c.push({ label: 'GP', num: true, render: function (x) { return '<span data-gp="' + esc(x.sv_pn) + '">' + esc(gpTxt(L.bandPrice(bandBase(x), getMove(x.sv_pn)), bandLanded(x))) + '</span>'; } });
+    return c;
+  }
+  // update one line after its move changed (no full repaint, so the list keeps its scroll and focus)
+  function bandCells(x) {
+    var pn = x.sv_pn, m = getMove(pn), p = L.bandPrice(bandBase(x), m), cur = S.data.region.currency, q = function (a) { return $('prList').querySelector('[' + a + '="' + CSS.escape(pn) + '"]'); };
+    var sel = q('data-mv'), yp = q('data-yp'), ypv = q('data-ypv'), gp = q('data-gp');
+    if (sel) { sel.value = String(m); sel.style.background = L.bandColor(m); }
+    if (yp) yp.textContent = money(p, cur);
+    if (ypv) ypv.textContent = money(incl(p, Number(S.data.region.vat)), cur);
+    if (gp) gp.textContent = gpTxt(p, bandLanded(x));
+  }
+  // the bar above the list: tier for "Your price" (South Africa), move every part shown, clear
+  function bandBar(shown) {
+    var reg = S.data.region, tiers = !single(reg), n = 0;
+    (S.data.rows || []).forEach(function (x) { if (getMove(x.sv_pn)) n++; });
+    $('prBand').innerHTML = '<div class="inq-price"><b>Price band</b>' +
+      (tiers ? '<span>Your price from</span><select id="pbTierL">' + TIER.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === S.bandTier ? ' selected' : '') + '>' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select>' : '') +
+      '<span>Move every part shown (' + shown.length.toLocaleString() + ') to</span><select id="pbAllV" class="move">' + L.bandSteps(L.BAND).map(function (s) { return '<option value="' + s + '"' + (s === 0 ? ' selected' : '') + '>' + esc(L.bandPct(s)) + '</option>'; }).join('') + '</select>' +
+      '<button type="button" class="btn ghost small" id="pbAll">Apply</button>' +
+      (n ? '<button type="button" class="btn ghost small" id="pbClear">Clear all moves (' + n.toLocaleString() + ')</button>' : '') +
+      '<span class="small muted">From ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + ' of the recommended price · your moves are kept in this browser and go into the Download</span></div>';
+    if ($('pbTierL')) $('pbTierL').onchange = function () { S.bandTier = this.value; paint(); };
+    $('pbAll').onclick = function () { var m = Number($('pbAllV').value); shown.forEach(function (x) { if (bandBase(x) != null) setMove(x.sv_pn, m); }); paint(); L.toast(shown.length.toLocaleString() + ' parts moved to ' + L.bandPct(m)); };
+    if ($('pbClear')) $('pbClear').onclick = function () { (S.data.rows || []).forEach(function (x) { setMove(x.sv_pn, 0); }); paint(); L.toast('Moves cleared for ' + reg.name + ' · ' + S.range); };
   }
 
   // one part: the price band for everyone with access to the region, and the full costing for the pricing team
@@ -197,7 +253,7 @@
   function bandHtml() { return '<div class="band" id="pbBand"></div>'; }
   function bandMount(x, pn) {
     var reg = S.data.region, cur = reg.currency, tiers = !single(reg), withCost = !!S.data.costs, px = reg.prefix, vat = Number(reg.vat);
-    var st = { move: 0, qty: Number(x.customer_moq || x.moq) || 1, tier: 't1' }, regs = regsFor(S.range), steps = L.bandSteps(L.BAND), box = $('pbBand');
+    var st = { move: getMove(pn), qty: Number(x.customer_moq || x.moq) || 1, tier: S.bandTier }, regs = regsFor(S.range), steps = L.bandSteps(L.BAND), box = $('pbBand');
     var base = function () { return r2(sell(x, tiers ? st.tier : 'price')); };
     var landed = function () { var v = withCost ? (tiers ? x[px + '_landed'] : x.cif_usd) : null; return v == null ? null : Number(v); };
     var m2 = function (v) { return v == null ? '–' : money(v, cur); };
@@ -206,7 +262,7 @@
     if (withCost) sum.unshift(['Landed cost', 'bLanded']);
     box.innerHTML = '<div class="band-head"><h2>Price band</h2>' +
       (regs.length > 1 ? '<select id="bReg">' + regs.map(function (g) { return '<option value="' + esc(g.code) + '"' + (g.code === reg.code ? ' selected' : '') + '>' + esc(g.name) + '</option>'; }).join('') + '</select>' : '<span class="muted">' + esc(reg.name) + '</span>') +
-      (tiers ? '<select id="bTier">' + TIER.map(function (t) { return '<option value="' + t[0] + '">' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select>' : '') +
+      (tiers ? '<select id="bTier">' + TIER.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === st.tier ? ' selected' : '') + '>' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select>' : '') +
       '<span class="small muted">' + esc(cur) + (tiers ? ' excl. VAT' : '') + ' · move the price from ' + esc(L.bandPct(L.BAND.lo)) + ' to ' + esc(L.bandPct(L.BAND.hi)) + '</span></div>' +
       '<div class="o-list"><table class="grid band-sum"><thead><tr>' + sum.map(function (c) { return '<th class="num">' + esc(c[0]) + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
       sum.map(function (c) { return '<td class="num" id="' + c[1] + '">' + (c[1] === 'bQty' ? '<input id="bQtyIn" type="number" min="1" step="1" value="' + st.qty + '">' : '') + '</td>'; }).join('') + '</tr></tbody></table></div>' +
@@ -232,14 +288,14 @@
         e.querySelector('[data-px]').textContent = b == null ? '' : money(L.bandPrice(b, m), cur);
       });
     }
-    $('bSteps').onclick = function (e) { var t = e.target.closest('[data-m]'); if (t) { st.move = Number(t.dataset.m); draw(); t.focus(); } };
+    $('bSteps').onclick = function (e) { var t = e.target.closest('[data-m]'); if (t) { st.move = Number(t.dataset.m); setMove(pn, st.move); draw(); t.focus(); } };
     $('bSteps').onkeydown = function (e) {
       var i = steps.indexOf(st.move), j = e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? i - 1 : e.key === 'ArrowRight' || e.key === 'ArrowUp' ? i + 1 : -2;
       if (j === -2 || j < 0 || j >= steps.length) return;
-      e.preventDefault(); st.move = steps[j]; draw(); $('bSteps').querySelector('[data-m="' + st.move + '"]').focus();
+      e.preventDefault(); st.move = steps[j]; setMove(pn, st.move); draw(); $('bSteps').querySelector('[data-m="' + st.move + '"]').focus();
     };
     $('bQtyIn').oninput = function () { var v = Math.floor(Number(this.value)); st.qty = v > 0 ? v : 0; draw(); };
-    if ($('bTier')) $('bTier').onchange = function () { st.tier = this.value; draw(); };
+    if ($('bTier')) $('bTier').onchange = function () { st.tier = S.bandTier = this.value; draw(); };
     if ($('bReg')) $('bReg').onchange = function () { L.go(L.href('pricing', ['part', pn], { range: S.range, region: this.value })); };
     draw();
   }
@@ -256,13 +312,17 @@
     var head = ['Stravik PN', 'Lucas PN', 'Description', 'Range'], widths = [14, 14, 46, 16];
     TIER.forEach(function (t) { head.push(tierName(t[0]) + ' ' + cur + ' excl. VAT', tierName(t[0]) + ' ' + cur + ' incl. VAT'); widths.push(16, 16); });
     head.push('Market price', 'Effective'); widths.push(16, 12);
+    var mv = hasMoves(reg.code), bt = S.bandTier;
+    if (mv) { head.push('Move', 'Your price (' + tierName(bt) + ') ' + cur + ' excl. VAT', 'Your price ' + cur + ' incl. VAT'); widths.push(8, 22, 18); }
     var all = [];
     views.forEach(function (v) { v.rows.forEach(function (x) { if (!keep || keep(x, v)) all.push([v, x]); }); });
     var sheets = [{ name: 'Prices', head: head, widths: widths, top: [[reg.name + ' · ' + views.map(function (v) { return v.subcategory; }).join(', ') + ' · ' + cur + ' · excl. VAT and incl. ' + pct(vat) + ' VAT']],
       rows: all.map(function (p) {
         var v = p[0], x = p[1], o = [x.sv_pn, x.lucas_pn || '', x.short_desc || '', v.subcategory];
         TIER.forEach(function (t) { var y = sell_(v, x, t[0]); o.push(r2(y), incl(y, vat)); });
-        o.push((v.costs ? x[px + '_market_price'] : x.market_price) || '', (v.costs ? x[px + '_effective'] : x.effective) || ''); return o;
+        o.push((v.costs ? x[px + '_market_price'] : x.market_price) || '', (v.costs ? x[px + '_effective'] : x.effective) || '');
+        if (mv) { var b = r2(sell_(v, x, bt)), m = getMove(x.sv_pn, reg.code), yp = L.bandPrice(b, m); o.push(b == null ? '' : L.bandPct(m), yp == null ? '' : yp, yp == null ? '' : incl(yp, vat)); }
+        return o;
       }) }];
     if (withCost) {
       var C = [['sv_pn', 'Stravik PN'], ['_range', 'Range'], ['price_basis', 'Basis'], ['fob_port', 'FOB port'], ['fob_usd', 'FOB / EXW USD'], ['c_cons', 'C_CONS'], ['c_finance', 'C_FINANCE'], ['c_customer_rebate', 'C_CUSTOMER REBATE'], ['c_ship', 'C_SHIP'], ['c_ins', 'C_INS'],
@@ -282,10 +342,11 @@
   function exportSingle(views, keep, withCost) {
     var reg = views[0].region, px = reg.prefix, all = [];
     views.forEach(function (v) { v.rows.forEach(function (x) { if (!keep || keep(x, v)) all.push([v, x]); }); });
-    var sheets = [{ name: 'Prices', head: ['Stravik PN', 'Lucas PN', 'OE ref', 'Standard description', 'Tech info', 'Range', 'FOB China USD', 'MOQ', 'Customer MOQ'], widths: [14, 14, 28, 46, 40, 16, 14, 8, 13],
+    var mv = hasMoves(reg.code);   // the salesperson's moves: Move and Your price columns
+    var sheets = [{ name: 'Prices', head: ['Stravik PN', 'Lucas PN', 'OE ref', 'Standard description', 'Tech info', 'Range', 'FOB China USD'].concat(mv ? ['Move', 'Your price USD'] : []).concat(['MOQ', 'Customer MOQ']), widths: [14, 14, 28, 46, 40, 16, 14].concat(mv ? [8, 14] : []).concat([8, 13]),
       top: [[reg.name + ' · ' + views.map(function (v) { return v.subcategory; }).join(', ') + ' · USD · one price for every customer']],
-      rows: all.map(function (p) { var v = p[0], x = p[1], e = function (y) { return y == null ? '' : y; };
-        return [x.sv_pn, e(x.lucas_pn), e(x.oe_ref), e(x.short_desc), e(x.tech_info), v.subcategory, r2(v.costs ? x[px + '_price'] : x.price), e(x.moq), e(x.customer_moq)]; }) }];
+      rows: all.map(function (p) { var v = p[0], x = p[1], e = function (y) { return y == null ? '' : y; }, base = r2(v.costs ? x[px + '_price'] : x.price), m = getMove(x.sv_pn, reg.code);
+        return [x.sv_pn, e(x.lucas_pn), e(x.oe_ref), e(x.short_desc), e(x.tech_info), v.subcategory, base].concat(mv ? [base == null ? '' : L.bandPct(m), e(L.bandPrice(base, m))] : []).concat([e(x.moq), e(x.customer_moq)]); }) }];
     if (withCost) {
       var C = [['sv_pn', 'Stravik PN'], ['_range', 'Range'], ['price_basis', 'Basis'], ['fob_usd', 'FOB / EXW USD'], ['c_cons', 'C_CONS'], ['c_finance', 'C_FINANCE'], ['c_customer_rebate', 'C_CUSTOMER DISCOUNT'], ['c_ship', 'C_SHIP'], ['c_ins', 'C_INS'],
         ['c_whs', 'C_WHS'], ['c_warr', 'C_WARR'], ['c_mar', 'C_MAR'], ['c_roy', 'C_ROY'], ['zp_mar', 'ZP MAR'], ['cif_usd', 'LANDED COST USD'], ['moq', 'MOQ'], ['customer_moq', 'CUSTOMER MOQ']];
