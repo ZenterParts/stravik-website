@@ -11,7 +11,7 @@
   'use strict';
   var esc = L.esc, sb = L.sb, $ = L.$;
   var BASE = L.href('pricing');
-  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves() };
+  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves(), allReg: false, allTier: 't1' };
   // the price moves a salesperson chose (region|Stravik PN -> move, e.g. -0.01), kept in this browser so they survive a reload
   function loadMoves() { try { return JSON.parse(localStorage.getItem('stravik.priceMoves') || '{}') || {}; } catch (e) { return {}; } }
   function saveMoves() { try { localStorage.setItem('stravik.priceMoves', JSON.stringify(S.moves)); } catch (e) { /* private mode: moves last until the page closes */ } }
@@ -57,9 +57,9 @@
 
   // ======================================================================== price list
   async function load() {
-    var reg = region(), key = S.range + '|' + reg.code;
+    var reg = region(), key = S.range + '|' + (S.allReg ? '*' : reg.code);
     if (S.data && S.key === key) return S.data;
-    S.data = L.must(await sb.rpc('stravik_price_view', { p_sub: S.range, p_region: reg.code })); S.key = key;
+    S.data = L.must(await (S.allReg ? sb.rpc('stravik_price_view_all', { p_sub: S.range }) : sb.rpc('stravik_price_view', { p_sub: S.range, p_region: reg.code }))); S.key = key;
     return S.data;
   }
   async function list(r) {
@@ -67,15 +67,16 @@
       await me();
       if (!ME.regions.length) return noAccess();
       if (r.q.range) { S.range = r.q.range; S.offset = 0; }
-      if (r.q.region) { S.region = r.q.region; S.offset = 0; }
+      if (r.q.region) { if (r.q.region === 'all') S.allReg = true; else { S.region = r.q.region; S.allReg = false; } S.offset = 0; }
       if (!S.range || !ME.ranges.some(function (x) { return x.subcategory === S.range; })) S.range = ME.ranges.length ? ME.ranges[0].subcategory : '';
       if (!S.region) S.region = ME.regions[0].code;
       if (!costs()) S.costs = false;
       var reg = region(), regs = regsFor(S.range);
       S.region = reg.code;
-      L.cp({ crumbs: [['Pricing', BASE], [reg.name + ' · ' + (S.range || 'no price lists yet')]],
+      if (regs.length < 2) S.allReg = false;   // "All regions" needs two or more
+      L.cp({ crumbs: [['Pricing', BASE], [(S.allReg ? 'All regions' : reg.name) + ' · ' + (S.range || 'no price lists yet')]],
         buttons: (costs() ? '<button type="button" class="btn" id="prUp">Upload price list</button>' : '') + '<button type="button" class="btn ghost" id="prXls">Download</button>' + (ME.ranges.length > 1 ? '<button type="button" class="btn ghost" id="prXlsAll">Download all ranges</button>' : '') +
-          (regs.length > 1 ? '<select id="prReg" style="width:auto">' + regs.map(function (x) { return '<option value="' + esc(x.code) + '"' + (x.code === reg.code ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
+          (regs.length > 1 ? '<select id="prReg" style="width:auto"><option value="all"' + (S.allReg ? ' selected' : '') + '>All regions</option>' + regs.map(function (x) { return '<option value="' + esc(x.code) + '"' + (!S.allReg && x.code === reg.code ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
           (costs() ? '<span class="chips" style="margin-left:6px"><button type="button" class="chip' + (S.costs ? '' : ' on') + '" data-v="0">Prices</button><button type="button" class="chip' + (S.costs ? ' on' : '') + '" data-v="1">Costing</button></span>' : '') });
       L.searchBar({ placeholder: 'Search Stravik PN, Lucas PN, OE ref or description…', text: S.text, filters: [], onChange: function (s) { S.text = s.text; S.offset = 0; paint(); } });
       L.content('<div class="o-with-panel"><nav class="o-panel"><div class="o-panel-title">Range</div>' +
@@ -102,6 +103,7 @@
   // the sell prices: from the costing row (pricing team) or the sales row
   function sell(x, col) { var px = S.data.region.prefix; return S.data.costs ? x[px + '_' + col] : x[col]; }
   function paint() {
+    if (S.data.all) return paintAll();
     var reg = S.data.region, vat = Number(reg.vat), all = rows(), page = all.slice(S.offset, S.offset + L.PAGE), px = reg.prefix, cur = reg.currency;
     var eff = single(reg) ? null : (S.data.rows || []).map(function (x) { return S.data.costs ? x[px + '_effective'] : x.effective; }).filter(Boolean).sort().pop();
     $('prNote').innerHTML = esc(reg.name) + ' · ' + esc(S.range) + ' · ' + (S.data.rows || []).length.toLocaleString() + ' parts priced' + (eff ? ' · effective ' + esc(dmy(eff)) : '') + ' · prices in ' + esc(cur) +
@@ -191,6 +193,73 @@
     if ($('pbClear')) $('pbClear').onclick = function () { (S.data.rows || []).forEach(function (x) { setMove(x.sv_pn, 0); }); paint(); L.toast('Moves cleared for ' + reg.name + ' · ' + S.range); };
   }
 
+  // ---------------------------------------------------------------- All regions: one column per region
+  var shortName = function (g) { return g.name.replace(/\s*\(.*\)$/, ''); };
+  // the regions to show for a range: those it has prices for (from the coverage counts)
+  function allRegs(v) {
+    var cover = ME.cover && ME.cover[v.subcategory];
+    var rs = (v.regions || []).filter(function (g) { return !cover || Number(cover[g.code] || 0) > 0; });
+    return rs.length ? rs : (v.regions || []);
+  }
+  var allPrice = function (x, g, tier) { return (x.p || {})[g.pricing === 'single' ? g.code : g.code + '_' + (tier || S.allTier)]; };
+  function paintAll() {
+    var regs = allRegs(S.data), all = rows(), page = all.slice(S.offset, S.offset + L.PAGE), cv = S.costs && S.data.costs;
+    var sa = regs.filter(function (g) { return g.pricing !== 'single'; });
+    $('prNote').innerHTML = 'All regions · ' + esc(S.range) + ' · ' + (S.data.rows || []).length.toLocaleString() + ' parts priced · one column per region' +
+      (sa.length ? ' · ' + esc(sa.map(shortName).join(', ')) + ' in ' + esc(sa[0].currency) + ' excl. VAT' : '') + ' · the price band is in each region\'s own list' + (cv ? ' · costing view (pricing team only)' : '');
+    $('prBand').innerHTML = sa.length ? '<div class="inq-price"><b>' + esc(sa.map(shortName).join(', ')) + ' column</b><select id="pbAllTier">' + TIER.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === S.allTier ? ' selected' : '') + '>' + esc(tierName(t[0])) + '</option>'; }).join('') + '</select></div>' : '';
+    if ($('pbAllTier')) $('pbAllTier').onchange = function () { S.allTier = this.value; paintAll(); };
+    L.pager(S.offset, all.length, function (o) { S.offset = o; paintAll(); });
+    if (!all.length) { $('prList').innerHTML = L.empty(S.text ? 'Nothing matches' : 'No prices in this range yet'); return; }
+    var n0 = function (v) { return v == null || v === '' ? '' : esc(String(v)); };
+    var cols = [{ label: 'Stravik PN', render: function (x) { return '<span class="pn">' + esc(x.sv_pn) + '</span>' + (x.lucas_pn ? '<div class="small muted">' + esc(x.lucas_pn) + '</div>' : ''); } },
+      { label: 'Description', cls: 'clip', render: function (x) { return esc(x.short_desc || ''); } },
+      { label: 'OE ref', cls: 'clip', render: function (x) { return n0(x.oe_ref); } }];
+    if (cv) cols.push({ label: 'Cost FOB / EXW USD', num: true, render: function (x) { return esc(money(x.fob_usd, 'USD')) + '<div class="small muted">' + esc(x.price_basis || '') + '</div>'; } },
+      { label: 'Landed USD', num: true, render: function (x) { return esc(money(x.cif_usd, 'USD')); } });
+    regs.forEach(function (g) {
+      cols.push({ label: shortName(g) + (g.pricing === 'single' ? '' : ' ' + S.allTier.toUpperCase()), num: true, render: function (x) {
+        var v = allPrice(x, g), m = cv && g.pricing === 'single' ? (x.m || {})[g.code] : null;
+        return v == null ? '' : '<b>' + esc(money(r2(v), g.currency)) + '</b>' + (m != null ? '<div class="small muted">' + esc(pct(m)) + '</div>' : '');
+      } });
+    });
+    cols.push({ label: 'MOQ', num: true, render: function (x) { return n0(x.moq); } });
+    var usd = regs.filter(single);
+    $('prList').innerHTML = L.listView(cols, page, function (x) {
+      var g = usd.find(function (y) { return allPrice(x, y) != null; }) || regs[0];
+      return L.href('pricing', ['part', x.sv_pn], { range: S.range, region: g ? g.code : '' });
+    }) + '<p class="small muted" style="margin-top:8px">Open a part, or choose one region in the list above, to use the price band.</p>';
+    $('prList').onchange = null;
+  }
+  // Excel: one row per part, the regions side by side (pricing team: with FOB, landed cost and each region's margin)
+  function exportAllRegions(views) {
+    views = views.filter(function (v) { return v && v.rows && v.rows.length; });
+    if (!views.length) return [];
+    var withCost = views.every(function (v) { return v.costs; }), regs = [];
+    views.forEach(function (v) { allRegs(v).forEach(function (g) { if (!regs.some(function (y) { return y.code === g.code; })) regs.push(g); }); });
+    var order = (views[0].regions || []).map(function (g) { return g.code; });
+    regs.sort(function (a, b) { return order.indexOf(a.code) - order.indexOf(b.code); });
+    var head = ['Stravik PN', 'Lucas PN', 'OE ref', 'Description', 'Range'], widths = [14, 14, 24, 46, 16];
+    if (withCost) { head.push('FOB / EXW USD', 'Basis', 'Landed USD'); widths.push(13, 7, 12); }
+    regs.forEach(function (g) {
+      if (g.pricing === 'single') { head.push(shortName(g) + ' USD'); widths.push(14); if (withCost) { head.push(shortName(g) + ' margin'); widths.push(10); } }
+      else TIER.forEach(function (t) { head.push(shortName(g) + ' ' + tierName(t[0]) + ' ' + g.currency + ' excl. VAT'); widths.push(18); });
+    });
+    head.push('MOQ', 'Customer MOQ'); widths.push(8, 13);
+    var e = function (y) { return y == null ? '' : y; }, out = [];
+    views.forEach(function (v) { v.rows.forEach(function (x) {
+      var o = [x.sv_pn, e(x.lucas_pn), e(x.oe_ref), e(x.short_desc), v.subcategory];
+      if (withCost) o.push(e(r2(x.fob_usd)), e(x.price_basis), x.cif_usd == null ? '' : Math.round(x.cif_usd * 1e4) / 1e4);
+      regs.forEach(function (g) {
+        if (g.pricing === 'single') { o.push(e(r2(allPrice(x, g)))); if (withCost) { var m = (x.m || {})[g.code]; o.push(m == null ? '' : Number(m)); } }
+        else TIER.forEach(function (t) { o.push(e(r2(allPrice(x, g, t[0])))); });
+      });
+      o.push(e(x.moq), e(x.customer_moq)); out.push(o);
+    }); });
+    return [{ name: 'All regions', head: head, widths: widths, rows: out,
+      top: [['All regions · ' + views.map(function (v) { return v.subcategory; }).join(', ') + ' · USD regions in USD, ' + regs.filter(function (g) { return g.pricing !== 'single'; }).map(function (g) { return shortName(g) + ' in ' + g.currency + ' excl. VAT'; }).join(', ')]] }];
+  }
+
   // one part: the price band for everyone with access to the region, and the full costing for the pricing team
   async function part(r) {
     try {
@@ -200,7 +269,8 @@
       if (r.q.region) S.region = r.q.region;
       if (!S.region) S.region = ME.regions[0].code;
       S.region = region().code;
-      await load();
+      var wasAll = S.allReg; S.allReg = false;   // a part page is always one region; the list keeps "All regions"
+      try { await load(); } finally { S.allReg = wasAll; }
       var pn = r.parts[1], x = (S.data.rows || []).find(function (y) { return y.sv_pn === pn; }), reg = S.data.region;
       var sa = (ME.regions || []).find(function (g) { return g.code === 'south_africa'; }) || { prefix: 'sa', currency: 'ZAR', vat: 0.15 }, px = sa.prefix, cur = sa.currency, vat = Number(sa.vat);
       var crumbs = [['Pricing', BASE], [S.range, L.href('pricing', [], { range: S.range })], [pn]];
@@ -466,6 +536,10 @@
       if (!S.data) return;
       L.toast('Preparing the download…');
       var keep = {}; rows().forEach(function (x) { keep[x.sv_pn] = 1; });
+      if (S.data.all) {
+        var v = Object.assign({}, S.data, { rows: (S.data.rows || []).filter(function (x) { return keep[x.sv_pn]; }) });
+        return await L.saveXlsx(exportAllRegions([v]), 'Stravik_prices_all_regions_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx');
+      }
       var name = 'Stravik_prices_' + S.data.region.name.replace(/\W+/g, '_') + '_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx';
       if (S.data.costs && !single(S.data.region)) await costingXlsx([S.data], function (x) { return keep[x.sv_pn]; }, null, name);
       else await L.saveXlsx(exportSheets([S.data], function (x) { return keep[x.sv_pn]; }), name);
@@ -474,6 +548,10 @@
   async function excelAll() {
     try {
       L.toast('Preparing all ranges…');
+      if (S.allReg) {
+        var views = await Promise.all(ME.ranges.map(function (x) { return sb.rpc('stravik_price_view_all', { p_sub: x.subcategory }).then(L.must); }));
+        return await L.saveXlsx(exportAllRegions(views), 'Stravik_prices_all_regions_all_ranges_' + L.today() + '.xlsx');
+      }
       var reg = region();
       await L.pricingDownload(reg.code, null, null, null, 'Stravik_prices_' + reg.name.replace(/\W+/g, '_') + '_all_ranges_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
