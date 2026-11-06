@@ -30,6 +30,10 @@ const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js"
 const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
 { const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|app\.js)(\?v=[0-9a-f]+)?/g, (m, f) => V[f]);
   if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
+// the admin app the same way: every /admin/<file>.js|css gets its own content hash, so staff get the new screens right after a merge
+{ const before = rd("admin/index.html"), after = before.replace(/\/admin\/([\w.-]+\.(?:js|css))(\?v=[0-9a-z]+)?(?=["'])/g, (m, f) =>
+    fs.existsSync(path.join(ROOT, "admin", f)) ? "/admin/" + f + "?v=" + crypto.createHash("sha1").update(rd("admin/" + f)).digest("hex").slice(0, 10) : m);
+  if (after !== before) { fs.writeFileSync(path.join(ROOT, "admin/index.html"), after); console.log("admin/index.html: versions updated"); } }
 const index = rd("index.html");
 const cut = (a, b) => { const i = index.indexOf(a), j = index.indexOf(b, i); if (i < 0 || j < 0) throw new Error("index.html: missing " + a); return index.slice(i, j + b.length); };
 const SHELL = {

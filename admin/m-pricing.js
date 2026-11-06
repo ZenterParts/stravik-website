@@ -15,10 +15,23 @@
   var ME = null, meP = null;
   function me() {
     if (ME) return Promise.resolve(ME);
-    return meP || (meP = sb.rpc('stravik_price_me').then(function (r) { ME = L.must(r) || { sees_costs: false, regions: [], tiers: [], ranges: [] }; meP = null; L.refreshNav(); return ME; }, function (e) { meP = null; throw e; }));
+    return meP || (meP = Promise.all([sb.rpc('stravik_price_me'), sb.rpc('stravik_price_coverage').then(null, function () { return {}; })]).then(function (r) {
+      ME = L.must(r[0]) || { sees_costs: false, regions: [], tiers: [], ranges: [] };
+      // which regions each range has prices for (Filters and Ignition Coils have no South Africa price, so South Africa is not offered there)
+      ME.cover = null;
+      if (r[1] && !r[1].error && Array.isArray(r[1].data)) { ME.cover = {}; r[1].data.forEach(function (c) { ME.cover[c.subcategory] = c.regions || {}; }); }
+      meP = null; L.refreshNav(); return ME;
+    }, function (e) { meP = null; throw e; }));
+  }
+  // the regions to offer for a range: only those with prices in it (all of them while a range has none yet, or if the counts could not be read)
+  function regsFor(sub) {
+    var all = ME.regions || [], c = ME.cover && ME.cover[sub];
+    if (!c) return all;
+    var has = all.filter(function (r) { return Number(c[r.code] || 0) > 0; });
+    return has.length ? has : all;
   }
   var costs = function () { return !!(ME && ME.sees_costs); };
-  var region = function () { return (ME.regions || []).find(function (r) { return r.code === S.region; }) || ME.regions[0]; };
+  var region = function () { var rs = regsFor(S.range); return rs.find(function (r) { return r.code === S.region; }) || rs[0] || ME.regions[0]; };
   var sym = function (cur) { return cur === 'ZAR' ? 'R' : cur === 'USD' ? '$' : cur + ' '; };
   var money = function (v, cur) { return v == null || v === '' ? '' : sym(cur) + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   var r2 = function (v) { return v == null || v === '' ? null : Math.round(Number(v) * 100) / 100; };
@@ -51,10 +64,11 @@
       if (!S.range || !ME.ranges.some(function (x) { return x.subcategory === S.range; })) S.range = ME.ranges.length ? ME.ranges[0].subcategory : '';
       if (!S.region) S.region = ME.regions[0].code;
       if (!costs()) S.costs = false;
-      var reg = region();
+      var reg = region(), regs = regsFor(S.range);
+      S.region = reg.code;
       L.cp({ crumbs: [['Pricing', BASE], [reg.name + ' · ' + (S.range || 'no price lists yet')]],
         buttons: (costs() ? '<button type="button" class="btn" id="prUp">Upload price list</button>' : '') + '<button type="button" class="btn ghost" id="prXls">Download</button>' + (ME.ranges.length > 1 ? '<button type="button" class="btn ghost" id="prXlsAll">Download all ranges</button>' : '') +
-          (ME.regions.length > 1 ? '<select id="prReg" style="width:auto">' + ME.regions.map(function (x) { return '<option value="' + esc(x.code) + '"' + (x.code === reg.code ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
+          (regs.length > 1 ? '<select id="prReg" style="width:auto">' + regs.map(function (x) { return '<option value="' + esc(x.code) + '"' + (x.code === reg.code ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
           (costs() ? '<span class="chips" style="margin-left:6px"><button type="button" class="chip' + (S.costs ? '' : ' on') + '" data-v="0">Prices</button><button type="button" class="chip' + (S.costs ? ' on' : '') + '" data-v="1">Costing</button></span>' : '') });
       L.searchBar({ placeholder: 'Search Stravik PN, Lucas PN or description…', text: S.text, filters: [], onChange: function (s) { S.text = s.text; S.offset = 0; paint(); } });
       L.content('<div class="o-with-panel"><nav class="o-panel"><div class="o-panel-title">Range</div>' +
@@ -441,7 +455,7 @@
             try {
               var done = L.must(await sb.rpc('stravik_price_upload', { p_sub: sub, p_rows: payload(), p_dry_run: false }));
               L.closeModal(); L.toast('Saved: ' + done.added + ' added, ' + done.changed + ' changed, ' + done.unchanged + ' unchanged');
-              S.data = null; S.range = sub; L.go(L.href('pricing', [], { range: sub }));
+              S.data = null; ME = null; S.range = sub; L.go(L.href('pricing', [], { range: sub }));
             } catch (e) { L.fail(e); go.disabled = false; go.textContent = 'Try again'; }
           };
           b.remove();
