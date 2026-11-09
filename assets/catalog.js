@@ -1,6 +1,6 @@
 const SS_IMG="/assets/img/ss-box.webp";
 const CATALOG = [
- { id:"braking-system", name:"Braking System", img:"/assets/img/braking-box.webp",
+ { id:"braking-system", name:"Braking System", img:"/assets/img/pads-comfort.webp",
    intro:"Everything between the pedal and the wheel: friction parts, hydraulics, electronic control and the parking brake.",
    types:[
    { name:"Friction & Stopping Components", points:["Matched to OE dimensions and mounting points","Friction materials chosen for the vehicle's weight and use","Supplied ready to fit, with hardware where the part needs it"], subs:[
@@ -51,9 +51,9 @@ const CATALOG = [
  ]}
 ];
 const PADS = [
- {key:"ceramic", img:"/assets/img/braking-box.webp", name:"Ceramic", line:"Premium performance", best:"Everyday cars, sedans and SUVs where drivers want clean wheels and quiet stops.", feats:["Advanced ceramic formula","Ultra low dust","Quiet braking","High heat resistance"]},
- {key:"semi", img:"/assets/img/pads-semi.webp", name:"Semi-metallic", line:"High performance friction", best:"Bakkies, towing, LDVs and heavier vehicles that brake hard and often.", feats:["Strong stopping power","Heat-resistant compound","Heavy-duty durability","Consistent pedal feel"]},
- {key:"low", img:"/assets/img/pads-low.webp", name:"Low-metallic", line:"Quiet and rotor-friendly", best:"Compact cars and city driving where comfort and disc life matter most.", feats:["Ultra quiet operation","Rotor-friendly formula","Reduced dust output","Smooth everyday comfort"]}
+ {key:"ceramic", img:"/assets/img/pads-comfort.webp", name:"Ceramic", line:"Premium performance", best:"Everyday cars, sedans and SUVs where drivers want clean wheels and quiet stops.", feats:["Advanced ceramic formula","Ultra low dust","Quiet braking","High heat resistance"]},
+ {key:"semi", img:"/assets/img/pads-heavy-duty.webp", name:"Semi-metallic", line:"High performance friction", best:"Bakkies, towing, LDVs and heavier vehicles that brake hard and often.", feats:["Strong stopping power","Heat-resistant compound","Heavy-duty durability","Consistent pedal feel"]},
+ {key:"low", img:"/assets/img/pads-sport.webp", name:"Low-metallic", line:"Quiet and rotor-friendly", best:"Compact cars and city driving where comfort and disc life matter most.", feats:["Ultra quiet operation","Rotor-friendly formula","Reduced dust output","Smooth everyday comfort"]}
 ];
 
 const ICONS = {

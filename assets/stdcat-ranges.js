@@ -26,7 +26,7 @@ const BR_NOTVEH=new Set(BR_BRANDS.concat(["COMMERCIAL VEHICLES","IMPORT"]));
 const brMake=m=>BR_MKL[m]||MKL[m]||tc(m);
 const BRAKES={
   icon:"disc",title:"Brakes",tab:"Brake catalogue",one:"brake part",many:"brake parts",cat:"Brakes",data:"/brakes.json",
-  crumbs:crumbs("Braking systems","#/products/braking-system"),hero:"/assets/img/braking-box.webp",
+  crumbs:crumbs("Braking systems","#/products/braking-system"),hero:"/assets/img/pads-comfort.webp",
   lead:"Brake pads, discs, shoes and commercial vehicle pads. Find the right Stravik part by Stravik, external, OE or WVA number, size or vehicle.",
   placeholder:"Stravik, external, OE or WVA no., size, or vehicle (e.g. Corolla)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:BR_TYPES.map(t=>t[1])},
