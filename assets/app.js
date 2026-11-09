@@ -210,8 +210,8 @@ function wireSearchPanel(root,params){
 
 // ---------- home ----------
 const FAMILIES=[
-  {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking-box.webp",href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
-  {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/ss-box.webp",href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
+  {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking/card.webp",photo:1,href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
+  {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/steering-suspension/card.webp",photo:1,href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
   {id:"shock",name:"Shock absorbers",icon:"shock",img:"/assets/img/shock-absorbers/card.webp",photo:1,href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
   {id:"gs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs-hero.svg",href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
@@ -437,8 +437,8 @@ function productsHome(){
   <section class="block"><div class="wrap">
     <div class="head"><div><h2>Product ranges</h2><p>Choose a range to see its part types, or open a catalogue to search by part number.</p></div></div>
     <div class="pcats">
-      ${pc(B.img,"disc","Braking System",esc(B.intro),["",""],`<a class="btn gold" href="#/brakes">Open the catalogue</a><a class="btn line" href="#/products/braking-system">About the range</a>`)}
-      ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",""],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
+      ${pc("/assets/img/braking/card.webp","disc","Braking System",esc(B.intro),["",""],`<a class="btn gold" href="#/brakes">Open the catalogue</a><a class="btn line" href="#/products/braking-system">About the range</a>`,1)}
+      ${pc("/assets/img/steering-suspension/card.webp","ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",""],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`,1)}
       ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`,1)}
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/filters/">About the range</a>`)}
       ${pc("/assets/img/gas-springs-hero.svg","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`)}
@@ -468,8 +468,9 @@ function products(catId,typeId,q){
   if(catId==="gas-springs"){gsOverview();return;}
   const cat=CATALOG.find(c=>c.id===catId);
   const cats=cat?[cat]:CATALOG;
+  const heroImg=cat&&cat.id==="braking-system"?"/assets/img/braking/hero.webp":"";
   app.innerHTML=`
-  <div class="pagehead"><div class="wrap">
+  <div class="pagehead${heroImg?" phero":""}">${heroImg?`<img class="phero-img" src="${heroImg}" alt="" width="1584" height="672">`:""}<div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span>${cat?`<a href="#/products">Our products</a><span>/</span><span>${esc(cat.name)}</span>`:`<span>Our products</span>`}</div>
     <h1>${cat?esc(cat.name):"Our products"}</h1>
     <p>${cat?esc(cat.intro):"Browse the full Stravik range by system and part type."}</p>
@@ -848,7 +849,7 @@ function sscard(d,i,q,mkIx){
     (nums?`<span class="nums"><b>OE</b> ${nums}</span>`:"")+`</a>${ssCartBtn(i)}</div>`;
 }
 function ssOverview(){
-  app.innerHTML=`<div class="pagehead"><div class="wrap">
+  app.innerHTML=`<div class="pagehead phero"><img class="phero-img" src="/assets/img/steering-suspension/hero.webp" alt="" width="1584" height="672"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Steering &amp; Suspension</span></div>
     <h1>Steering &amp; Suspension</h1><p>Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts with extensive vehicle coverage, each with its CTR and OE cross-references.</p>
     <div class="tabs" role="list">${prodTabs("steering-suspension")}</div></div></div>
