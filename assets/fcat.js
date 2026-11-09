@@ -25,12 +25,12 @@ const TPL=`<div class="fwrap"><header class="top">
   <div class="hero-grid">
     <div class="hero-copy"><div class="hero-text">
       <div class="eyebrow">Filtration</div>
-      <h1>Stravik filters, matched to OE fit.</h1>
+      <h1>Filters</h1>
       <p>Oil, air, cabin, fuel and coolant filters. Search by Stravik part number, OE reference, cross-reference or vehicle.</p>
       <div class="stats"><div><b id="st-n">1,092</b><span>Filters</span></div><div><b id="st-m">194</b><span>Vehicle makes</span></div><div><b id="st-x">6,333</b><span>Cross-references</span></div></div>
       <div class="hero-cta"><button class="primary" id="cta-type">Browse filters</button><button class="ghost" id="cta-veh">Find by vehicle</button></div>
     </div></div>
-    <div class="hero-media"><img src="/assets/img/filters/hero.webp" srcset="/assets/img/filters/hero.webp 1376w, /assets/img/filters/hero@2x.webp 2752w" sizes="(max-width: 860px) 100vw, 60vw" alt="Stravik air, cabin, oil and fuel filters with their Stravik boxes" width="1376" height="768"></div>
+    <div class="hero-media"><img src="/assets/img/filters/hero-2026-11.webp" srcset="/assets/img/filters/hero-2026-11.webp 1376w, /assets/img/filters/hero-2026-11@2x.webp 2752w" sizes="(max-width: 860px) 100vw, 60vw" alt="Stravik air, cabin, oil and fuel filters with their Stravik boxes" width="1376" height="768"></div>
   </div>
 </section>
 <div class="fmain wrap">
