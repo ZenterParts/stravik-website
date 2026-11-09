@@ -264,7 +264,7 @@ ${nApps ? `<div class="ftable-wrap"><table class="ctable apps"><thead><tr><th co
 </div></section>
 ${rel.length ? `<section class="block related"><div class="wrap"><h2>Matching brake parts for the same vehicles</h2><p class="pp-note">Other Stravik pads, discs and shoes that fit the vehicles above.</p><div class="fgrid">${rel.map(brCard).join("")}</div></div></section>` : ""}
 ${cantFind}`;
-  write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${brDesc(i)} ${i.pn}`, i.pn, T.one, desc, "/assets/img/braking-box.webp"), body }));
+  write(`part/${i.pn}`, page({ url, title, desc, jsonld: productLd(url, `Stravik ${brDesc(i)} ${i.pn}`, i.pn, T.one, desc, "/assets/img/pads-comfort.webp"), body }));
   urls.push(url);
 }
 
