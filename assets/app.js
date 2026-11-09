@@ -681,6 +681,8 @@ function filtersPage(slugT,params){
   }).catch(err=>{app.querySelector("#flist").innerHTML=`<div class="noresults"><p>The filter list didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
 }
 // ---------- cart page and request for price ----------
+// the public (anon) key: from the website it can only call stravik_submit_inquiry, which adds one inquiry and reads nothing back
+const SB_URL="https://kyegujgvlsbttyrlibgn.supabase.co",SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWd1amd2bHNidHR5cmxpYmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNTQ4NjUsImV4cCI6MjEwNjgzMDg2NX0.qw8n7Y9l8zO-npZ4BDlqK9PvksRQpEVg6BxqEo_MnWs";
 function makeRef(){
   const d=new Date(),p=n=>String(n).padStart(2,"0"),chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r=new Uint32Array(4);
   crypto.getRandomValues(r);let s="";for(let i=0;i<4;i++)s+=chars[r[i]%chars.length];
@@ -747,16 +749,22 @@ function wireRfp(form){
     const subject=`Stravik RFP ${ref} | ${items.length} line${items.length===1?"":"s"} | ${who}`;
     const bodyText=`Inquiry No.: ${ref}\nName: ${v("rn")}\nCompany: ${v("rc")}\nEmail: ${v("re")}\nPhone: ${v("rp")}\nCountry: ${v("rco")}\nI am a: ${v("rt")}\n\nParts (${items.length} lines, ${qty} pcs):\n${partsText}\n\nMessage:\n${v("rm")||"-"}`;
     btn.disabled=true;btn.textContent="Sending…";st.classList.remove("show");
+    // also saved in the back end (Inquiries, source "Website"); the email below still goes to the sales inbox
+    const saved=fetch(SB_URL+"/rest/v1/rpc/stravik_submit_inquiry",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},
+      body:JSON.stringify({payload:{ref,name:v("rn"),company:v("rc"),email:v("re"),phone:v("rp"),country:v("rco"),type:v("rt"),message:v("rm"),botcheck:$("rbot").checked,
+        page:location.pathname+location.hash,items:items.map(it=>({no:it.no||"",desc:it.desc||"",name:it.name||"",cat:it.cat||"",note:it.note||"",qty:String(parseInt(it.qty,10)||1)}))}})})
+      .then(x=>x.ok).catch(()=>false);
     try{
       const r=await fetch("https://api.web3forms.com/submit",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
         body:JSON.stringify({access_key:W3F_KEY,subject,from_name:"Stravik website",replyto:v("re"),botcheck:$("rbot").checked,
           "Inquiry number":ref,name:v("rn"),company:v("rc"),email:v("re"),phone:v("rp"),country:v("rco"),customer_type:v("rt"),
           parts_count:`${items.length} lines, ${qty} pcs`,parts:partsText,message:v("rm")||"-"})});
       const j=await r.json().catch(()=>({}));
-      if(!r.ok||!j.success)throw new Error(j.message||("Status "+r.status));
+      if((!r.ok||!j.success)&&!(await saved))throw new Error(j.message||("Status "+r.status));
       const name=v("rn").split(" ")[0],email=v("re");
       Cart.clear();thanks(ref,name,email);
     }catch(err){
+      if(await saved){const name=v("rn").split(" ")[0],email=v("re");Cart.clear();thanks(ref,name,email);return;}
       const href=`mailto:${EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
       st.innerHTML=`<b>Your request wasn't sent.</b> Check your connection and try again, or <a href="${href}">email it to ${EMAIL}</a> instead. Your cart has been kept.<br><small>Details: ${esc(err.message||"Could not reach the form service")}</small>`;
       st.classList.add("show");btn.disabled=false;btn.textContent="Send request";
