@@ -24,7 +24,6 @@ const TPL=`<div class="fwrap"><header class="top">
 <section class="hero" aria-label="Stravik filtration">
   <div class="hero-grid">
     <div class="hero-copy"><div class="hero-text">
-      <div class="eyebrow">Filtration</div>
       <h1>Filters</h1>
       <p>Oil, air, cabin, fuel and coolant filters. Search by Stravik part number, OE reference, cross-reference or vehicle.</p>
       <div class="stats"><div><b id="st-n">1,092</b><span>Filters</span></div><div><b id="st-m">194</b><span>Vehicle makes</span></div><div><b id="st-x">6,333</b><span>Cross-references</span></div></div>
