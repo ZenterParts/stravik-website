@@ -212,11 +212,11 @@ function wireSearchPanel(root,params){
 const FAMILIES=[
   {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking-box.webp",href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
   {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/ss-box.webp",href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
-  {id:"shock",name:"Shock absorbers",icon:"shock",href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
+  {id:"shock",name:"Shock absorbers",icon:"shock",img:"/assets/img/shock-absorbers/card.webp",photo:1,href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
   {id:"fl",name:"Filtration",icon:"f_oil",href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
   {id:"gs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs-hero.svg",href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
   {id:"bat",name:"Batteries",icon:"battery",img:"/assets/img/batteries/efb_75_eu.webp",href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/catalogue/",catText:"Search the catalogue"}];
-const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic">${f.img?`<img src="${f.img}" alt="Stravik ${esc(f.name.toLowerCase())} box" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
+const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic${f.photo?" photo":""}">${f.img?`<img src="${f.img}" alt="${f.photo?"Stravik "+esc(f.name.toLowerCase()):"Stravik "+esc(f.name.toLowerCase())+" box"}" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
 function home(){
   app.innerHTML=`
   <section class="hero hvid">
@@ -409,7 +409,7 @@ function filtersOverview(){
 function productsHome(){
   const B=CATALOG.find(c=>c.id==="braking-system"),S=CATALOG.find(c=>c.id==="shock-absorbers");
   const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
-  const pc=(img,ic,name,txt,meta,links)=>`<article class="pcat"><div class="pic">${img?`<img src="${img}" alt="Stravik ${esc(name)} packaging" loading="lazy">`:`<span class="pic-ic">${icon(ic)}</span>`}</div>
+  const pc=(img,ic,name,txt,meta,links,photo)=>`<article class="pcat"><div class="pic${photo?" photo":""}">${img?`<img src="${img}" alt="Stravik ${esc(name)}${photo?"":" packaging"}" loading="lazy">`:`<span class="pic-ic">${icon(ic)}</span>`}</div>
     <div class="body"><h3>${name}</h3><p>${txt}</p>${meta[1]?`<small class="meta">${meta[1]}</small>`:""}<div class="plinks">${links}</div></div></article>`;
   const padSlide=(p,k)=>`<div class="slide c-${p.key}" role="group" aria-roledescription="slide" aria-label="${k+1} of ${PADS.length+1}"><div class="wrap">
       <div><div class="eyebrow">Brake pads in three compounds</div><h2>${esc(p.name)} brake pads</h2><div class="tag">${esc(p.line)}</div>
@@ -439,7 +439,7 @@ function productsHome(){
     <div class="pcats">
       ${pc(B.img,"disc","Braking System",esc(B.intro),["",""],`<a class="btn gold" href="#/brakes">Open the catalogue</a><a class="btn line" href="#/products/braking-system">About the range</a>`)}
       ${pc(SS_IMG,"ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",""],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`)}
-      ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`)}
+      ${pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",""],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`,1)}
       ${pc("","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",""],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/filters/">About the range</a>`)}
       ${pc("/assets/img/gas-springs-hero.svg","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`)}
       ${pc("/assets/img/ignition-coils/hero.webp","bolt","Ignition Coils","Ignition coils, coil packs and pencil coils for cars, bakkies and motorcycles, each with its connector, OE numbers and vehicles.",["",""],`<a class="btn gold" href="#/ignition-coils">Open the catalogue</a>`)}
@@ -991,7 +991,7 @@ function sacard(d,i,q,v){
     (nums?`<span class="nums"><b>OE</b> ${nums}</span>`:"")+`</a>${saCartBtn(i)}</div>`;
 }
 function saOverview(){
-  app.innerHTML=`<div class="pagehead"><div class="wrap">
+  app.innerHTML=`<div class="pagehead phero"><img class="phero-img" src="/assets/img/shock-absorbers/hero.webp" alt="" width="1376" height="768"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Shock Absorbers</span></div>
     <h1>Shock Absorbers</h1><p>MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit, each with its OE numbers and vehicle applications.</p>
     <div class="tabs" role="list">${prodTabs("shock-absorbers")}</div></div></div>
