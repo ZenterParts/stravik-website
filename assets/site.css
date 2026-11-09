@@ -851,6 +851,9 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 .intro-pic{margin:0}
 .intro-pic img{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 30px 60px -34px rgba(11,32,61,.55)}
 @media (max-width:900px){.intro-grid{grid-template-columns:1fr;gap:28px}}
+.intro-pic.otr{position:relative;container-type:inline-size}
+.intro-pic.otr figcaption{position:absolute;left:5%;top:50%;transform:translateY(-50%);font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:6cqw;line-height:.95;letter-spacing:.01em;color:#fff;pointer-events:none;z-index:2}
+.intro-pic.otr figcaption::after{content:"";display:block;width:1.6em;height:4px;background:#d3a864;margin-top:.32em}
 .fams5{grid-template-columns:repeat(6,minmax(0,1fr))}
 .fams5 .fam:nth-child(-n+3){grid-column:span 2}
 .fams5 .fam:nth-child(n+4){grid-column:span 2}
