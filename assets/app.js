@@ -411,20 +411,26 @@ function productsHome(){
   const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
   const pc=(img,ic,name,txt,meta,links,photo)=>`<article class="pcat"><div class="pic${photo?" photo":""}">${img?`<img src="${img}" alt="Stravik ${esc(name)}${photo?"":" packaging"}" loading="lazy">`:`<span class="pic-ic">${icon(ic)}</span>`}</div>
     <div class="body"><h3>${name}</h3><p>${txt}</p>${meta[1]?`<small class="meta">${meta[1]}</small>`:""}<div class="plinks">${links}</div></div></article>`;
-  const padSlide=(p,k)=>`<div class="slide c-${p.key}" role="group" aria-roledescription="slide" aria-label="${k+1} of ${PADS.length+1}"><div class="wrap">
+  const XS=[
+    {cls:"c-ss",eyebrow:"Steering &amp; suspension",title:"Steering &amp; suspension parts",tag:"Matched to OE fit",best:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references.",cat:"#/steering",about:"#/products/steering-suspension",img:"/assets/img/ss-box.webp",alt:"Stravik steering and suspension box"},
+    {cls:"c-ss photo",eyebrow:"Shock absorbers",title:"Shock absorbers",tag:"Matched to OE fit",best:"MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",cat:"#/shock-absorbers",about:"#/products/shock-absorbers",img:"/assets/img/shock-absorbers/hero.webp",alt:"Stravik shock absorbers and struts"},
+    {cls:"c-ss photo",eyebrow:"Filters",title:"Filters",tag:"Air, oil, fuel and cabin",best:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"/filters/",about:"/filters/",img:"/assets/img/filters/hero-slide.webp",alt:"Stravik air, cabin and oil filters"}];
+  const NS=PADS.length+XS.length;
+  const padSlide=(p,k)=>`<div class="slide c-${p.key}" role="group" aria-roledescription="slide" aria-label="${k+1} of ${NS}"><div class="wrap">
       <div><div class="eyebrow">Brake pads in three compounds</div><h2>${esc(p.name)} brake pads</h2><div class="tag">${esc(p.line)}</div>
         <p class="best">${esc(p.best)}</p>
         <div class="actions"><a class="btn gold" href="#/product/brake-pads?c=${p.key}">View ${esc(p.name.toLowerCase())} pads</a><a class="btn line" href="#/product/brake-pads">Compare compounds</a></div></div>
       <div class="pic"><img src="${p.img}" alt="Stravik ${esc(p.name)} brake pads box"></div>
     </div></div>`;
+  const xSlide=(x,k)=>`<div class="slide ${x.cls}" role="group" aria-roledescription="slide" aria-label="${PADS.length+k+1} of ${NS}"><div class="wrap">
+      <div><div class="eyebrow">${x.eyebrow}</div><h2>${x.title}</h2><div class="tag">${x.tag}</div>
+        <p class="best">${x.best}</p>
+        <div class="actions"><a class="btn gold" href="${x.cat}">Search the catalogue</a>${x.about!==x.cat?`<a class="btn line" href="${x.about}">About the range</a>`:""}</div></div>
+      <div class="pic"><img src="${x.img}" alt="${x.alt}"></div>
+    </div></div>`;
   app.innerHTML=`
   <section class="slider pslider" data-slider aria-roledescription="carousel" aria-label="Stravik products">
-    <div class="slides">${PADS.map(padSlide).join("")}<div class="slide c-ss" role="group" aria-roledescription="slide" aria-label="${PADS.length+1} of ${PADS.length+1}"><div class="wrap">
-      <div><div class="eyebrow">Steering &amp; suspension</div><h2>Steering &amp; suspension parts</h2><div class="tag">Matched to OE fit</div>
-        <p class="best">Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references.</p>
-        <div class="actions"><a class="btn gold" href="#/steering">Search the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a></div></div>
-      <div class="pic"><img src="/assets/img/ss-box.webp" alt="Stravik steering and suspension box"></div>
-    </div></div></div>
+    <div class="slides">${PADS.map(padSlide).join("")}${XS.map(xSlide).join("")}</div>
     ${sliderCtl()}
   </section>
   <div class="pagehead"><div class="wrap">
