@@ -508,7 +508,7 @@ function fRelated(i) {
 }
 const fCard = x => `<div class="fcell"><a class="fcard" href="/filter/${esc(x.pn)}/"><span class="ic">${icon(FICON[x.t])}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(fdesc(x))}</span><span class="veh"><b>Fits</b> ${esc([(x.mk || []).join(", "), x.mo, x.y].filter(Boolean).join(" · "))}</span></a></div>`;
 // /filters/  the Stravik filter catalogue (assets/fcat.js draws it from filters.json; styles in assets/fcat.css)
-{ const url = `${SITE}/filters/`, title = "Stravik filter catalogue | Oil, air, cabin and fuel filters", desc = `All ${F.items.length} Stravik oil, air, cabin, fuel and coolant filters and filter kits, matched to OE fit: search by Stravik, OE or cross-reference number (GUD, MANN, MAHLE, FRAM), model or engine, or find the filters for a vehicle.`;
+{ const url = `${SITE}/filters/`, title = "Stravik filter catalogue | Oil, air, cabin and fuel filters", desc = `All ${F.items.length} Stravik oil, air, cabin, fuel and coolant filters and filter kits: search by Stravik, OE or cross-reference number (GUD, MANN, MAHLE, FRAM), model or engine, or find the filters for a vehicle.`;
   // the light DOM keeps a plain list of the filters for search engines and for visitors without JavaScript
   const body = `<div id="fcat" data-css="${V["fcat.css"]}"><noscript><div class="wrap" style="padding:30px 0"><h1>Stravik filters</h1><ul>${F.items.map(i => `<li><a href="/filter/${esc(i.pn)}/">${esc(i.pn)}</a> ${esc(fdesc(i))}</li>`).join("")}</ul></div></noscript></div>`;
   write("filters", page({ url, title, desc, type: "website", scripts: ["fcat.js"], jsonld: { "@context": "https://schema.org", "@type": "CollectionPage", name: "Stravik filter catalogue", url, description: desc }, body }));
