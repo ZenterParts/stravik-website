@@ -208,3 +208,5 @@ h1,.o-appname,.stat{font-family:var(--sv-display);}
 .inq-price{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin:0 0 10px;}
 .inq-price select{width:auto; margin:0;}
 select.move{width:auto; margin:0; padding:3px 6px 1px; font-size:.84rem;}
+/* South Africa prices: excl. VAT on screen, incl. VAT on hover */
+b.vat{cursor:help;text-decoration:underline dotted rgba(0,0,0,.35);text-underline-offset:3px}
