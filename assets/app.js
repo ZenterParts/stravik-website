@@ -236,7 +236,7 @@ function home(){
       <p>Stravik parts are OE equivalent, made in IATF and ISO certified factories. The range offers extensive vehicle coverage, and we supply workshops, distributors and retailers in over 60 countries at competitive value.</p>
       <ul class="checks"><li>OE equivalent, matched to OE fit</li><li>IATF and ISO certified manufacturing</li><li>Online catalogues searchable by OE or cross-reference number</li></ul>
     </div>
-    <figure class="intro-pic"><img src="/assets/home-road.webp" width="1400" height="788" loading="lazy" alt="A dark saloon car driving along a coastal road at sunset over the words Own the road painted on the asphalt"></figure>
+    <figure class="intro-pic otr"><img src="/assets/img/home-parts.webp" width="1376" height="768" loading="lazy" alt="Stravik parts: alternator, starter motor, water pump, brake disc and pads, shock absorber, gas springs, ignition coil, horn, oil filter, stabiliser link and wiper blade"><figcaption aria-hidden="true">Own<br>the road.</figcaption></figure>
   </div></section>
 
   <section class="block paper"><div class="wrap">
