@@ -1151,3 +1151,8 @@ form.enq .wok input{width:auto;margin-top:4px}
 .bdetail{padding-bottom:40px}
 @media (max-width:800px){.bfeat,.bspec{grid-template-columns:minmax(0,1fr)}.ptabbar a{padding:13px 16px;font-size:13px}}
 .brtop{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px}.brtop .bsh{margin:0}
+
+/* footer: small staff login link to the back end */
+footer .legal-r{display:inline-flex;align-items:center;gap:18px}
+footer .staff{display:inline-flex;align-items:center;gap:5px;color:var(--muted);text-decoration:none;opacity:.75}
+footer .staff:hover,footer .staff:focus-visible{opacity:1;color:var(--ink)}
