@@ -87,7 +87,7 @@ function cartPaint(){
   const n=cartLoad().length;
   document.querySelectorAll("[data-cart-count]").forEach(el=>{el.textContent=n;el.dataset.empty=n?"false":"true";});
   const fc=document.getElementById("fcart");if(fc)fc.classList.toggle("show",n>0&&!/^#\/cart/.test(location.hash));
-  document.querySelectorAll("button[data-cart-key]").forEach(b=>{const on=Cart.has(b.dataset.cartKey);b.dataset.on=on;b.textContent=on?"✓ In cart":"Add to cart";b.setAttribute("aria-label",(on?"Remove ":"Add ")+b.dataset.cartKey+(on?" from cart":" to cart"));});
+  document.querySelectorAll("button[data-cart-key]").forEach(b=>{const on=Cart.has(b.dataset.cartKey);b.dataset.on=on;const l=b.dataset.cartLabel;b.textContent=l?(on?"✓ "+l+" in cart":"Add "+l.toLowerCase()+" to cart"):on?"✓ In cart":"Add to cart";b.setAttribute("aria-label",(on?"Remove ":"Add ")+b.dataset.cartKey+(on?" from cart":" to cart"));});
 }
 addEventListener("storage",e=>{if(e.key===CART_KEY)cartPaint();});
 const toastEl=document.getElementById("toast");let toastT;
