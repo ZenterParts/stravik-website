@@ -17,8 +17,9 @@
     if (!made || !bought) return null;
     var a = new Date(made), b = new Date(bought); return (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
   }
-  var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['made_month', 'Made'], ['ean', 'Barcode'], ['purchase_date', 'Bought on'], ['seller', 'Bought from'], ['invoice_no', 'Invoice no.'],
-    ['fitted_by', 'Fitted by'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
+  var voltOk = function (v) { v = Number(v); return v >= 13.4 && v <= 14.4; };
+  var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['made_month', 'Made'], ['ean', 'Barcode'], ['purchase_date', 'Bought on'], ['seller', 'Bought from'], ['invoice_no', 'Invoice no.'], ['invoice_file', 'Invoice photo'],
+    ['fitted_by', 'Fitted by'], ['alt_voltage', 'Alternator V at fitment'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
 
   function query(opts) {
     var q = sb.from('stravik_battery_warranty').select('*', opts).order('created_at', { ascending: false });
@@ -45,6 +46,7 @@
         { label: 'Serial no.', cls: 'pn', render: function (r) { return r.serial ? esc(r.serial) : '<span class="muted small">none</span>'; } },
         { label: 'Bought on', render: function (r) { var m = stockMonths(r.made_month, r.purchase_date); return esc(r.purchase_date) + (m != null && m > 6 ? ' <span class="pill warn" title="Bought ' + m + ' months after it was made">' + m + ' mo in stock</span>' : ''); } },
         { label: 'Bought from', render: function (r) { return esc(r.seller); } },
+        { label: 'Alternator', num: true, render: function (r) { return r.alt_voltage == null ? '' : voltOk(r.alt_voltage) ? esc(r.alt_voltage) + ' V' : '<span class="pill warn" title="Outside 13.4–14.4 V: the warranty does not cover it">' + esc(r.alt_voltage) + ' V</span>'; } },
         { label: 'Name', render: function (r) { return esc(r.name) + (r.company ? ' · ' + esc(r.company) : ''); } },
         { label: 'Country', render: function (r) { return esc(r.country); } },
         { label: 'Status', render: function (r) { return L.pill(r.status); } }
@@ -57,12 +59,17 @@
       L.modal('Warranty ' + r.ref, '<dl class="kvlist" style="display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0">' +
         COLS.filter(function (c) { return c[0] !== 'status' && c[0] !== 'staff_notes' && r[c[0]]; }).map(function (c) {
           var v = c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' ? String(r[c[0]]).slice(0, 7) : r[c[0]];
+          if (c[0] === 'alt_voltage') v = v + ' V' + (voltOk(v) ? '' : ' (outside 13.4–14.4 V: not covered)');
+          if (c[0] === 'invoice_file') return '<dt class="muted">' + esc(c[1]) + '</dt><dd style="margin:0"><button type="button" class="btn ghost small" id="wInv">Open the invoice</button></dd>';
           if (c[0] === 'purchase_date') { var m = stockMonths(r.made_month, r.purchase_date); if (m != null) v += ' (' + m + ' month' + (m === 1 ? '' : 's') + ' after it was made' + (m > 6 ? ': over the 6-month stock limit' : '') + ')'; }
           return '<dt class="muted">' + esc(c[1]) + '</dt><dd style="margin:0">' + (c[0] === 'serial' ? '<a href="' + L.href('warranty', ['serials'], { q: v }) + '">' + esc(v) + '</a>' : c[0] === 'sv_pn' ? '<a href="/part/' + encodeURIComponent(v) + '/" target="_blank" rel="noopener">' + esc(v) + '</a>' : c[0] === 'email' ? '<a href="mailto:' + esc(v) + '">' + esc(v) + '</a>' : esc(v)) + '</dd>';
         }).join('') + '</dl>' +
         '<label for="wSt">Status</label><select id="wSt">' + STEPS.map(function (s) { return '<option' + (s === r.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
         '<label for="wNote">Staff notes</label><textarea id="wNote" rows="4" style="width:100%">' + esc(r.staff_notes || '') + '</textarea>' +
         '<div style="margin-top:14px;display:flex;gap:10px"><button type="button" class="btn" id="wSave">Save</button></div>');
+      if ($('wInv')) $('wInv').onclick = async function () {
+        try { var u = L.must(await sb.storage.from('stravik-warranty-invoices').createSignedUrl(r.invoice_file, 300)); window.open(u.signedUrl, '_blank', 'noopener'); } catch (e) { L.fail(e); }
+      };
       $('wSave').onclick = async function () {
         try {
           L.must(await sb.from('stravik_battery_warranty').update({ status: $('wSt').value, staff_notes: $('wNote').value || null, updated_at: new Date().toISOString(), updated_by: L.EMAIL || null }).eq('ref', r.ref));

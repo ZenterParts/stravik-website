@@ -387,15 +387,18 @@ ${cantFind}`;
 <div class="full" id="w_pnrow" hidden><label for="w_pn">Stravik battery number</label><input id="w_pn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
 <div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
 <div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
-<div><label for="w_inv">Invoice or receipt number <span class="opt">(optional)</span></label><input id="w_inv" maxlength="60"></div>
-<div><label for="w_fit">Fitted by <span class="opt">(optional)</span></label><input id="w_fit" placeholder="Workshop name, or yourself" maxlength="160"></div>
-<div><label for="w_veh">Vehicle <span class="opt">(optional)</span></label><input id="w_veh" placeholder="Make, model and year" maxlength="160"></div>
-<div><label for="w_reg">Vehicle registration <span class="opt">(optional)</span></label><input id="w_reg" maxlength="30" autocapitalize="characters"></div>
+<div><label for="w_inv">Invoice or receipt number</label><input id="w_inv" required maxlength="60"><div class="err">Enter the invoice or receipt number.</div></div>
+<div><label for="w_file">Photo of the invoice <span class="opt">(recommended)</span></label><input id="w_file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"><div class="err">Choose a photo or PDF under 8 MB.</div></div>
+<div class="full wsep"><h2>Fitting and vehicle</h2></div>
+<div><label for="w_fit">Fitted by</label><input id="w_fit" required placeholder="Workshop name, or yourself" maxlength="160"><div class="err">Enter who fitted the battery.</div></div>
+<div><label for="w_volt">Alternator voltage at fitment (V)</label><input id="w_volt" required type="text" inputmode="decimal" placeholder="for example 14.1" maxlength="5"><div class="err">Enter the charging voltage measured when the battery was fitted.</div><div class="wbat" id="w_vmsg" aria-live="polite">Measured with the engine running when the battery is fitted. Ask the workshop that fitted it.</div></div>
+<div><label for="w_veh">Vehicle</label><input id="w_veh" required placeholder="Make, model and year" maxlength="160"><div class="err">Enter the vehicle.</div></div>
+<div><label for="w_reg">Vehicle registration</label><input id="w_reg" required maxlength="30" autocapitalize="characters"><div class="err">Enter the vehicle registration.</div></div>
 <div class="full wsep"><h2>Your details</h2></div>
 <div><label for="w_name">Name</label><input id="w_name" required autocomplete="name" maxlength="120"><div class="err">Enter your name.</div></div>
 <div><label for="w_co">Company <span class="opt">(optional)</span></label><input id="w_co" autocomplete="organization" maxlength="160"></div>
 <div><label for="w_email">Email</label><input id="w_email" type="email" required autocomplete="email" maxlength="160"><div class="err">Enter a valid email address.</div></div>
-<div><label for="w_phone">Phone <span class="opt">(optional)</span></label><input id="w_phone" type="tel" autocomplete="tel" maxlength="60"></div>
+<div><label for="w_phone">Phone (WhatsApp)</label><input id="w_phone" required type="tel" autocomplete="tel" placeholder="With country code, for example +27 82 123 4567" maxlength="60"><div class="err">Enter your phone number.</div></div>
 <div><label for="w_country">Country</label><input id="w_country" required autocomplete="country-name" value="South Africa" maxlength="80"><div class="err">Enter your country.</div></div>
 <div><label for="w_city">City or town <span class="opt">(optional)</span></label><input id="w_city" autocomplete="address-level2" maxlength="80"></div>
 <div class="full wok"><label><input type="checkbox" id="w_ok" required> I agree that Stravik keeps these details to handle the warranty of this battery.</label><div class="err">Tick the box to register.</div></div>
