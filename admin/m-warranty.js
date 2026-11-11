@@ -1,7 +1,8 @@
 /* App: Warranty. Stravik battery warranty registrations from the website (/warranty/battery/, opened from the QR code on each battery)
    and the battery serial numbers. Serials are made per production batch (public.stravik_serial_generate, editors) and sent to the
-   factory, which prints each serial with a QR code on the battery. The QR opens /warranty/battery/?s=<serial>; a serial can be
-   registered once (public.stravik_warranty_register). Format <Stravik no.>-<YYMM made>-<5 random characters>. */
+   factory, which prints each serial as text on the battery, next to the model's QR code. The model QR opens
+   /warranty/battery/?pn=<Stravik no.>, where the customer types the serial; a serial can be registered once
+   (public.stravik_warranty_register). Format <Stravik no.>-<YYMM made>-<5 random characters>. */
 (function (L) {
   'use strict';
   var esc = L.esc, sb = L.sb, $ = L.$;
@@ -10,7 +11,7 @@
   var STEPS = ['Registered', 'Claim received', 'Claim approved', 'Claim rejected', 'Closed'];
   var FILTERS = STEPS.map(function (s) { return { key: 'st_' + s, label: s, group: 'Status' }; }).concat([{ key: 'ns', label: 'No serial number', group: 'Serial' }]);
   var SITE = 'https://stravikautomotiveparts.com';
-  var qrUrl = function (serial) { return SITE + '/warranty/battery/?s=' + encodeURIComponent(serial); };
+  var qrUrl = function (pn) { return SITE + '/warranty/battery/?pn=' + encodeURIComponent(pn); };   // one QR per battery model
   // months between the production month and the purchase date: the warranty policy refuses a battery that sat in stock over 6 months
   function stockMonths(made, bought) {
     if (!made || !bought) return null;
@@ -120,7 +121,7 @@
         { label: 'Order', render: function (r) { return esc(r.order_ref || ''); } },
         { label: 'Supplier', render: function (r) { return esc(r.supplier || ''); } }
       ], rows, function (r) { return L.href('warranty', ['serials', String(r.id)]); }) :
-        L.empty('No serial numbers yet', 'Create a batch for each production order: choose the battery, the quantity and the month it is made. Send the file to the factory to print the serial and its QR code on each battery.');
+        L.empty('No serial numbers yet', 'Create a batch for each production order: choose the battery, the quantity and the month it is made. Send the file to the factory to print a serial number on each battery, next to the QR code.');
       L.content(html);
       $('content').onclick = async function (e) {
         var v = e.target.closest('[data-void],[data-unvoid]'); if (!v) return;
@@ -134,7 +135,7 @@
       var bats = await L.fetchAll(function () { return sb.from('stravik_parts').select('sv_pn,short_desc').eq('subcategory', 'Batteries').eq('status', 'Active').order('sv_pn'); });
       var d = new Date(), mon = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
       L.modal('New batch of serial numbers',
-        '<p class="small muted" style="margin-top:0">One batch per battery model and production order. Each battery gets its own serial, for example <b>SVPDH003-2611-7K3M9</b>: the Stravik number, the month it is made (YYMM) and 5 random characters. Customers scan the QR code to register; each serial can be registered once.</p>' +
+        '<p class="small muted" style="margin-top:0">One batch per battery model and production order. Each battery gets its own serial, for example <b>SVPDH003-2611-7K3M9</b>: the Stravik number, the month it is made (YYMM) and 5 random characters. Customers scan the QR code on the battery and type the serial to register; each serial can be registered once.</p>' +
         '<label for="snPn">Battery</label><select id="snPn" style="width:100%">' + bats.map(function (b) { return '<option value="' + esc(b.sv_pn) + '">' + esc(b.sv_pn + ' · ' + (b.short_desc || '')) + '</option>'; }).join('') + '</select>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label for="snQty">Quantity</label><input id="snQty" type="number" min="1" max="50000" step="1" style="width:100%"></div>' +
         '<div><label for="snMade">Month made</label><input id="snMade" type="month" value="' + mon + '" style="width:100%"></div>' +
@@ -164,7 +165,7 @@
          ['Registered', Number(b.registered).toLocaleString() + (b.voided ? ' · ' + b.voided + ' void' : '')], ['Order / PO', esc(b.order_ref || '')], ['Supplier', esc(b.supplier || '')], ['Note', esc(b.note || '')],
          ['Created', esc(L.dt(b.created_at) + (b.created_by ? ' by ' + b.created_by : ''))], ['Example', sample.map(function (s) { return '<code>' + esc(s.serial) + '</code>'; }).join(' ')]]
           .filter(function (p) { return p[1]; }).map(function (p) { return '<dt class="muted">' + p[0] + '</dt><dd style="margin:0">' + p[1] + '</dd>'; }).join('') + '</dl>' +
-        '<p class="small muted">The factory file has one row per battery: the serial number to print, and the text for its QR code (a link to the warranty form for that serial). Print both on the battery label.</p>' +
+        '<p class="small muted">The factory file has one row per battery with the serial number to print. The QR code is the same on every battery of this model: <code>' + esc(qrUrl(b.sv_pn)) + '</code></p>' +
         '<div style="display:flex;gap:10px"><button type="button" class="btn" id="snXls">Download for the factory</button></div>', true);
       $('snXls').onclick = function () { factoryFile(b); };
     } catch (e) { L.fail(e); }
@@ -174,15 +175,16 @@
       L.toast('Preparing ' + Number(b.issued).toLocaleString() + ' serial numbers…');
       var rows = await L.fetchAll(function () { return sb.from('stravik_battery_serials').select('serial,status').eq('batch_id', b.id).order('serial'); });
       await L.saveXlsx([
-        { name: 'Serial numbers', widths: [24, 70, 12, 40, 16, 9, 14],
-          top: [['Stravik battery serial numbers', ''], ['Battery', b.sv_pn + ' · ' + (b.short_desc || '')], ['Made', ym(b.made_month)], ['Order / PO', b.order_ref || ''], ['Quantity', rows.length]],
-          head: ['Serial number (print as text)', 'QR code content', 'Stravik no.', 'Battery', 'Barcode (EAN)', 'Made', 'Status'],
-          rows: rows.map(function (r) { return [r.serial, qrUrl(r.serial), b.sv_pn, b.short_desc || '', b.barcode || '', ym(b.made_month), r.status]; }) },
+        { name: 'Serial numbers', widths: [26, 12, 40, 16, 9, 14],
+          top: [['Stravik battery serial numbers', ''], ['Battery', b.sv_pn + ' · ' + (b.short_desc || '')], ['Made', ym(b.made_month)], ['Order / PO', b.order_ref || ''], ['Quantity', rows.length], ['QR code (same on every battery of this model)', qrUrl(b.sv_pn)]],
+          head: ['Serial number (print as text)', 'Stravik no.', 'Battery', 'Barcode (EAN)', 'Made', 'Status'],
+          rows: rows.map(function (r) { return [r.serial, b.sv_pn, b.short_desc || '', b.barcode || '', ym(b.made_month), r.status]; }) },
         { name: 'Printing instructions', widths: [110], head: ['How to print the serial number'],
           rows: [['Print one serial number per battery, each serial once only. Do not reuse or copy serial numbers between batteries.'],
-            ['Print the serial number as readable text (for example SVPDH003-2611-7K3M9) and, next to it, a QR code that contains the text in the "QR code content" column.'],
-            ['QR code: at least 15 x 15 mm, error correction level M or higher, black on white, with a quiet zone of 2 mm around it.'],
-            ['Place the label on the top or front of the battery, where it can be scanned after the battery is fitted, and where it will not be covered by the hold-down clamp.'],
+            ['Print the serial number as clear, readable text (for example SVPDH003-2611-7K3M9), at least 3 mm high, in a plain font where every character is easy to read.'],
+            ['Print it right next to the warranty QR code. The QR code is the same on every battery of this model and contains: ' + qrUrl(b.sv_pn)],
+            ['Label it "Serial no." so customers know what to type on the warranty page.'],
+            ['Place it on the top or front of the battery, where it can be read after the battery is fitted, and where it will not be covered by the hold-down clamp.'],
             ['Serial format: Stravik battery number, month made (YYMM), 5 characters. The 5 characters never use the letters O or I or the digits 0 or 1.'],
             ['Return any unused or damaged labels\' serial numbers to Zenter Parts so they can be voided.']] }
       ], 'Stravik_serials_' + b.sv_pn + '_' + ym(b.made_month) + '_batch' + b.id + '.xlsx');

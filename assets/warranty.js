@@ -34,7 +34,8 @@ async function checkSn(){const el=$("w_snmsg"),v=$("w_sn").value,sn=snFmt(v),seq
     if(j.void){el.classList.add("bad");el.innerHTML="This serial number can't be registered. Contact us at <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a>.";return;}
     await list;const b=BAT&&BAT[j.pn];SN={ok:true,sn,pn:j.pn,made:j.made};
     if(sn!==$("w_sn").value)$("w_sn").value=sn;
-    el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b?", "+esc(b.ser):""}, made ${esc(ym(j.made))} · <a href="/part/${encodeURIComponent(j.pn)}/">battery page</a>`;
+    el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b?", "+esc(b.ser):""}, made ${esc(ym(j.made))} · <a href="/part/${encodeURIComponent(j.pn)}/">battery page</a>`+
+      (q&&clean(q)!==j.pn?`<br>This serial is for battery ${esc(j.pn)}, not ${esc(clean(q))}: check that you scanned the QR code on the same battery.`:"");
   }catch(e){if(seq===snSeq){el.textContent="";SN={ok:true,sn,unchecked:true};}}}
 const P=new URLSearchParams(location.search),qs=P.get("s"),q=P.get("pn");
 if(qs)$("w_sn").value=String(qs).toUpperCase().slice(0,24);
