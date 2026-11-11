@@ -24,7 +24,7 @@
 <!-- fonts --><link rel="preload" href="/assets/fonts/InstrumentSans-Latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/SairaSemiCondensed-Bold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/fonts/fonts.css"><!-- /fonts -->
-<link rel="stylesheet" href="/assets/site.css?v=36927fc700">
+<link rel="stylesheet" href="/assets/site.css?v=96cb628655">
 </head>
 <body>
 <header class="site">
@@ -61,6 +61,7 @@
 <div><label for="w_volt">Alternator voltage at fitment (V)</label><input id="w_volt" required type="text" inputmode="decimal" placeholder="for example 14.1" maxlength="5"><div class="err">Enter the charging voltage measured when the battery was fitted.</div><div class="wbat" id="w_vmsg" aria-live="polite">Measured with the engine running when the battery is fitted. Ask the workshop that fitted it.</div></div>
 <div><label for="w_veh">Vehicle</label><input id="w_veh" required placeholder="Make, model and year" maxlength="160"><div class="err">Enter the vehicle.</div></div>
 <div><label for="w_reg">Vehicle registration</label><input id="w_reg" required maxlength="30" autocapitalize="characters"><div class="err">Enter the vehicle registration.</div></div>
+<div class="full wtaxi"><span class="wq">Is the vehicle used as a taxi or in a high-mileage fleet?</span><label><input type="radio" name="w_taxi" value="no"> No</label><label><input type="radio" name="w_taxi" value="yes"> Yes (6-month warranty)</label><div class="err">Choose yes or no.</div></div>
 <div class="full wsep"><h2>Your details</h2></div>
 <div><label for="w_name">Name</label><input id="w_name" required autocomplete="name" maxlength="120"><div class="err">Enter your name.</div></div>
 <div><label for="w_co">Company <span class="opt">(optional)</span></label><input id="w_co" autocomplete="organization" maxlength="160"></div>
@@ -68,7 +69,7 @@
 <div><label for="w_phone">Phone (WhatsApp)</label><input id="w_phone" required type="tel" autocomplete="tel" placeholder="With country code, for example +27 82 123 4567" maxlength="60"><div class="err">Enter your phone number.</div></div>
 <div><label for="w_country">Country</label><input id="w_country" required autocomplete="country-name" value="South Africa" maxlength="80"><div class="err">Enter your country.</div></div>
 <div><label for="w_city">City or town <span class="opt">(optional)</span></label><input id="w_city" autocomplete="address-level2" maxlength="80"></div>
-<div class="full wok"><label><input type="checkbox" id="w_ok" required> I agree that Stravik keeps these details to handle the warranty of this battery.</label><div class="err">Tick the box to register.</div></div>
+<div class="full wok"><label><input type="checkbox" id="w_ok" required> <span>I have read and accept the <a href="/warranty/battery/terms/" target="_blank" rel="noopener">Stravik battery warranty terms</a>, and agree that Stravik keeps these details to handle the warranty of this battery.</span></label><div class="err">Tick the box to accept the warranty terms.</div></div>
 <input type="text" id="w_bot" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
 <div class="full" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><button class="btn gold" type="submit">Register battery</button></div>
 <div class="full ready" role="status" aria-live="polite"></div>
@@ -90,6 +91,6 @@
 <script src="/assets/catalog.js?v=7d06cac42f"></script>
 <script src="/assets/common.js?v=2cfbf6b88e"></script>
 <script src="/assets/dealer.js?v=50c804850b"></script>
-<script src="/assets/warranty.js?v=ffd2f464ad"></script>
+<script src="/assets/warranty.js?v=4163267138"></script>
 </body>
 </html>

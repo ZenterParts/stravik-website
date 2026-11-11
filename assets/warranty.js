@@ -34,7 +34,7 @@ async function checkSn(){const el=$("w_snmsg"),v=$("w_sn").value,sn=snFmt(v),seq
     if(j.void){el.classList.add("bad");el.innerHTML="This serial number can't be registered. Contact us at <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a>.";return;}
     await list;const b=BAT&&BAT[j.pn];SN={ok:true,sn,pn:j.pn,made:j.made};
     if(sn!==$("w_sn").value)$("w_sn").value=sn;
-    el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b?", "+esc(b.ser):""}, made ${esc(ym(j.made))} · <a href="/part/${encodeURIComponent(j.pn)}/">battery page</a>`+
+    el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b?", "+esc(b.ser):""}, made ${esc(ym(j.made))}${j.months?" · "+j.months+"-month warranty":""} · <a href="/part/${encodeURIComponent(j.pn)}/">battery page</a>`+
       (q&&clean(q)!==j.pn?`<br>This serial is for battery ${esc(j.pn)}, not ${esc(clean(q))}: check that you scanned the QR code on the same battery.`:"");
   }catch(e){if(seq===snSeq){el.textContent="";SN={ok:true,sn,unchecked:true};}}}
 const P=new URLSearchParams(location.search),qs=P.get("s"),q=P.get("pn");
@@ -58,6 +58,7 @@ async function upload(file){const ext={"image/jpeg":"jpg","image/png":"png","ima
   const r=await fetch(SB_URL+"/storage/v1/object/stravik-warranty-invoices/"+id,{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":file.type,"x-upsert":"false"},body:file});
   if(!r.ok)throw new Error("The invoice photo didn't upload. Try a smaller photo, or register without it.");return id;}
 $("w_pn").addEventListener("input",show);list.then(show);
+f.querySelectorAll("input[name=w_taxi]").forEach(el=>el.addEventListener("change",()=>f.querySelector(".wtaxi").classList.remove("invalid")));
 f.querySelectorAll("input").forEach(el=>el.addEventListener("input",()=>{el.classList.remove("invalid");if(el.id==="w_ok")el.closest(".wok").classList.remove("invalid");}));
 f.addEventListener("submit",async ev=>{ev.preventDefault();
   const btn=f.querySelector("button[type=submit]"),ready=f.querySelector(".ready");let first=null;
@@ -70,12 +71,13 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
   ["w_seller","w_inv","w_fit","w_veh","w_reg","w_name","w_country"].forEach(id=>bad(id,$(id).value.trim().length<2));
   const volt=voltNum();bad("w_volt",volt==null||volt<10||volt>18);
   bad("w_phone",$("w_phone").value.replace(/\D/g,"").length<7);
+  const taxi=(f.querySelector("input[name=w_taxi]:checked")||{}).value||"";f.querySelector(".wtaxi").classList.toggle("invalid",!taxi);if(!taxi&&!first)first=f.querySelector("input[name=w_taxi]");
   const file=$("w_file").files[0];bad("w_file",!!file&&(file.size>8*1024*1024||!/^(image\/(jpeg|png|webp|heic)|application\/pdf)$/.test(file.type)));
   bad("w_email",!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($("w_email").value.trim()));
   bad("w_ok",!$("w_ok").checked);
   if(first){first.focus();return;}
   const v=id=>$(id).value.trim();
-  const payload={pn,serial:nosn?"":SN.sn,purchase_date:d,seller:v("w_seller"),invoice_no:v("w_inv"),fitted_by:v("w_fit"),alt_voltage:String(volt),vehicle:v("w_veh"),reg_no:v("w_reg"),
+  const payload={pn,serial:nosn?"":SN.sn,purchase_date:d,seller:v("w_seller"),invoice_no:v("w_inv"),fitted_by:v("w_fit"),alt_voltage:String(volt),taxi,terms:"accepted",vehicle:v("w_veh"),reg_no:v("w_reg"),
     name:v("w_name"),company:v("w_co"),email:v("w_email"),phone:v("w_phone"),country:v("w_country"),city:v("w_city"),botcheck:$("w_bot").value,page:location.pathname+location.search};
   btn.disabled=true;btn.textContent="Registering…";ready.classList.remove("show");
   try{if(file){btn.textContent="Uploading invoice…";payload.invoice_file=await upload(file);btn.textContent="Registering…";}
@@ -84,7 +86,7 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
     if(!r.ok)throw new Error(j.message||("Status "+r.status));
     const b=BAT&&BAT[j.pn||pn];
     f.querySelectorAll(":scope > div:not(.ready)").forEach(el=>el.hidden=true);
-    ready.innerHTML=`<b>Your battery is registered.</b><br>Registration number <b>${esc(j.ref)}</b> for Stravik ${esc(j.pn||pn)}${b?" ("+esc(b.desc)+")":""}${j.serial?", serial "+esc(j.serial):""}, bought on ${esc(dmy(d))}.<br>Keep this number and your invoice as proof of purchase.${j.voltage_ok===false?"<br><b>The alternator voltage you entered is outside 13.4 to 14.4 V.</b> Have the charging system checked: a battery on a vehicle that charges outside this range is not covered.":""} <a href="/part/${encodeURIComponent(pn)}/">Back to the battery</a>`;
+    ready.innerHTML=`<b>Your battery is registered.</b><br>Registration number <b>${esc(j.ref)}</b> for Stravik ${esc(j.pn||pn)}${b?" ("+esc(b.desc)+")":""}${j.serial?", serial "+esc(j.serial):""}, bought on ${esc(dmy(d))}.<br>${j.months?`Your warranty is <b>${j.months} months</b>, until <b>${esc(dmy(j.expires_on))}</b>, under the <a href="/warranty/battery/terms/">Stravik battery warranty terms</a>.<br>`:""}Keep this number and your invoice as proof of purchase.${j.voltage_ok===false?"<br><b>The alternator voltage you entered is outside 13.4 to 14.4 V.</b> Have the charging system checked: a battery on a vehicle that charges outside this range is not covered.":""} <a href="/part/${encodeURIComponent(pn)}/">Back to the battery</a>`;
     ready.classList.add("show");ready.scrollIntoView({block:"center",behavior:"smooth"});
   }catch(e){ready.innerHTML=`<b>The registration wasn't saved.</b> ${esc(e.message||"Check your connection and try again.")}`;ready.classList.add("show");}
   finally{btn.disabled=false;btn.textContent="Register battery";}

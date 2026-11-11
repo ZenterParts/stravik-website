@@ -19,7 +19,7 @@
   }
   var voltOk = function (v) { v = Number(v); return v >= 13.4 && v <= 14.4; };
   var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['made_month', 'Made'], ['ean', 'Barcode'], ['purchase_date', 'Bought on'], ['seller', 'Bought from'], ['invoice_no', 'Invoice no.'], ['invoice_file', 'Invoice photo'],
-    ['fitted_by', 'Fitted by'], ['alt_voltage', 'Alternator V at fitment'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
+    ['fitted_by', 'Fitted by'], ['alt_voltage', 'Alternator V at fitment'], ['taxi_fleet', 'Taxi / fleet'], ['warranty_months', 'Warranty months'], ['expires_on', 'Warranty until'], ['terms_version', 'Terms accepted'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
 
   function query(opts) {
     var q = sb.from('stravik_battery_warranty').select('*', opts).order('created_at', { ascending: false });
@@ -46,6 +46,7 @@
         { label: 'Serial no.', cls: 'pn', render: function (r) { return r.serial ? esc(r.serial) : '<span class="muted small">none</span>'; } },
         { label: 'Bought on', render: function (r) { var m = stockMonths(r.made_month, r.purchase_date); return esc(r.purchase_date) + (m != null && m > 6 ? ' <span class="pill warn" title="Bought ' + m + ' months after it was made">' + m + ' mo in stock</span>' : ''); } },
         { label: 'Bought from', render: function (r) { return esc(r.seller); } },
+        { label: 'Warranty until', render: function (r) { return r.expires_on ? esc(r.expires_on) + (r.expires_on < L.today() ? ' <span class="pill">expired</span>' : '') + (r.taxi_fleet ? ' <span class="pill warn">taxi/fleet</span>' : '') : ''; } },
         { label: 'Alternator', num: true, render: function (r) { return r.alt_voltage == null ? '' : voltOk(r.alt_voltage) ? esc(r.alt_voltage) + ' V' : '<span class="pill warn" title="Outside 13.4–14.4 V: the warranty does not cover it">' + esc(r.alt_voltage) + ' V</span>'; } },
         { label: 'Name', render: function (r) { return esc(r.name) + (r.company ? ' · ' + esc(r.company) : ''); } },
         { label: 'Country', render: function (r) { return esc(r.country); } },
@@ -57,8 +58,10 @@
     try {
       var r = L.must(await sb.from('stravik_battery_warranty').select('*').eq('ref', ref).single());
       L.modal('Warranty ' + r.ref, '<dl class="kvlist" style="display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0">' +
-        COLS.filter(function (c) { return c[0] !== 'status' && c[0] !== 'staff_notes' && r[c[0]]; }).map(function (c) {
+        COLS.filter(function (c) { return c[0] !== 'status' && c[0] !== 'staff_notes' && (r[c[0]] || r[c[0]] === false); }).map(function (c) {
           var v = c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' ? String(r[c[0]]).slice(0, 7) : r[c[0]];
+          if (c[0] === 'taxi_fleet') v = r[c[0]] ? 'Yes (6-month warranty)' : 'No';
+          if (c[0] === 'terms_version' && r.terms_accepted_at) v = v + ', ' + L.dt(r.terms_accepted_at);
           if (c[0] === 'alt_voltage') v = v + ' V' + (voltOk(v) ? '' : ' (outside 13.4–14.4 V: not covered)');
           if (c[0] === 'invoice_file') return '<dt class="muted">' + esc(c[1]) + '</dt><dd style="margin:0"><button type="button" class="btn ghost small" id="wInv">Open the invoice</button></dd>';
           if (c[0] === 'purchase_date') { var m = stockMonths(r.made_month, r.purchase_date); if (m != null) v += ' (' + m + ' month' + (m === 1 ? '' : 's') + ' after it was made' + (m > 6 ? ': over the 6-month stock limit' : '') + ')'; }
@@ -83,7 +86,7 @@
       L.toast('Preparing registrations…');
       var rows = await L.fetchAll(function () { return query(); });
       await L.saveXlsx([{ name: 'Battery warranty', widths: COLS.map(function (c) { return c[0] === 'staff_notes' ? 40 : 16; }), head: COLS.map(function (c) { return c[1]; }),
-        rows: rows.map(function (r) { return COLS.map(function (c) { return c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' && r[c[0]] ? String(r[c[0]]).slice(0, 7) : r[c[0]] == null ? '' : r[c[0]]; }); }) }], 'Stravik_battery_warranty_' + L.today() + '.xlsx');
+        rows: rows.map(function (r) { return COLS.map(function (c) { return c[0] === 'taxi_fleet' ? (r[c[0]] == null ? '' : r[c[0]] ? 'Yes' : 'No') : c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' && r[c[0]] ? String(r[c[0]]).slice(0, 7) : r[c[0]] == null ? '' : r[c[0]]; }); }) }], 'Stravik_battery_warranty_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
 
