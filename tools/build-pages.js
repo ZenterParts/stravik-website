@@ -82,7 +82,8 @@ ${(scripts || []).map(f => `<script src="${V[f]}"></script>\n`).join("")}</body>
 `;
 }
 const crumbs = c => `<div class="crumbs">${c.map(([h, t], k) => k < c.length - 1 ? `<a href="${h}">${esc(t)}</a><span>/</span>` : `<span>${esc(t)}</span>`).join("")}</div>`;
-const buyBox = item => `<div class="buy"><div><label for="bq">Quantity</label><input id="bq" type="number" min="1" max="99999" value="1" inputmode="numeric"></div><button type="button" class="btn gold" data-add-qty="bq" data-item="${esc(JSON.stringify(item))}">Add to cart</button></div>`;
+// one item, or [[label, item], …] for a part sold new and remanufactured (one button each)
+const buyBox = item => `<div class="buy"><div><label for="bq">Quantity</label><input id="bq" type="number" min="1" max="99999" value="1" inputmode="numeric"></div>${(Array.isArray(item) ? item : [["", item]]).map(([l, it]) => `<button type="button" class="btn gold" data-add-qty="bq" data-item="${esc(JSON.stringify(it))}">Add${l ? " " + esc(l) : ""} to cart</button>`).join("")}</div>`;
 const cantFind = `<section class="block"><div class="wrap"><aside class="cantfind"><div><h3>Not the right part?</h3><p>Send us the vehicle and the OE number and we'll find the matching Stravik part, or add it to the range.</p></div><a class="btn gold" href="/#/request">Request a part</a></aside></div></section>`;
 const productLd = (url, name, pn, category, desc, img) => ({ "@context": "https://schema.org", "@type": "Product", name, sku: pn, mpn: pn, brand: { "@type": "Brand", name: "Stravik" }, category, description: desc, url, image: SITE + img });
 
@@ -564,8 +565,8 @@ const stdCounts = [];
     for (const i of d.items) {
       const url = `${SITE}/part/${i.pn}/`, name = t1(i);
       const okv = v => v && v !== "Not specified";
-      const specs = (c.specs ? c.specs.filter(x => okv(i.s[x[0]])).map(x => [x[1], x[2] ? x[2](i.s[x[0]], i.s) : i.s[x[0]]]) : Object.keys(i.s).filter(k => okv(i.s[k])).map(k => [k, i.s[k]]));
-      const rows = [["Stravik number", i.pn], ["Part", name]].concat(specs, [["Model years", i.yrs]]).filter(r => r[1]);
+      const specs = STD.specRows(i, c), cs = STD.conds(i);
+      const rows = [["Stravik number", i.pn], ["Part", name]].concat(i.k ? [["Condition", STD.condText(i)]] : [], specs, [["Model years", i.yrs]]).filter(r => r[1]);
       const ex = i.apps.filter(a => !a.any), only = uniq(i.apps.filter(a => a.any).map(a => a.mk)).sort();
       const rich = ex.some(a => a.ver || a.ec || a.code), kw = ex.some(a => a.kw);
       const byMk = uniq(ex.map(a => a.mk)).sort((a, b) => a.localeCompare(b)).map(m => ({ m, apps: ex.filter(a => a.mk === m).sort((a, b) => a.mo.localeCompare(b.mo) || a.y0 - b.y0) }));
@@ -578,14 +579,14 @@ const stdCounts = [];
       const title = `Stravik ${i.pn} ${name}${mks.length ? " | " + list(mks.slice(0, 2), 2) : ""}`.slice(0, 120);
       const desc = `Stravik ${lc1(name)} ${i.pn}.` + (sl(i) ? ` ${sl(i).charAt(0).toUpperCase() + sl(i).slice(1)}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mks.length ? ` Fits ${list(mks, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
       const rel = related(i);
-      const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], [`/#/${id}`, c.title], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(name))}</p></div></div>
+      const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], [`/#/${id}`, c.title], ["", i.pn]])}<h1>${esc(i.pn)}${i.k ? STD.condTags(i) : ""}</h1><p>Stravik ${esc(lc1(name))}${i.k ? " · " + (i.k === "NR" ? "new and remanufactured" : i.k === "R" ? "remanufactured" : "new") : ""}</p></div></div>
 <div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(c.title)}</span>${i.ph ? `<img class="bphoto stdph" src="${esc(i.ph)}" alt="${esc(name)}">` : `<div class="big">${icon(c.icon)}</div>`}</div>
 <div class="info"><div class="type">Stravik ${esc(lc1(name))}</div>
 <dl class="specs">${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
 ${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
 ${i.xr.length ? `<h2 class="nums-h">Cross-reference numbers</h2><div class="chips">${i.xr.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
 <div class="replace"><b>Before you order</b><span>${c.vehicles === false ? "Check the specification against the old part, or send us the OE number and we'll confirm the match." : "Check the vehicle, engine and years below against the original part, or send us the OE number and we'll confirm the fit."}</span></div>
-${buyBox(STD.cartItem(i, c))}
+${buyBox(i.k === "NR" ? cs.map(k => [k === "R" ? "reman" : "new", STD.cartItem(i, c, k)]) : STD.cartItem(i, c))}
 <div class="actions"><a class="btn line" href="/#/contact?part=${encodeURIComponent(c.one)}&amp;ref=${encodeURIComponent(i.pn)}">Ask about this part</a><a class="btn line" href="/#/${id}">More ${esc(c.many)}</a></div>
 </div></div>
 ${c.vehicles === false ? "" : `<section class="block paper"><div class="wrap"><h2 class="apph">Vehicles it fits<span>${ex.length} ${ex.length === 1 ? "application" : "applications"}, ${mks.length} ${mks.length === 1 ? "make" : "makes"}</span></h2>

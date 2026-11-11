@@ -129,3 +129,7 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
   .sc-pn{font-size:22px}
 }
 @media (prefers-reduced-motion:no-preference){.sc-detail.open{animation:scUp .18s ease-out}@keyframes scUp{from{transform:translateY(16px);opacity:.6}to{transform:none;opacity:1}}}
+/* N / R tags: base style in site.css */
+.sc-dhead h2 .sc-cond{font-size:14px;vertical-align:10px;padding:4px 6px 3px}
+.sc-cnote{font-size:13px;color:var(--muted,#5b6475);margin-top:4px}
+.fpn .sc-cond{vertical-align:1px;font-size:11px}

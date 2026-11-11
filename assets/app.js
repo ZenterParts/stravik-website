@@ -162,7 +162,7 @@ function stdResults(r,q,max,veh){
   const row=x=>{const i=x.i,on=Cart.has(i.pn),item=StdCat.cartItem(i,c);
     const nums=i.oe.concat(i.xr),hit=cq.length>=3?nums.filter(n=>fclean(n).includes(cq)):[],ord=hit.concat(nums.filter(n=>!hit.includes(n))),sh=ord.slice(0,3);
     const sl=c.specLine?c.specLine(i.s):"",fits=[StdCat.makesText(i),i.yrs].filter(Boolean).join(" · ");
-    return `<tr data-href="${partUrl(i.pn)}"><td class="fpn"><a href="${partUrl(i.pn)}">${esc(i.pn)}</a></td>`+
+    return `<tr data-href="${partUrl(i.pn)}"><td class="fpn"><a href="${partUrl(i.pn)}">${esc(i.pn)}</a>${StdCat.condTags?StdCat.condTags(i):""}</td>`+
       `<td class="fty"><b>${esc(StdCat.title1(i,c))}</b>${sl?`<span>${esc(sl)}</span>`:""}</td>`+
       `<td class="fveh">${c.vehicles===false?"":esc(fits)}</td>`+
       `<td class="fnum">${sh.length?sh.map(n=>hit.includes(n)?`<mark>${esc(n)}</mark>`:esc(n)).join(", ")+(ord.length>3?` +${ord.length-3} more`:""):""}</td>`+

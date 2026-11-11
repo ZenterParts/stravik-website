@@ -181,7 +181,7 @@ function photoMap(ph){const m={};if(Array.isArray(ph))ph.forEach(pn=>m[pn]=pn+".
 function prep(d,c){
   const makes=d.makes;d.items=d.parts||d.items||[];
   d.items.forEach((i,ix)=>{
-    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.ph=c.img&&d.photos&&d.photos[i.pn]?c.img+d.photos[i.pn]:"";
+    i.ix=ix;i.s=i.s||{};i.oe=i.oe||[];i.xr=i.xr||[];i.k=i.k||"";i.ko=i.ko||{};   // k: "N" new, "R" remanufactured, "NR" both; ko: specs that differ by conditioni.ph=c.img&&d.photos&&d.photos[i.pn]?c.img+d.photos[i.pn]:"";
     i.apps=(i.ap||[]).map(a=>{const mk=makes[a[0]],[mo,eng]=tidyModel(mk,a[1]),[y0,y1,yl]=years(a[2]),o={mk,mo,eng,y0,y1,yl,any:!a[1]};
       if(a.length>3){   // version, body, engine code, kW and chassis code known (e.g. "2.0 TDI, Estate", "CNHA", "103")
         let v=a[3]||"",b="";const k=v.lastIndexOf(", ");if(k>0&&!v.slice(k).includes(")")){b=v.slice(k+2);v=v.slice(0,k);}
@@ -200,19 +200,20 @@ function prep(d,c){
   });
   const mkCount={};d.items.forEach(i=>i.mks.forEach(m=>mkCount[m]=(mkCount[m]||0)+1));
   d.mkList=Object.keys(mkCount).sort((a,b)=>a.localeCompare(b));
+  d.hasR=d.items.some(i=>i.k.includes("R"));
   d.n={items:d.items.length,makes:d.mkList.length,apps:d.items.reduce((n,i)=>n+i.apps.length,0)};
   return d;
 }
 
 // ---------------------------------------------------------------- state <-> url
 function readState(params,c){
-  const st={q:params.get("q")||"",mk:params.get("mk")||"",mo:params.get("mo")||"",yr:params.get("yr")||"",en:params.get("en")||"",p:params.get("p")||"",f:{}};
+  const st={c:/^[NR]$/.test(params.get("c")||"")?params.get("c"):"",q:params.get("q")||"",mk:params.get("mk")||"",mo:params.get("mo")||"",yr:params.get("yr")||"",en:params.get("en")||"",p:params.get("p")||"",f:{}};
   c.filters.forEach(f=>{const v=params.get("f."+f.k);if(v)st.f[f.k]=v;});
   return st;
 }
 function writeState(id,st){
   const p=new URLSearchParams();
-  ["q","mk","mo","yr","en"].forEach(k=>{if(st[k])p.set(k,st[k]);});
+  ["q","mk","mo","yr","en","c"].forEach(k=>{if(st[k])p.set(k,st[k]);});
   Object.keys(st.f).forEach(k=>{if(st.f[k])p.set("f."+k,st.f[k]);});
   if(st.p)p.set("p",st.p);
   const qs=p.toString();history.replaceState(null,"","#/"+id+(qs?"?"+qs:""));
@@ -238,6 +239,7 @@ function pass(i,st,exactQ){
     else if((st.mo||st.en)&&i.apps.some(a=>appMake(a,st)))i._fit=1;
     else return false;}
   for(const k in st.f){const v=st.f[k];if(v&&i.s[k]!==v)return false;}
+  if(st.c&&!(i.k||"N").includes(st.c))return false;
   return true;
 }
 
@@ -248,9 +250,9 @@ const IC={
 };
 const makesText=i=>!i.mks.length?"Vehicle list to follow":i.mks.length<=3?i.mks.join(", "):i.mks.slice(0,3).join(", ")+" and "+(i.mks.length-3)+" more";
 function cartBtn(i,c,cls){
-  const Cart=window.STV&&STV.Cart,on=Cart&&Cart.has(i.pn);
-  const item=cartItem(i,c);
-  return `<button type="button" class="fadd ${cls||""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ In cart":"Add to cart"}</button>`;
+  const Cart=window.STV&&STV.Cart;
+  return conds(i).map(k=>{const item=cartItem(i,c,k),on=Cart&&Cart.has(item.key),lab=i.k==="NR"?(k==="R"?"Reman":"New"):"";
+    return `<button type="button" class="fadd ${cls||""}" data-cart-key="${esc(item.key)}"${lab?` data-cart-label="${lab}"`:""} data-item="${esc(JSON.stringify(item))}" data-on="${!!on}">${on?"✓ "+(lab?lab+" in cart":"In cart"):"Add "+(lab?lab.toLowerCase()+" ":"")+"to cart"}</button>`;}).join("");
 }
 
 // applications with version, engine code and power: make > model (chassis code) > one row per version
@@ -307,6 +309,7 @@ function page(app,id,params){
       <label>Model<select id="scMo" disabled><option value="">All models</option></select></label>
       <label>Model year<input id="scYr" inputmode="numeric" maxlength="4" placeholder="e.g. 2015" value="${esc(st.yr)}"></label>
       ${c.engines?`<label>Engine<select id="scEn" disabled><option value="">All engines</option></select></label>`:""}</span>
+      <label id="scCondL" hidden>Condition<select id="scCond"><option value="">New and reman</option><option value="N">New (N)</option><option value="R">Remanufactured (R)</option></select></label>
       ${c.filters.map((f,k)=>`<label>${esc(f.h)}<select data-f="${k}"><option value="">${esc(f.any)}</option></select></label>`).join("")}
       <button type="button" class="sc-reset" id="scReset">Reset</button>
     </div>
@@ -350,6 +353,8 @@ function page(app,id,params){
         :f.sort==="alpha"?(a,b)=>a.localeCompare(b,undefined,{numeric:true}):(a,b)=>cnt[b]-cnt[a]);
       sel.insertAdjacentHTML("beforeend",vals.map(v=>`<option value="${esc(v)}">${esc(f.label?f.label(v):v)}</option>`).join(""));sel.value=st.f[f.k]||"";
       sel.onchange=()=>{if(sel.value)st.f[f.k]=sel.value;else delete st.f[f.k];update(true);};});
+    const cSel=$("#scCond");
+    if(d.hasR){$("#scCondL").hidden=false;cSel.value=st.c;cSel.onchange=()=>{st.c=cSel.value;update(true);};}else st.c="";
     let t=0;
     q.oninput=()=>{$("#scClearQ").hidden=!q.value;clearTimeout(t);t=setTimeout(()=>{st.q=q.value.trim();update(true);},150);};
     $("#scForm").onsubmit=e=>{e.preventDefault();st.q=q.value.trim();update(true);};
@@ -357,7 +362,7 @@ function page(app,id,params){
     mkSel.onchange=()=>{st.mk=mkSel.value;st.mo=st.en="";fillModels();fillEngines();update(true);};
     moSel.onchange=()=>{st.mo=moSel.value;st.en="";fillEngines();update(true);};
     yr.oninput=()=>{const v=yr.value.replace(/\D/g,"").slice(0,4);if(v!==yr.value)yr.value=v;if(!v||v.length===4){st.yr=v;fillEngines();update(true);}};
-    $("#scReset").onclick=()=>{st.q=st.mk=st.mo=st.yr=st.en="";st.f={};q.value=yr.value="";mkSel.value="";$("#scClearQ").hidden=true;
+    $("#scReset").onclick=()=>{st.q=st.mk=st.mo=st.yr=st.en=st.c="";if(cSel)cSel.value="";st.f={};q.value=yr.value="";mkSel.value="";$("#scClearQ").hidden=true;
       app.querySelectorAll("select[data-f]").forEach(s=>s.value="");fillModels();fillEngines();update(true);};
     const setBarH=()=>{const sc=app.querySelector(".sc"),bar=$("#scBar");if(!sc||!bar){removeEventListener("resize",setBarH);return;}sc.style.setProperty("--barh",(bar.offsetHeight+74+16)+"px");};setBarH();addEventListener("resize",setBarH);   // the listener removes itself once the page is left
 
@@ -381,10 +386,10 @@ function page(app,id,params){
     function row(i){
       const h=(st.q&&i._hit&&i._hit.v?`<span class="sc-hit">${esc(i._hit.k)} ${esc(i._hit.v)}</span>`:"")
         +(i._fit===1?`<span class="sc-hit sc-warn">Listed for ${esc(st.mk)}, model not given: check the fitment</span>`:"");
-      const inCart=window.STV&&STV.Cart.has(i.pn);
+      const inCart=window.STV&&conds(i).some(k=>STV.Cart.has(cartKey(i,k)));
       return `<li><button class="sc-row" type="button" data-pn="${esc(i.pn)}" aria-current="false">
         ${i.ph?`<span class="sc-tile"><img src="${esc(i.ph)}" alt="" loading="lazy"></span>`:""}
-        <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(c.rowLine?c.rowLine(i):makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
+        <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${condTags(i)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(c.rowLine?c.rowLine(i):makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
         <span class="sc-yr">${esc(c.rowRight?c.rowRight(i):i.yrs)}<span class="sc-price" data-price-pn="${esc(i.pn)}"></span></span></button></li>`;
     }
     function paint(){
@@ -400,9 +405,9 @@ function page(app,id,params){
       cur=i;st.p=i&&open?i.pn:(st.p&&i&&i.pn===st.p?st.p:"");markCurrent();
       if(!i){det.innerHTML="";det.hidden=true;return;}det.hidden=false;
       const okv=v=>v&&v!=="Not specified";
-      const specs=c.specs?c.specs.filter(x=>okv(i.s[x[0]])).map(x=>[x[1],x[2]?x[2](i.s[x[0]],i.s):i.s[x[0]]]):Object.keys(i.s).filter(k=>okv(i.s[k])).map(k=>[k,i.s[k]]);
+      const specs=specRows(i,c);
       const groups={};i.apps.slice().sort((a,b)=>a.mk.localeCompare(b.mk)||a.mo.localeCompare(b.mo)||a.y0-b.y0).forEach(a=>{(groups[a.mk]=groups[a.mk]||[]).push(a);});
-      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div><a class="sc-plink" href="${esc(partHref(i,c))}">Part page →</a></div><button class="sc-close" type="button" id="scClose">Close</button></div>
+      det.innerHTML=`<div class="sc-dhead"><div><h2>${esc(i.pn)}${condTags(i)}</h2><div class="sc-kind">${esc(c.title1?c.title1(i):i.d||c.kind)}</div>${i.k?`<div class="sc-cnote">${esc(condText(i))}</div>`:""}<a class="sc-plink" href="${esc(partHref(i,c))}">Part page →</a></div><button class="sc-close" type="button" id="scClose">Close</button></div>
         ${i.ph?`<div class="sc-photo"><img src="${esc(i.ph)}" alt="${esc(i.pn)}"></div>`:""}
         <div class="sc-dcart">${cartBtn(i,c,"sc-addcart")}</div>
         ${specs.length||i.yrs?`<div class="sc-dsec"><h3>Specification</h3><dl class="sc-specs">${specs.map(x=>`<dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd>`).join("")}${i.yrs?`<dt>Model years</dt><dd>${esc(i.yrs)}</dd>`:""}</dl></div>`:""}
@@ -433,6 +438,21 @@ document.addEventListener("click",e=>{if(repaint&&e.target.closest&&e.target.clo
 // shared with Find a part (assets/app.js) and the part pages (tools/build-pages.js)
 const partHref=(i,c)=>c.partUrl?c.partUrl(i):"/part/"+encodeURIComponent(i.pn)+"/";
 const title1=(i,c)=>c.title1?c.title1(i):i.d||c.kind||c.one;
-const cartItem=(i,c)=>({key:i.pn,no:i.pn,cat:c.cat,desc:title1(i,c)+(c.rowLine?", "+c.rowLine(i):""),link:partHref(i,c),kind:"std"});
-window.StdCat={has:id=>!!cfg(id),register:(id,c)=>{OWN[id]=c;},page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText};
+// new (N) and remanufactured (R): the Stravik number is the same, the condition is a separate SKU
+const conds=i=>i.k?i.k.split(""):["N"];
+const cartKey=(i,k)=>k==="R"&&i.k!=="R"?i.pn+"-R":i.pn;
+const CONDW={N:"New",R:"Remanufactured"};
+const condTags=i=>conds(i).filter(()=>i.k).map(k=>`<span class="sc-cond sc-cond-${k}" title="${CONDW[k]}">${k}</span>`).join("");
+const condText=i=>i.k==="NR"?"Available new (N) and remanufactured (R)":i.k==="R"?"Remanufactured (R)":"New (N)";
+// specs; a value that differs by condition shows both ("100 A new · 130 A reman")
+function specRows(i,c){
+  const okv=v=>v&&v!=="Not specified",cs=conds(i),both=cs.length>1;
+  const val=k=>{const v=cs.map(x=>(i.ko[x]&&i.ko[x][k])||i.s[k]);return both&&v[0]!==v[1]&&okv(v[0])&&okv(v[1])?null:i.s[k];};
+  const two=(k,f)=>cs.map(x=>{const v=(i.ko[x]&&i.ko[x][k])||i.s[k];return (f?f(v,i.s):v)+(x==="R"?" reman":" new");}).join(" · ");
+  const keys=c.specs?c.specs.filter(x=>okv(i.s[x[0]])):Object.keys(i.s).filter(k=>okv(i.s[k])).map(k=>[k,k]);
+  return keys.map(x=>[x[1],val(x[0])===null?two(x[0],x[2]):x[2]?x[2](i.s[x[0]],i.s):i.s[x[0]]]);
+}
+const cartItem=(i,c,k)=>{k=k||conds(i)[0];const t=title1(i,c),w=i.k?(k==="R"?"Remanufactured ":"New ")+t.charAt(0).toLowerCase()+t.slice(1):t;
+  return {key:cartKey(i,k),no:i.pn,cat:c.cat,desc:w+(i.k?" ("+k+")":"")+(c.rowLine?", "+c.rowLine(i):""),link:partHref(i,c),kind:"std"};};
+window.StdCat={has:id=>!!cfg(id),register:(id,c)=>{OWN[id]=c;},page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText,conds,condText,condTags,specRows};
 })();

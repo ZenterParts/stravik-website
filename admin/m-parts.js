@@ -139,8 +139,8 @@
     try {
       var r = await Promise.all([
         sb.from('stravik_parts').select('*').eq('sv_pn', pn).maybeSingle(),
-        sb.from('stravik_price_list').select('*').eq('sv_pn', pn).maybeSingle(),
-        sb.from('stravik_price_list').select('*').eq('sv_pn', pn).maybeSingle(),
+        sb.from('stravik_price_list').select('*').eq('sv_pn', pn).eq('cond', 'N').maybeSingle(),
+        sb.from('stravik_price_list').select('*').eq('sv_pn', pn).eq('cond', 'N').maybeSingle(),
         sb.from('stravik_specs').select('*').eq('sv_pn', pn).order('id'),
         sb.from('stravik_oe_numbers').select('*').eq('sv_pn', pn).order('seq', { nullsFirst: false }).order('id'),
         sb.from('stravik_cross_refs').select('*').eq('sv_pn', pn).order('comp_brand').order('is_current', { ascending: false }).order('seq', { nullsFirst: false }),

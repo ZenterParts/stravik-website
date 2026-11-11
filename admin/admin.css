@@ -210,3 +210,9 @@ h1,.o-appname,.stat{font-family:var(--sv-display);}
 select.move{width:auto; margin:0; padding:3px 6px 1px; font-size:.84rem;}
 /* South Africa prices: excl. VAT on screen, incl. VAT on hover */
 b.vat{cursor:help;text-decoration:underline dotted rgba(0,0,0,.35);text-underline-offset:3px}
+/* New (N) / remanufactured (R) badge next to a Stravik PN */
+.cond{display:inline-block; min-width:1.35em; padding:1px 4px 0; margin-left:4px; border-radius:4px; font:700 .68rem/1.35 var(--sv-font); text-align:center; vertical-align:1px; letter-spacing:.02em;}
+.cond-N{background:#e7edf5; color:var(--sv-navy);}
+.cond-R{background:#f5ecdd; color:var(--sv-gold-dark);}
+.cond-bar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 10px;}
+.cond-bar[hidden]{display:none;}
