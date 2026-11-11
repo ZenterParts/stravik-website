@@ -377,15 +377,13 @@ ${cantFind}`;
 
 // ================= battery warranty registration =================
 // /warranty/battery/?s=<serial no.>: opened from the QR code printed with each battery's serial number (one registration per serial).
-// /warranty/battery/?pn=<Stravik no.>: from the warranty block on each battery page; batteries without a serial register with the battery number.
+// /warranty/battery/?pn=<Stravik no.>: from the model QR code and the warranty block on each battery page. Registration is by serial number only.
 // The form (assets/warranty.js) saves to Supabase with public.stravik_warranty_register; staff see the registrations in the admin Warranty app.
 { const url = `${SITE}/warranty/battery/`, title = "Battery warranty registration | Stravik", desc = "Register your Stravik battery for warranty: serial number, invoice, vehicle, test readings at fitment and photos.";
   const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>Enter the serial number printed next to the QR code on the battery (for example SVPDH003-2611-7K3M9). Each battery can be registered once.</p></div></div>
 <section class="block"><div class="wrap wform">
 <form class="enq" id="wf" novalidate>
-<div class="full" id="w_snrow"><label for="w_sn">Serial number</label><input id="w_sn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVPDH003-2611-7K3M9" maxlength="24"><div class="err">Enter the serial number printed next to the QR code on the battery.</div><div class="wbat" id="w_snmsg" aria-live="polite"></div></div>
-<div class="full wnosn"><label><input type="checkbox" id="w_nosn"> My battery has no serial number</label></div>
-<div class="full" id="w_pnrow" hidden><label for="w_pn">Stravik battery number</label><input id="w_pn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
+<div class="full" id="w_snrow"><label for="w_sn">Serial number</label><input id="w_sn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVPDH003-2611-7K3M9" maxlength="24"><div class="err">Enter the serial number printed next to the QR code on the battery.</div><div class="wbat" id="w_snmsg" aria-live="polite"></div><p class="wsub">Can't find the serial number? Contact us at <a href="mailto:info@zenterparts.com">info@zenterparts.com</a> with a photo of the battery label.</p></div>
 <div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
 <div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
 <div><label for="w_inv">Invoice or receipt number</label><input id="w_inv" required maxlength="60"><div class="err">Enter the invoice or receipt number.</div></div>

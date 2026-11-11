@@ -1,6 +1,5 @@
-// Stravik battery warranty registration (/warranty/battery/?s=<serial no.> from the QR code on the battery, or ?pn=<Stravik no.>).
-// A serial number is checked with public.stravik_serial_check (which battery, already registered?); batteries without a serial
-// use the battery number, checked against the website's battery list. The form is saved with public.stravik_warranty_register,
+// Stravik battery warranty registration (/warranty/battery/?pn=<Stravik no.> from the QR code on the battery, or ?s=<serial no.>).
+// Registration is by serial number only: it is checked with public.stravik_serial_check (which battery, already registered?). The form is saved with public.stravik_warranty_register,
 // which accepts each serial once (anyone may call it; only staff can read the registrations).
 (function(){
 const SB_URL="https://kyegujgvlsbttyrlibgn.supabase.co";
@@ -13,11 +12,6 @@ const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth
 let BAT=null,ORIG={};
 const list=fetch("/batteries.json").then(r=>r.json()).then(d=>{const T={};(d.types||[]).forEach(t=>T[t[0]]=t[1]);BAT={};
   (d.parts||[]).forEach(p=>{BAT[p[0]]={pn:p[0],desc:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A (EN)",ser:p[2]||"",box:p[4]||""};});}).catch(()=>{BAT=null;});
-function show(){const pn=clean($("w_pn").value),el=$("w_bat");
-  if(!pn){el.textContent="";el.classList.remove("bad");return;}
-  if(!BAT){el.textContent="";return;}
-  const b=BAT[pn];el.classList.toggle("bad",!b);
-  el.innerHTML=b?`<b>Stravik ${esc(b.desc)}</b>, ${esc(b.ser)}, case ${esc(b.box)} · <a href="/part/${encodeURIComponent(pn)}/">battery page</a>`:(pn.length>=8?"We can't find this battery number. Check the label: it starts with SV and has 8 letters and digits.":"");}
 // serial numbers: SVPDH003-2611-7K3M9 (Stravik no., YYMM made, 5 characters)
 const snFmt=s=>{const c=clean(s);return /^SV[A-Z0-9]{6}\d{4}[A-Z0-9]{5}$/.test(c)?c.slice(0,8)+"-"+c.slice(8,12)+"-"+c.slice(12):null;};
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],ym=s=>{const p=String(s||"").split("-");return p.length>1?MON[+p[1]-1]+" "+p[0]:"";};
@@ -39,9 +33,6 @@ async function checkSn(){const el=$("w_snmsg"),v=$("w_sn").value,sn=snFmt(v),seq
   }catch(e){if(seq===snSeq){el.textContent="";SN={ok:true,sn,unchecked:true};}}}
 const P=new URLSearchParams(location.search),qs=P.get("s"),q=P.get("pn");
 if(qs)$("w_sn").value=String(qs).toUpperCase().slice(0,24);
-if(q)$("w_pn").value=clean(q).slice(0,12);
-function noSn(){const on=$("w_nosn").checked;$("w_pnrow").hidden=!on;$("w_snrow").hidden=on;$("w_sn").required=!on;$("w_pn").required=on;if(on)show();}
-$("w_nosn").addEventListener("change",noSn);
 let snT=0;$("w_sn").addEventListener("input",()=>{clearTimeout(snT);snT=setTimeout(checkSn,350);});
 $("w_sn").addEventListener("blur",()=>{clearTimeout(snT);checkSn();});
 if(qs)checkSn();
@@ -66,17 +57,16 @@ async function upload(file){const ext={"image/jpeg":"jpg","image/png":"png","ima
 // UP remembers each photo already uploaded: pressing Register again (after a refusal) reuses it, unless the customer
 // has chosen a different photo for that slot, in which case the latest one is uploaded and used.
 const UP={},PH=["w_file","w_ph_ins","w_ph_sl","w_ph_alt"],okFile=fl=>!!fl&&fl.size<=8*1024*1024&&/^(image\/(jpeg|png|webp|heic)|application\/pdf)$/.test(fl.type);
-$("w_pn").addEventListener("input",show);list.then(show);
 f.querySelectorAll("input[name=w_taxi]").forEach(el=>el.addEventListener("change",()=>f.querySelector(".wtaxi").classList.remove("invalid")));
 f.querySelectorAll("input").forEach(el=>el.addEventListener("input",()=>{el.classList.remove("invalid");if(el.id==="w_ok")el.closest(".wok").classList.remove("invalid");if(el.id==="w_ack")el.closest(".wack").classList.remove("invalid");}));
 PH.forEach(id=>$(id).addEventListener("change",()=>$(id).classList.remove("invalid")));
 f.addEventListener("submit",async ev=>{ev.preventDefault();
   const btn=f.querySelector("button[type=submit]"),ready=f.querySelector(".ready");let first=null;
   const bad=(id,cond)=>{const el=$(id);(id==="w_ok"?el.closest(".wok"):id==="w_ack"?el.closest(".wack"):el).classList.toggle("invalid",cond);if(cond&&!first)first=el;};
-  const nosn=$("w_nosn").checked,d=$("w_date").value;
-  if(!nosn&&!SN.ok&&snFmt($("w_sn").value)){clearTimeout(snT);await checkSn();}
-  const pn=nosn?clean($("w_pn").value):SN.pn||"";
-  if(nosn)bad("w_pn",!pn||(BAT&&!BAT[pn]));else bad("w_sn",!SN.ok);
+  const d=$("w_date").value;
+  if(!SN.ok&&snFmt($("w_sn").value)){clearTimeout(snT);await checkSn();}
+  const pn=SN.pn||"";
+  bad("w_sn",!SN.ok||!pn);
   bad("w_date",!d||d>today());
   ["w_seller","w_inv","w_fit","w_veh","w_reg","w_name","w_country"].forEach(id=>bad(id,$(id).value.trim().length<2));
   RD.forEach(id=>{const x=num(id);bad(id,x==null||x<RLIM[id][0]||x>RLIM[id][1]);});const volt=num("w_volt");
@@ -89,7 +79,7 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
   bad("w_ok",!$("w_ok").checked);
   if(first){first.focus();return;}
   const v=id=>$(id).value.trim();
-  const payload={pn,serial:nosn?"":SN.sn,purchase_date:d,seller:v("w_seller"),invoice_no:v("w_inv"),fitted_by:v("w_fit"),alt_voltage:String(volt),resting_voltage:String(num("w_rest")),cranking_voltage:String(num("w_crank")),voltage_ack:$("w_ack").checked?"yes":"",
+  const payload={pn,serial:SN.sn,purchase_date:d,seller:v("w_seller"),invoice_no:v("w_inv"),fitted_by:v("w_fit"),alt_voltage:String(volt),resting_voltage:String(num("w_rest")),cranking_voltage:String(num("w_crank")),voltage_ack:$("w_ack").checked?"yes":"",
     chassis_no:v("w_vin"),odometer:v("w_odo"),taxi,terms:"accepted",vehicle:v("w_veh"),reg_no:v("w_reg"),
     name:v("w_name"),company:v("w_co"),email:v("w_email"),phone:v("w_phone"),country:v("w_country"),city:v("w_city"),botcheck:$("w_bot").value,page:location.pathname+location.search};
   btn.disabled=true;btn.textContent="Registering…";ready.classList.remove("show");
