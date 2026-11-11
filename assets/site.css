@@ -1213,3 +1213,9 @@ form.enq .wok a{color:var(--gold-d,#8a6326);text-decoration:underline}
 .wterms table.wt tr:first-child td strong{color:#fff}
 .wterms table.wt td p{margin:0;font-size:15px}
 .wterms-cta{margin-top:30px}
+
+form.enq .wsub{margin:4px 0 0;color:var(--muted);font-size:14.5px}
+form.enq .wack .wwarn{background:#fff4e5;border-left:4px solid #e08a00;padding:10px 14px;margin-bottom:10px;font-size:14.5px;line-height:1.5}
+form.enq .wack label{display:flex;gap:10px;align-items:flex-start;font-weight:500}
+form.enq .wack input{width:auto;margin-top:4px}
+.wack.invalid .err{display:block}

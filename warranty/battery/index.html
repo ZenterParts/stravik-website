@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Battery warranty registration | Stravik</title>
-<meta name="description" content="Register your Stravik battery for warranty: battery number, date of purchase and where you bought it.">
+<meta name="description" content="Register your Stravik battery for warranty: serial number, invoice, vehicle, test readings at fitment and photos.">
 <link rel="canonical" href="https://stravikautomotiveparts.com/warranty/battery/">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/assets/icons/stravik-32.png" type="image/png" sizes="32x32">
@@ -16,15 +16,15 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Stravik">
 <meta property="og:title" content="Battery warranty registration | Stravik">
-<meta property="og:description" content="Register your Stravik battery for warranty: battery number, date of purchase and where you bought it.">
+<meta property="og:description" content="Register your Stravik battery for warranty: serial number, invoice, vehicle, test readings at fitment and photos.">
 <meta property="og:url" content="https://stravikautomotiveparts.com/warranty/battery/">
 <meta property="og:image" content="https://stravikautomotiveparts.com/assets/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Battery warranty registration","url":"https://stravikautomotiveparts.com/warranty/battery/","description":"Register your Stravik battery for warranty: battery number, date of purchase and where you bought it."}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Battery warranty registration","url":"https://stravikautomotiveparts.com/warranty/battery/","description":"Register your Stravik battery for warranty: serial number, invoice, vehicle, test readings at fitment and photos."}</script>
 <!-- fonts --><link rel="preload" href="/assets/fonts/InstrumentSans-Latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/SairaSemiCondensed-Bold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/fonts/fonts.css"><!-- /fonts -->
-<link rel="stylesheet" href="/assets/site.css?v=96cb628655">
+<link rel="stylesheet" href="/assets/site.css?v=254300ccc8">
 </head>
 <body>
 <header class="site">
@@ -55,13 +55,23 @@
 <div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
 <div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
 <div><label for="w_inv">Invoice or receipt number</label><input id="w_inv" required maxlength="60"><div class="err">Enter the invoice or receipt number.</div></div>
-<div><label for="w_file">Photo of the invoice <span class="opt">(recommended)</span></label><input id="w_file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"><div class="err">Choose a photo or PDF under 8 MB.</div></div>
 <div class="full wsep"><h2>Fitting and vehicle</h2></div>
 <div><label for="w_fit">Fitted by</label><input id="w_fit" required placeholder="Workshop name, or yourself" maxlength="160"><div class="err">Enter who fitted the battery.</div></div>
-<div><label for="w_volt">Alternator voltage at fitment (V)</label><input id="w_volt" required type="text" inputmode="decimal" placeholder="for example 14.1" maxlength="5"><div class="err">Enter the charging voltage measured when the battery was fitted.</div><div class="wbat" id="w_vmsg" aria-live="polite">Measured with the engine running when the battery is fitted. Ask the workshop that fitted it.</div></div>
 <div><label for="w_veh">Vehicle</label><input id="w_veh" required placeholder="Make, model and year" maxlength="160"><div class="err">Enter the vehicle.</div></div>
 <div><label for="w_reg">Vehicle registration</label><input id="w_reg" required maxlength="30" autocapitalize="characters"><div class="err">Enter the vehicle registration.</div></div>
+<div><label for="w_vin">Chassis number (VIN)</label><input id="w_vin" required maxlength="40" autocapitalize="characters" spellcheck="false"><div class="err">Enter the chassis number (VIN).</div></div>
+<div><label for="w_odo">Odometer reading (km) <span class="opt">(optional)</span></label><input id="w_odo" type="text" inputmode="numeric" maxlength="9"></div>
 <div class="full wtaxi"><span class="wq">Is the vehicle used as a taxi or in a high-mileage fleet?</span><label><input type="radio" name="w_taxi" value="no"> No</label><label><input type="radio" name="w_taxi" value="yes"> Yes (6-month warranty)</label><div class="err">Choose yes or no.</div></div>
+<div class="full wsep"><h2>Test readings at fitment</h2><p class="wsub">Measured with a multimeter by the workshop that fitted the battery.</p></div>
+<div><label for="w_rest">Battery resting voltage (V)</label><input id="w_rest" required type="text" inputmode="decimal" placeholder="for example 12.6" maxlength="5" data-lo="12.4" data-hi="12.9"><div class="err">Enter the reading.</div><div class="wbat" id="w_rest_msg" aria-live="polite" data-hint="Engine off, before starting. Healthy: 12.4 to 12.9 V.">Engine off, before starting. Healthy: 12.4 to 12.9 V.</div></div>
+<div><label for="w_crank">Cranking voltage (V)</label><input id="w_crank" required type="text" inputmode="decimal" placeholder="for example 10.2" maxlength="5" data-lo="9.6" data-hi="13.0"><div class="err">Enter the reading.</div><div class="wbat" id="w_crank_msg" aria-live="polite" data-hint="Lowest reading while the engine is cranking. Healthy: 9.6 to 13.0 V.">Lowest reading while the engine is cranking. Healthy: 9.6 to 13.0 V.</div></div>
+<div><label for="w_volt">Alternator charging voltage (V)</label><input id="w_volt" required type="text" inputmode="decimal" placeholder="for example 14.1" maxlength="5" data-lo="13.4" data-hi="14.4"><div class="err">Enter the reading.</div><div class="wbat" id="w_volt_msg" aria-live="polite" data-hint="Engine running. Must be 13.4 to 14.4 V.">Engine running. Must be 13.4 to 14.4 V.</div></div>
+<div class="full wack" id="w_ackrow" hidden><div class="wwarn" id="w_warn"></div><label><input type="checkbox" id="w_ack"> <span>I understand that a reading outside the healthy range can shorten battery life, and that a battery fitted to a vehicle charging outside 13.4 to 14.4 V is not covered by the warranty.</span></label><div class="err">Tick the box to confirm you have read the warning.</div></div>
+<div class="full wsep"><h2>Photos</h2><p class="wsub">Four clear photos (JPG, PNG or PDF, up to 8 MB each). Only Stravik staff can see them.</p></div>
+<div><label for="w_file">Invoice or receipt</label><input id="w_file" type="file" required accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" data-key="invoice"><div class="err">Choose a photo under 8 MB.</div></div>
+<div><label for="w_ph_ins">Battery fitted in the vehicle</label><input id="w_ph_ins" type="file" required accept="image/jpeg,image/png,image/webp,image/heic" data-key="installed"><div class="err">Choose a photo under 8 MB.</div></div>
+<div><label for="w_ph_sl">Serial number label on the battery</label><input id="w_ph_sl" type="file" required accept="image/jpeg,image/png,image/webp,image/heic" data-key="serial_label"><div class="err">Choose a photo under 8 MB.</div></div>
+<div><label for="w_ph_alt">Multimeter showing the alternator voltage</label><input id="w_ph_alt" type="file" required accept="image/jpeg,image/png,image/webp,image/heic" data-key="alternator_reading"><div class="err">Choose a photo under 8 MB.</div></div>
 <div class="full wsep"><h2>Your details</h2></div>
 <div><label for="w_name">Name</label><input id="w_name" required autocomplete="name" maxlength="120"><div class="err">Enter your name.</div></div>
 <div><label for="w_co">Company <span class="opt">(optional)</span></label><input id="w_co" autocomplete="organization" maxlength="160"></div>
@@ -91,6 +101,6 @@
 <script src="/assets/catalog.js?v=7d06cac42f"></script>
 <script src="/assets/common.js?v=2cfbf6b88e"></script>
 <script src="/assets/dealer.js?v=50c804850b"></script>
-<script src="/assets/warranty.js?v=4163267138"></script>
+<script src="/assets/warranty.js?v=2f660c6f13"></script>
 </body>
 </html>
