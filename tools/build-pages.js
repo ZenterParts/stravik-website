@@ -279,6 +279,7 @@ const BT = BTR.parts.map(p => ({ pn: p[0], t: p[1], ser: p[2] || "", grp: p[3] |
   (v[5] || []).forEach(ix => BT[ix] && BT[ix].apps.push(Object.assign({ rec: true }, base)));
   (v[6] || []).forEach(ix => BT[ix] && BT[ix].apps.push(Object.assign({ rec: false }, base))); });
 { const used = new Set(SS.map(i => i.pn).concat(SA.map(i => i.pn), BR.map(i => i.pn))); const clash = BT.filter(i => used.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Battery numbers also used in another catalogue: " + clash.slice(0, 5).join(", ")); }
+const btMonths = i => /platinum|agm/i.test(i.ser + i.t) ? 24 : /gold|efb/i.test(i.ser + i.t) ? 18 : /silver/i.test(i.ser) ? 12 : null;   // warranty months, as in the Stravik battery warranty terms
 const btDesc = i => (BTT[i.t] ? BTT[i.t].one : "Battery") + " 12V " + i.ah + "Ah " + i.cca + "A (EN)";
 const btLc = t => t.replace(/^Heavy duty/, "heavy duty");   // keep SMF, EFB and AGM in capitals
 const BT_GRP = { "DIN (European) cases": "European (DIN) case", "JIS (Asian) cases": "Asian (JIS) case", "Heavy duty": "heavy duty case" };
@@ -365,7 +366,7 @@ ${ss ? `<p class="bss"><b>Start-stop vehicles:</b> replace like for like (AGM wi
 ${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}</div></div>
 <div class="ppanel" id="vehicles" data-panel="vehicles"><h2>Application</h2>${vehicles}</div>
 <div class="ppanel" id="warranty" data-panel="warranty"><h2>Warranty</h2><div class="bwar"><div><h3>Register your battery warranty</h3><p>Register this battery after installation so that any warranty claim is handled quickly. Enter the serial number printed next to the QR code on the battery, the date you bought it, where you bought it and your proof of purchase. Each battery can be registered once. Keep your invoice with the vehicle documents.</p>
-<dl><dt>Battery number</dt><dd>${esc(i.pn)}</dd><dt>Battery</dt><dd>${esc(btDesc(i))}</dd>${btEan(i) ? `<dt>Barcode</dt><dd>${btEan(i)}</dd>` : ""}</dl></div><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register this battery</a></div></div>
+${btMonths(i) ? `<p><b>${btMonths(i)}-month warranty</b> from the date of purchase (6 months for taxi and fleet use), under the <a href="/warranty/battery/terms/" style="color:#fff">Stravik battery warranty terms</a>.</p>` : ""}<dl><dt>Battery number</dt><dd>${esc(i.pn)}</dd><dt>Battery</dt><dd>${esc(btDesc(i))}</dd>${btEan(i) ? `<dt>Barcode</dt><dd>${btEan(i)}</dd>` : ""}</dl></div><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register this battery</a></div></div>
 <div class="ppanel" id="disclaimer" data-panel="disclaimer"><h2>Disclaimer</h2>${BT_DISCLAIMER}</div>
 </div></section>
 ${alts.length ? `<section class="block related"><div class="wrap"><h2>Other Stravik batteries in the same size</h2><p class="pp-note">Batteries with the same SAB number, in other series and origins.</p><div class="fgrid">${alts.map(btCard).join("")}</div></div></section>` : ""}
@@ -378,7 +379,7 @@ ${cantFind}`;
 // /warranty/battery/?s=<serial no.>: opened from the QR code printed with each battery's serial number (one registration per serial).
 // /warranty/battery/?pn=<Stravik no.>: from the warranty block on each battery page; batteries without a serial register with the battery number.
 // The form (assets/warranty.js) saves to Supabase with public.stravik_warranty_register; staff see the registrations in the admin Warranty app.
-{ const url = `${SITE}/warranty/battery/`, title = "Battery warranty registration | Stravik", desc = "Register your Stravik battery for warranty: battery number, date of purchase and where you bought it.";
+{ const url = `${SITE}/warranty/battery/`, title = "Battery warranty registration | Stravik", desc = "Register your Stravik battery for warranty: serial number, invoice, vehicle, test readings at fitment and photos.";
   const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>Enter the serial number printed next to the QR code on the battery (for example SVPDH003-2611-7K3M9). Each battery can be registered once.</p></div></div>
 <section class="block"><div class="wrap wform">
 <form class="enq" id="wf" novalidate>
@@ -388,12 +389,23 @@ ${cantFind}`;
 <div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
 <div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
 <div><label for="w_inv">Invoice or receipt number</label><input id="w_inv" required maxlength="60"><div class="err">Enter the invoice or receipt number.</div></div>
-<div><label for="w_file">Photo of the invoice <span class="opt">(recommended)</span></label><input id="w_file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"><div class="err">Choose a photo or PDF under 8 MB.</div></div>
 <div class="full wsep"><h2>Fitting and vehicle</h2></div>
 <div><label for="w_fit">Fitted by</label><input id="w_fit" required placeholder="Workshop name, or yourself" maxlength="160"><div class="err">Enter who fitted the battery.</div></div>
-<div><label for="w_volt">Alternator voltage at fitment (V)</label><input id="w_volt" required type="text" inputmode="decimal" placeholder="for example 14.1" maxlength="5"><div class="err">Enter the charging voltage measured when the battery was fitted.</div><div class="wbat" id="w_vmsg" aria-live="polite">Measured with the engine running when the battery is fitted. Ask the workshop that fitted it.</div></div>
 <div><label for="w_veh">Vehicle</label><input id="w_veh" required placeholder="Make, model and year" maxlength="160"><div class="err">Enter the vehicle.</div></div>
 <div><label for="w_reg">Vehicle registration</label><input id="w_reg" required maxlength="30" autocapitalize="characters"><div class="err">Enter the vehicle registration.</div></div>
+<div><label for="w_vin">Chassis number (VIN)</label><input id="w_vin" required maxlength="40" autocapitalize="characters" spellcheck="false"><div class="err">Enter the chassis number (VIN).</div></div>
+<div><label for="w_odo">Odometer reading (km) <span class="opt">(optional)</span></label><input id="w_odo" type="text" inputmode="numeric" maxlength="9"></div>
+<div class="full wtaxi"><span class="wq">Is the vehicle used as a taxi or in a high-mileage fleet?</span><label><input type="radio" name="w_taxi" value="no"> No</label><label><input type="radio" name="w_taxi" value="yes"> Yes (6-month warranty)</label><div class="err">Choose yes or no.</div></div>
+<div class="full wsep"><h2>Test readings at fitment</h2><p class="wsub">Measured with a multimeter by the workshop that fitted the battery.</p></div>
+<div><label for="w_rest">Battery resting voltage (V)</label><input id="w_rest" required type="text" inputmode="decimal" placeholder="for example 12.6" maxlength="5" data-lo="12.4" data-hi="12.9"><div class="err">Enter the reading.</div><div class="wbat" id="w_rest_msg" aria-live="polite" data-hint="Engine off, before starting. Healthy: 12.4 to 12.9 V.">Engine off, before starting. Healthy: 12.4 to 12.9 V.</div></div>
+<div><label for="w_crank">Cranking voltage (V)</label><input id="w_crank" required type="text" inputmode="decimal" placeholder="for example 10.2" maxlength="5" data-lo="9.6" data-hi="13.0"><div class="err">Enter the reading.</div><div class="wbat" id="w_crank_msg" aria-live="polite" data-hint="Lowest reading while the engine is cranking. Healthy: 9.6 to 13.0 V.">Lowest reading while the engine is cranking. Healthy: 9.6 to 13.0 V.</div></div>
+<div><label for="w_volt">Alternator charging voltage (V)</label><input id="w_volt" required type="text" inputmode="decimal" placeholder="for example 14.1" maxlength="5" data-lo="13.4" data-hi="14.4"><div class="err">Enter the reading.</div><div class="wbat" id="w_volt_msg" aria-live="polite" data-hint="Engine running. Must be 13.4 to 14.4 V.">Engine running. Must be 13.4 to 14.4 V.</div></div>
+<div class="full wack" id="w_ackrow" hidden><div class="wwarn" id="w_warn"></div><label><input type="checkbox" id="w_ack"> <span>I understand that a reading outside the healthy range can shorten battery life, and that a battery fitted to a vehicle charging outside 13.4 to 14.4 V is not covered by the warranty.</span></label><div class="err">Tick the box to confirm you have read the warning.</div></div>
+<div class="full wsep"><h2>Photos</h2><p class="wsub">Four clear photos (JPG, PNG or PDF, up to 8 MB each). Only Stravik staff can see them.</p></div>
+<div><label for="w_file">Invoice or receipt</label><input id="w_file" type="file" required accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" data-key="invoice"><div class="err">Choose a photo under 8 MB.</div></div>
+<div><label for="w_ph_ins">Battery fitted in the vehicle</label><input id="w_ph_ins" type="file" required accept="image/jpeg,image/png,image/webp,image/heic" data-key="installed"><div class="err">Choose a photo under 8 MB.</div></div>
+<div><label for="w_ph_sl">Serial number label on the battery</label><input id="w_ph_sl" type="file" required accept="image/jpeg,image/png,image/webp,image/heic" data-key="serial_label"><div class="err">Choose a photo under 8 MB.</div></div>
+<div><label for="w_ph_alt">Multimeter showing the alternator voltage</label><input id="w_ph_alt" type="file" required accept="image/jpeg,image/png,image/webp,image/heic" data-key="alternator_reading"><div class="err">Choose a photo under 8 MB.</div></div>
 <div class="full wsep"><h2>Your details</h2></div>
 <div><label for="w_name">Name</label><input id="w_name" required autocomplete="name" maxlength="120"><div class="err">Enter your name.</div></div>
 <div><label for="w_co">Company <span class="opt">(optional)</span></label><input id="w_co" autocomplete="organization" maxlength="160"></div>
@@ -401,12 +413,20 @@ ${cantFind}`;
 <div><label for="w_phone">Phone (WhatsApp)</label><input id="w_phone" required type="tel" autocomplete="tel" placeholder="With country code, for example +27 82 123 4567" maxlength="60"><div class="err">Enter your phone number.</div></div>
 <div><label for="w_country">Country</label><input id="w_country" required autocomplete="country-name" value="South Africa" maxlength="80"><div class="err">Enter your country.</div></div>
 <div><label for="w_city">City or town <span class="opt">(optional)</span></label><input id="w_city" autocomplete="address-level2" maxlength="80"></div>
-<div class="full wok"><label><input type="checkbox" id="w_ok" required> I agree that Stravik keeps these details to handle the warranty of this battery.</label><div class="err">Tick the box to register.</div></div>
+<div class="full wok"><label><input type="checkbox" id="w_ok" required> <span>I have read and accept the <a href="/warranty/battery/terms/" target="_blank" rel="noopener">Stravik battery warranty terms</a>, and agree that Stravik keeps these details to handle the warranty of this battery.</span></label><div class="err">Tick the box to accept the warranty terms.</div></div>
 <input type="text" id="w_bot" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
 <div class="full" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><button class="btn gold" type="submit">Register battery</button></div>
 <div class="full ready" role="status" aria-live="polite"></div>
 </form></div></section>`;
   write("warranty/battery", page({ url, title, desc, type: "website", scripts: ["warranty.js"], jsonld: { "@context": "https://schema.org", "@type": "WebPage", name: "Battery warranty registration", url, description: desc }, body }));
+  urls.push(url);
+}
+// /warranty/battery/terms/: the Stravik battery warranty terms (text in tools/warranty-terms.html, from the warranty policy Faaz supplied)
+{ const url = `${SITE}/warranty/battery/terms/`, title = "Battery warranty terms | Stravik", desc = "Stravik battery warranty terms for Africa and the Middle East: warranty periods, what is covered, exclusions and how to claim.";
+  const terms = fs.readFileSync(path.join(__dirname, "warranty-terms.html"), "utf8");
+  const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["/warranty/battery/", "Warranty registration"], ["", "Warranty terms"]])}<h1>Battery warranty terms</h1><p>Stravik batteries · Africa and Middle East · Version 1.0, November 2026</p></div></div>
+<section class="block"><div class="wrap wterms">${terms}<p class="wterms-cta"><a class="btn gold" href="/warranty/battery/">Register your battery</a></p></div></section>`;
+  write("warranty/battery/terms", page({ url, title, desc, type: "website", jsonld: { "@context": "https://schema.org", "@type": "WebPage", name: "Stravik battery warranty terms", url, description: desc }, body }));
   urls.push(url);
 }
 

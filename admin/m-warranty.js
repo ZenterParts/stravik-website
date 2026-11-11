@@ -18,13 +18,15 @@
     var a = new Date(made), b = new Date(bought); return (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
   }
   var voltOk = function (v) { v = Number(v); return v >= 13.4 && v <= 14.4; };
+  var PHOTOS = [['installed', 'Battery fitted'], ['serial_label', 'Serial label'], ['alternator_reading', 'Alternator reading']];
+  var RANGE = { resting_voltage: [12.4, 12.9], cranking_voltage: [9.6, 13.0] };
   var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['made_month', 'Made'], ['ean', 'Barcode'], ['purchase_date', 'Bought on'], ['seller', 'Bought from'], ['invoice_no', 'Invoice no.'], ['invoice_file', 'Invoice photo'],
-    ['fitted_by', 'Fitted by'], ['alt_voltage', 'Alternator V at fitment'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
+    ['photos', 'Photos'], ['fitted_by', 'Fitted by'], ['resting_voltage', 'Resting V at fitment'], ['cranking_voltage', 'Cranking V at fitment'], ['alt_voltage', 'Alternator V at fitment'], ['voltage_flags', 'Readings outside range'], ['taxi_fleet', 'Taxi / fleet'], ['warranty_months', 'Warranty months'], ['expires_on', 'Warranty until'], ['terms_version', 'Terms accepted'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['chassis_no', 'Chassis no. (VIN)'], ['odometer', 'Odometer (km)'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
 
   function query(opts) {
     var q = sb.from('stravik_battery_warranty').select('*', opts).order('created_at', { ascending: false });
     var st = STEPS.filter(function (s) { return S.active['st_' + s]; }); if (st.length) q = q.in('status', st);
-    var s = L.orSearch(['ref', 'sv_pn', 'serial', 'ean', 'name', 'email', 'phone', 'seller', 'invoice_no', 'reg_no'], S.text); if (s) q = q.or(s);
+    var s = L.orSearch(['ref', 'sv_pn', 'serial', 'ean', 'name', 'email', 'phone', 'seller', 'invoice_no', 'reg_no', 'chassis_no'], S.text); if (s) q = q.or(s);
     if (S.active.ns) q = q.is('serial', null);
     return q;
   }
@@ -46,6 +48,8 @@
         { label: 'Serial no.', cls: 'pn', render: function (r) { return r.serial ? esc(r.serial) : '<span class="muted small">none</span>'; } },
         { label: 'Bought on', render: function (r) { var m = stockMonths(r.made_month, r.purchase_date); return esc(r.purchase_date) + (m != null && m > 6 ? ' <span class="pill warn" title="Bought ' + m + ' months after it was made">' + m + ' mo in stock</span>' : ''); } },
         { label: 'Bought from', render: function (r) { return esc(r.seller); } },
+        { label: 'Warranty until', render: function (r) { return r.expires_on ? esc(r.expires_on) + (r.expires_on < L.today() ? ' <span class="pill">expired</span>' : '') + (r.taxi_fleet ? ' <span class="pill warn">taxi/fleet</span>' : '') : ''; } },
+        { label: 'Readings', render: function (r) { var n = (r.voltage_flags || []).length; return n ? '<span class="pill warn" title="' + esc(r.voltage_flags.join(' ')) + '">' + n + ' outside range</span>' : r.resting_voltage != null ? '<span class="muted small">OK</span>' : ''; } },
         { label: 'Alternator', num: true, render: function (r) { return r.alt_voltage == null ? '' : voltOk(r.alt_voltage) ? esc(r.alt_voltage) + ' V' : '<span class="pill warn" title="Outside 13.4–14.4 V: the warranty does not cover it">' + esc(r.alt_voltage) + ' V</span>'; } },
         { label: 'Name', render: function (r) { return esc(r.name) + (r.company ? ' · ' + esc(r.company) : ''); } },
         { label: 'Country', render: function (r) { return esc(r.country); } },
@@ -57,9 +61,14 @@
     try {
       var r = L.must(await sb.from('stravik_battery_warranty').select('*').eq('ref', ref).single());
       L.modal('Warranty ' + r.ref, '<dl class="kvlist" style="display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0">' +
-        COLS.filter(function (c) { return c[0] !== 'status' && c[0] !== 'staff_notes' && r[c[0]]; }).map(function (c) {
+        COLS.filter(function (c) { return c[0] !== 'status' && c[0] !== 'staff_notes' && (c[0] === 'photos' ? Object.keys(r.photos || {}).length : c[0] === 'voltage_flags' ? (r.voltage_flags || []).length : r[c[0]] || r[c[0]] === false); }).map(function (c) {
           var v = c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' ? String(r[c[0]]).slice(0, 7) : r[c[0]];
+          if (c[0] === 'taxi_fleet') v = r[c[0]] ? 'Yes (6-month warranty)' : 'No';
+          if (c[0] === 'terms_version' && r.terms_accepted_at) v = v + ', ' + L.dt(r.terms_accepted_at);
           if (c[0] === 'alt_voltage') v = v + ' V' + (voltOk(v) ? '' : ' (outside 13.4–14.4 V: not covered)');
+          if (RANGE[c[0]]) v = v + ' V' + (Number(v) >= RANGE[c[0]][0] && Number(v) <= RANGE[c[0]][1] ? '' : ' (outside ' + RANGE[c[0]][0] + '–' + RANGE[c[0]][1] + ' V)');
+          if (c[0] === 'voltage_flags') v = r.voltage_flags.join(' ') + (r.voltage_ack ? ' The customer ticked that they read the warning.' : '');
+          if (c[0] === 'photos') return '<dt class="muted">' + esc(c[1]) + '</dt><dd style="margin:0;display:flex;gap:8px;flex-wrap:wrap">' + PHOTOS.filter(function (p) { return r.photos[p[0]]; }).map(function (p) { return '<button type="button" class="btn ghost small" data-photo="' + esc(r.photos[p[0]]) + '">' + esc(p[1]) + '</button>'; }).join('') + '</dd>';
           if (c[0] === 'invoice_file') return '<dt class="muted">' + esc(c[1]) + '</dt><dd style="margin:0"><button type="button" class="btn ghost small" id="wInv">Open the invoice</button></dd>';
           if (c[0] === 'purchase_date') { var m = stockMonths(r.made_month, r.purchase_date); if (m != null) v += ' (' + m + ' month' + (m === 1 ? '' : 's') + ' after it was made' + (m > 6 ? ': over the 6-month stock limit' : '') + ')'; }
           return '<dt class="muted">' + esc(c[1]) + '</dt><dd style="margin:0">' + (c[0] === 'serial' ? '<a href="' + L.href('warranty', ['serials'], { q: v }) + '">' + esc(v) + '</a>' : c[0] === 'sv_pn' ? '<a href="/part/' + encodeURIComponent(v) + '/" target="_blank" rel="noopener">' + esc(v) + '</a>' : c[0] === 'email' ? '<a href="mailto:' + esc(v) + '">' + esc(v) + '</a>' : esc(v)) + '</dd>';
@@ -67,9 +76,11 @@
         '<label for="wSt">Status</label><select id="wSt">' + STEPS.map(function (s) { return '<option' + (s === r.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select>' +
         '<label for="wNote">Staff notes</label><textarea id="wNote" rows="4" style="width:100%">' + esc(r.staff_notes || '') + '</textarea>' +
         '<div style="margin-top:14px;display:flex;gap:10px"><button type="button" class="btn" id="wSave">Save</button></div>');
-      if ($('wInv')) $('wInv').onclick = async function () {
-        try { var u = L.must(await sb.storage.from('stravik-warranty-invoices').createSignedUrl(r.invoice_file, 300)); window.open(u.signedUrl, '_blank', 'noopener'); } catch (e) { L.fail(e); }
+      var openFile = async function (name) {
+        try { var u = L.must(await sb.storage.from('stravik-warranty-invoices').createSignedUrl(name, 300)); window.open(u.signedUrl, '_blank', 'noopener'); } catch (e) { L.fail(e); }
       };
+      if ($('wInv')) $('wInv').onclick = function () { openFile(r.invoice_file); };
+      document.querySelectorAll('[data-photo]').forEach(function (b) { b.onclick = function () { openFile(b.getAttribute('data-photo')); }; });
       $('wSave').onclick = async function () {
         try {
           L.must(await sb.from('stravik_battery_warranty').update({ status: $('wSt').value, staff_notes: $('wNote').value || null, updated_at: new Date().toISOString(), updated_by: L.EMAIL || null }).eq('ref', r.ref));
@@ -83,7 +94,7 @@
       L.toast('Preparing registrations…');
       var rows = await L.fetchAll(function () { return query(); });
       await L.saveXlsx([{ name: 'Battery warranty', widths: COLS.map(function (c) { return c[0] === 'staff_notes' ? 40 : 16; }), head: COLS.map(function (c) { return c[1]; }),
-        rows: rows.map(function (r) { return COLS.map(function (c) { return c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' && r[c[0]] ? String(r[c[0]]).slice(0, 7) : r[c[0]] == null ? '' : r[c[0]]; }); }) }], 'Stravik_battery_warranty_' + L.today() + '.xlsx');
+        rows: rows.map(function (r) { return COLS.map(function (c) { return c[0] === 'photos' ? PHOTOS.filter(function (p) { return (r.photos || {})[p[0]]; }).map(function (p) { return p[1]; }).join(', ') : c[0] === 'voltage_flags' ? (r.voltage_flags || []).join(' ') : c[0] === 'taxi_fleet' ? (r[c[0]] == null ? '' : r[c[0]] ? 'Yes' : 'No') : c[0] === 'created_at' ? L.dt(r[c[0]]) : c[0] === 'made_month' && r[c[0]] ? String(r[c[0]]).slice(0, 7) : r[c[0]] == null ? '' : r[c[0]]; }); }) }], 'Stravik_battery_warranty_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
 

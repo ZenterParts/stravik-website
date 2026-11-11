@@ -1192,3 +1192,30 @@ h1 .sc-cond{font-size:15px;vertical-align:12px;padding:5px 7px 4px}
 form.enq .wnosn{margin-top:-6px}
 form.enq .wnosn label{display:inline-flex;gap:8px;align-items:center;font-weight:500;font-size:14.5px;color:var(--muted);cursor:pointer}
 form.enq .wnosn input{width:auto}
+/* warranty: taxi question and the terms page */
+form.enq .wtaxi{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center}
+form.enq .wtaxi .wq{flex-basis:100%;font-weight:600;font-size:15px}
+form.enq .wtaxi label{display:inline-flex;gap:8px;align-items:center;font-weight:500;cursor:pointer}
+form.enq .wtaxi input{width:auto}
+.wtaxi.invalid .err{display:block;flex-basis:100%}
+form.enq .wok a{color:var(--gold-d,#8a6326);text-decoration:underline}
+.wterms{max-width:900px}
+.wterms h2{font-size:26px;margin:34px 0 10px}
+.wterms h3{font-size:20px;margin:22px 0 8px}
+.wterms p,.wterms li{font-size:16px;line-height:1.6}
+.wterms ul{padding-left:22px;margin:8px 0 14px}
+.wterms .wnote{background:var(--paper,#f6f4ef);border-left:4px solid var(--gold);border-radius:6px;padding:14px 18px;margin:14px 0}
+.wterms .wnote p{margin:4px 0}
+.wterms .wtbl{overflow-x:auto;margin:12px 0 16px}
+.wterms table.wt{border-collapse:collapse;width:100%;font-size:15px}
+.wterms table.wt td{border:1px solid var(--line);padding:8px 10px;vertical-align:top}
+.wterms table.wt tr:first-child td{background:#0b203d;color:#fff}
+.wterms table.wt tr:first-child td strong{color:#fff}
+.wterms table.wt td p{margin:0;font-size:15px}
+.wterms-cta{margin-top:30px}
+
+form.enq .wsub{margin:4px 0 0;color:var(--muted);font-size:14.5px}
+form.enq .wack .wwarn{background:#fff4e5;border-left:4px solid #e08a00;padding:10px 14px;margin-bottom:10px;font-size:14.5px;line-height:1.5}
+form.enq .wack label{display:flex;gap:10px;align-items:flex-start;font-weight:500}
+form.enq .wack input{width:auto;margin-top:4px}
+.wack.invalid .err{display:block}
