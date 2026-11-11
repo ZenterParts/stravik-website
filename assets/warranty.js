@@ -63,7 +63,9 @@ async function upload(file){const ext={"image/jpeg":"jpg","image/png":"png","ima
   const id=(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)))+"."+ext;
   const r=await fetch(SB_URL+"/storage/v1/object/stravik-warranty-invoices/"+id,{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":file.type,"x-upsert":"false"},body:file});
   if(!r.ok)throw new Error("A photo didn't upload. Try a smaller photo and register again.");return id;}
-const PH=["w_file","w_ph_ins","w_ph_sl","w_ph_alt"],okFile=fl=>!!fl&&fl.size<=8*1024*1024&&/^(image\/(jpeg|png|webp|heic)|application\/pdf)$/.test(fl.type);
+// UP remembers each photo already uploaded: pressing Register again (after a refusal) reuses it, unless the customer
+// has chosen a different photo for that slot, in which case the latest one is uploaded and used.
+const UP={},PH=["w_file","w_ph_ins","w_ph_sl","w_ph_alt"],okFile=fl=>!!fl&&fl.size<=8*1024*1024&&/^(image\/(jpeg|png|webp|heic)|application\/pdf)$/.test(fl.type);
 $("w_pn").addEventListener("input",show);list.then(show);
 f.querySelectorAll("input[name=w_taxi]").forEach(el=>el.addEventListener("change",()=>f.querySelector(".wtaxi").classList.remove("invalid")));
 f.querySelectorAll("input").forEach(el=>el.addEventListener("input",()=>{el.classList.remove("invalid");if(el.id==="w_ok")el.closest(".wok").classList.remove("invalid");if(el.id==="w_ack")el.closest(".wack").classList.remove("invalid");}));
@@ -91,7 +93,8 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
     chassis_no:v("w_vin"),odometer:v("w_odo"),taxi,terms:"accepted",vehicle:v("w_veh"),reg_no:v("w_reg"),
     name:v("w_name"),company:v("w_co"),email:v("w_email"),phone:v("w_phone"),country:v("w_country"),city:v("w_city"),botcheck:$("w_bot").value,page:location.pathname+location.search};
   btn.disabled=true;btn.textContent="Registering…";ready.classList.remove("show");
-  try{const ids=[];for(let n=0;n<PH.length;n++){btn.textContent="Uploading photo "+(n+1)+" of "+PH.length+"…";ids.push(await upload($(PH[n]).files[0]));}
+  try{const ids=[];for(let n=0;n<PH.length;n++){const fl=$(PH[n]).files[0];
+      if(!UP[PH[n]]||UP[PH[n]].file!==fl){btn.textContent="Uploading photo "+(n+1)+" of "+PH.length+"…";UP[PH[n]]={file:fl,id:await upload(fl)};}ids.push(UP[PH[n]].id);}
     payload.invoice_file=ids[0];payload.photos={installed:ids[1],serial_label:ids[2],alternator_reading:ids[3]};btn.textContent="Registering…";
     const r=await fetch(SB_URL+"/rest/v1/rpc/stravik_warranty_register",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},body:JSON.stringify({payload})});
     const j=await r.json().catch(()=>({}));
