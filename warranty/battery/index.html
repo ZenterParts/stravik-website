@@ -24,7 +24,7 @@
 <!-- fonts --><link rel="preload" href="/assets/fonts/InstrumentSans-Latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/SairaSemiCondensed-Bold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/fonts/fonts.css"><!-- /fonts -->
-<link rel="stylesheet" href="/assets/site.css?v=2a42ec256b">
+<link rel="stylesheet" href="/assets/site.css?v=36927fc700">
 </head>
 <body>
 <header class="site">
@@ -46,10 +46,12 @@
   </div>
 </header>
 <main id="app" tabindex="-1">
-<div class="pagehead"><div class="wrap"><div class="crumbs"><a href="/#/">Home</a><span>/</span><a href="/batteries/">Batteries</a><span>/</span><span>Warranty registration</span></div><h1>Battery warranty registration</h1><p>The battery number (for example SVADH001) is on the battery label, next to the barcode.</p></div></div>
+<div class="pagehead"><div class="wrap"><div class="crumbs"><a href="/#/">Home</a><span>/</span><a href="/batteries/">Batteries</a><span>/</span><span>Warranty registration</span></div><h1>Battery warranty registration</h1><p>Scan the QR code on the battery, or type the serial number printed next to it (for example SVPDH003-2611-7K3M9). Each battery can be registered once.</p></div></div>
 <section class="block"><div class="wrap wform">
 <form class="enq" id="wf" novalidate>
-<div class="full"><label for="w_pn">Stravik battery number</label><input id="w_pn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
+<div class="full" id="w_snrow"><label for="w_sn">Serial number</label><input id="w_sn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVPDH003-2611-7K3M9" maxlength="24"><div class="err">Enter the serial number printed next to the QR code on the battery.</div><div class="wbat" id="w_snmsg" aria-live="polite"></div></div>
+<div class="full wnosn"><label><input type="checkbox" id="w_nosn"> My battery has no serial number</label></div>
+<div class="full" id="w_pnrow" hidden><label for="w_pn">Stravik battery number</label><input id="w_pn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
 <div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
 <div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
 <div><label for="w_inv">Invoice or receipt number <span class="opt">(optional)</span></label><input id="w_inv" maxlength="60"></div>
@@ -85,6 +87,6 @@
 <script src="/assets/catalog.js?v=7d06cac42f"></script>
 <script src="/assets/common.js?v=2cfbf6b88e"></script>
 <script src="/assets/dealer.js?v=50c804850b"></script>
-<script src="/assets/warranty.js?v=6fcb698204"></script>
+<script src="/assets/warranty.js?v=2847103ca4"></script>
 </body>
 </html>
