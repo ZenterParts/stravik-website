@@ -364,7 +364,7 @@ ${ss ? `<p class="bss"><b>Start-stop vehicles:</b> replace like for like (AGM wi
 <div class="ppanel" id="specifications" data-panel="specifications"><h2>Technical specifications</h2><div class="bspec"><dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
 ${D ? `<figure class="dwfig"><a href="/assets/img/batteries/dwg/${i.dwg}.jpg" target="_blank" rel="noopener"><img src="/assets/img/batteries/dwg/${i.dwg}-thumb.webp" alt="Case drawing ${esc(i.dwg)}, ${esc(D[0])}" loading="lazy"></a><figcaption>Case drawing ${esc(i.dwg)}, ${esc(D[0])}: ${D[1].join(" × ")} mm. Select to enlarge.</figcaption></figure>` : ""}</div></div>
 <div class="ppanel" id="vehicles" data-panel="vehicles"><h2>Application</h2>${vehicles}</div>
-<div class="ppanel" id="warranty" data-panel="warranty"><h2>Warranty</h2><div class="bwar"><div><h3>Register your battery warranty</h3><p>Register this battery after installation so that any warranty claim is handled quickly. You need the battery number and the barcode number from the label on top of the battery, the date you bought it, where you bought it and your proof of purchase. Keep your invoice with the vehicle documents.</p>
+<div class="ppanel" id="warranty" data-panel="warranty"><h2>Warranty</h2><div class="bwar"><div><h3>Register your battery warranty</h3><p>Register this battery after installation so that any warranty claim is handled quickly. Enter the serial number printed next to the QR code on the battery, the date you bought it, where you bought it and your proof of purchase. Each battery can be registered once. Keep your invoice with the vehicle documents.</p>
 <dl><dt>Battery number</dt><dd>${esc(i.pn)}</dd><dt>Battery</dt><dd>${esc(btDesc(i))}</dd>${btEan(i) ? `<dt>Barcode</dt><dd>${btEan(i)}</dd>` : ""}</dl></div><a class="btn gold" href="/warranty/battery/?pn=${encodeURIComponent(i.pn)}">Register this battery</a></div></div>
 <div class="ppanel" id="disclaimer" data-panel="disclaimer"><h2>Disclaimer</h2>${BT_DISCLAIMER}</div>
 </div></section>
@@ -375,13 +375,16 @@ ${cantFind}`;
 }
 
 // ================= battery warranty registration =================
-// /warranty/battery/?pn=<Stravik no.>: opened from the warranty block at the end of each battery page (the battery's QR code opens that page).
+// /warranty/battery/?s=<serial no.>: opened from the QR code printed with each battery's serial number (one registration per serial).
+// /warranty/battery/?pn=<Stravik no.>: from the warranty block on each battery page; batteries without a serial register with the battery number.
 // The form (assets/warranty.js) saves to Supabase with public.stravik_warranty_register; staff see the registrations in the admin Warranty app.
 { const url = `${SITE}/warranty/battery/`, title = "Battery warranty registration | Stravik", desc = "Register your Stravik battery for warranty: battery number, date of purchase and where you bought it.";
-  const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>The battery number (for example SVADH001) is on the battery label, next to the barcode.</p></div></div>
+  const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["", "Warranty registration"]])}<h1>Battery warranty registration</h1><p>Enter the serial number printed next to the QR code on the battery (for example SVPDH003-2611-7K3M9). Each battery can be registered once.</p></div></div>
 <section class="block"><div class="wrap wform">
 <form class="enq" id="wf" novalidate>
-<div class="full"><label for="w_pn">Stravik battery number</label><input id="w_pn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
+<div class="full" id="w_snrow"><label for="w_sn">Serial number</label><input id="w_sn" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVPDH003-2611-7K3M9" maxlength="24"><div class="err">Enter the serial number printed next to the QR code on the battery.</div><div class="wbat" id="w_snmsg" aria-live="polite"></div></div>
+<div class="full wnosn"><label><input type="checkbox" id="w_nosn"> My battery has no serial number</label></div>
+<div class="full" id="w_pnrow" hidden><label for="w_pn">Stravik battery number</label><input id="w_pn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SVADH001" maxlength="12"><div class="err">Enter the battery number printed on the label.</div><div class="wbat" id="w_bat" aria-live="polite"></div></div>
 <div><label for="w_date">Date of purchase</label><input id="w_date" type="date" required><div class="err">Enter the date you bought the battery.</div></div>
 <div><label for="w_seller">Bought from</label><input id="w_seller" required placeholder="Shop, dealer or workshop" maxlength="160"><div class="err">Enter where you bought the battery.</div></div>
 <div><label for="w_inv">Invoice or receipt number <span class="opt">(optional)</span></label><input id="w_inv" maxlength="60"></div>
