@@ -124,7 +124,7 @@ const GST={};GS_TYPES.forEach(t=>GST[t[0]]=t);
 const gsShort=t=>((GST[t]||[])[1]||"Gas spring").replace(/ gas spring$/i,"");
 const GAS={
   icon:"sa_gas",title:"Gas springs",tab:"Gas spring catalogue",one:"gas spring",many:"gas springs",cat:"Gas Springs",data:"/gas-springs.json",
-  crumbs:crumbs("Shock absorbers","#/products/shock-absorbers"),hero:"/assets/img/gas-springs-hero.svg",
+  crumbs:crumbs("Shock absorbers","#/products/shock-absorbers"),hero:"/assets/img/gas-springs-hero.svg",photo:"/assets/img/gas-springs/photo.webp",
   lead:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force. Search by Stravik, OE or cross-reference number, vehicle, or size (e.g. 373 mm).",
   placeholder:"Stravik, OE or cross-reference no., vehicle, or length (e.g. 373 mm)",
   filters:[{k:"Fitting",h:"Fitting",any:"All fittings",order:GS_TYPES.map(t=>t[1].replace(/ gas spring$/i,""))},

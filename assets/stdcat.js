@@ -18,6 +18,7 @@ const PAGE=60;
 // ---------------------------------------------------------------- range configs
 const CATS={
   "ignition-coils":{
+    photo:"/assets/img/ignition-coils/photo.webp",
     icon:"bolt",
     title:"Ignition coils", one:"coil", many:"coils", cat:"Ignition Coils", data:"/ignition-coils.json",
     crumbs:[["Our products","#/products"]], hero:"/assets/img/ignition-coils/hero.webp",
@@ -30,6 +31,7 @@ const CATS={
       s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
   },
   "horns":{
+    photo:"/assets/img/horns/photo.webp",
     icon:"horn",
     title:"Horns", one:"horn", many:"horns", cat:"Horns", data:"/horns.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
@@ -45,6 +47,7 @@ const CATS={
     specs:[["Type","Type"],["Tone","Tone"],["Voltage","Voltage"],["Current","Current"],["Frequency","Frequency"],["Sound level","Sound level"],["Size","Size"]]
   },
   "wiper-blades":{
+    photo:"/assets/img/wiper-blades/photo.webp",
     icon:"wiper",
     title:"Wiper blades", one:"wiper blade", many:"wiper blades", cat:"Wiper Blades", data:"/wiper-blades.json", vehicles:false,
     crumbs:[["Our products","#/products"]],
@@ -63,6 +66,7 @@ const CATS={
     specs:[["Blade type","Blade type"],["Size","Size"],["Length","Length"],["Range / tier","Range"],["Fitting","Fitting"]]
   },
   "water-pumps":{
+    photo:"/assets/img/water-pumps/photo.webp",
     icon:"pump",
     title:"Water pumps", one:"water pump", many:"water pumps", cat:"Water Pumps", data:"/water-pumps.json", engines:true,
     crumbs:[["Our products","#/products"]],
@@ -79,6 +83,7 @@ const CATS={
       ["Pins","Pins"],["Connector","Connector"],["Plug","Plug"],["Pin shape","Pin shape"],["Hose Ø","Hose Ø"],["Dimensions","Dimensions"],["Weight","Weight"]]
   },
   "alternators":{
+    photo:"/assets/img/alternators/photo.webp",
     icon:"alternator",
     title:"Alternators", one:"part", many:"parts", cat:"Alternators", data:"/alternators.json", engines:true,
     crumbs:[["Our products","#/products"]],
@@ -94,6 +99,7 @@ const CATS={
     specs:[["Component","Component"],["Voltage","Voltage"],["Current","Current"],["Pulley","Pulley"],["Rotation","Rotation",v=>ROT[v]||v],["Terminal / regulator","Terminal / regulator"]]
   },
   "starters":{
+    photo:"/assets/img/starters/photo.webp",
     icon:"starter",
     title:"Starter motors", one:"starter motor", many:"starter motors", cat:"Starters", data:"/starters.json", engines:true,
     crumbs:[["Our products","#/products"]],
@@ -106,6 +112,7 @@ const CATS={
     specs:[["Voltage","Voltage"],["Power","Power"],["Teeth","Pinion teeth"],["Rotation","Rotation",v=>ROT[v]||v]]
   },
   "bulbs":{
+    photo:"/assets/img/bulbs/photo.webp",
     icon:"bulb",
     title:"Bulbs", one:"bulb", many:"bulbs", cat:"Bulbs", data:"/bulbs.json", vehicles:false, img:"/assets/img/bulbs/",
     crumbs:[["Our products","#/products"]],
@@ -281,7 +288,7 @@ function page(app,id,params){
   const st=readState(params,c);
   document.title=(TAB[id]||c.tab||c.title+" catalogue")+" | Stravik";
   app.innerHTML=`<div class="sc">
-  <section class="sc-hero"><div class="sc-in">
+  <section class="sc-hero${c.photo?" sc-phero":""}">${c.photo?`<img class="sc-phero-img" src="${esc(c.photo)}" alt="" width="1600" height="893">`:""}<div class="sc-in">
     <nav class="sc-crumbs" aria-label="Breadcrumb"><a href="#/">Home</a>${c.crumbs.map(x=>`<span>/</span><a href="${x[1]}">${esc(x[0])}</a>`).join("")}<span>/</span><span aria-current="page">${esc(c.title)}</span></nav>
     <div class="sc-hero-g">
       <div class="sc-hero-t">
@@ -289,7 +296,7 @@ function page(app,id,params){
         <p class="sc-lead">${esc(c.lead)}</p>
         <div class="sc-facts" id="scFacts"></div>
       </div>
-      ${c.hero?`<div class="sc-art"><img src="${esc(c.hero)}" alt="Stravik ${esc(c.title.toLowerCase())} box" width="1200" height="760"></div>`:""}
+      ${c.hero&&!c.photo?`<div class="sc-art"><img src="${esc(c.hero)}" alt="Stravik ${esc(c.title.toLowerCase())} box" width="1200" height="760"></div>`:""}
     </div>
   </div></section>
   <div class="sc-bar" id="scBar"><div class="sc-in">
