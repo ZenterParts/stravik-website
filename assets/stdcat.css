@@ -21,6 +21,11 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-facts{display:flex;gap:28px;flex-wrap:wrap;margin-top:20px;font-size:14px;color:#aab6c9}
 .sc-facts strong{display:block;font-family:var(--display);font-size:30px;font-weight:700;color:#fff;line-height:1.05;font-variant-numeric:tabular-nums}
 .sc-art img{height:236px;width:auto;display:block;border-radius:12px;background:#fff}
+/* photographic banner: the range photo on the right, fading into the navy */
+.sc-phero{background:#03111f}
+.sc-phero-img{position:absolute;right:0;top:0;width:54%;height:100%;object-fit:cover;object-position:right 62%;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%);mask-image:linear-gradient(90deg,transparent 0,#000 34%)}
+.sc-phero .sc-in{position:relative;z-index:1}
+.sc-phero .sc-hero-t{max-width:620px}
 
 /* sticky search and filters */
 .sc-bar{position:sticky;top:74px;z-index:20;background:var(--white);border-bottom:1px solid var(--line)}
@@ -104,6 +109,7 @@ body.sc-wide header.site .wrap,body.sc-wide footer.site .wrap{width:min(1280px,1
 .sc-mkonly{margin:10px 0 0;font-size:14.5px;line-height:1.45;color:var(--ink)}
 .sc-hit.sc-warn{background:var(--sc-tint);color:var(--ink);font-weight:500}
 
+@media (max-width:1000px){.sc-phero-img{width:100%;opacity:.38;-webkit-mask-image:none;mask-image:none;object-position:70% center}}
 @media (max-width:1000px){.sc-hero-g{grid-template-columns:minmax(0,1fr);height:auto;padding:10px 0 28px}.sc-art{display:none}.sc-hero h1{font-size:clamp(34px,8vw,52px)}.sc-lead{-webkit-line-clamp:unset;display:block}}
 @media (max-width:900px){
   .sc-body{grid-template-columns:minmax(0,1fr)}
