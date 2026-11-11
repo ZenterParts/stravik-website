@@ -11,8 +11,28 @@
   'use strict';
   var esc = L.esc, sb = L.sb, $ = L.$;
   var BASE = L.href('pricing');
-  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves(), allReg: false, allTier: 't1' };
+  var S = L.state.pricing = { range: '', region: '', text: '', offset: 0, costs: false, key: '', data: null, moves: loadMoves(), cols: loadCols(), colOpen: false, allReg: false, allTier: 't1' };
   // the price moves a salesperson chose (region|Stravik PN -> move, e.g. -0.01), kept in this browser so they survive a reload
+  // the list's columns: each person picks what to look at (kept in this browser). Tech info starts hidden:
+  // the standard description already carries it.
+  var COL_DEFAULT_HIDDEN = { 'Tech info': true };
+  function loadCols() { try { return JSON.parse(localStorage.getItem('stravik.priceCols') || '{}') || {}; } catch (e) { return {}; } }
+  function colHidden(label) { var h = S.cols[label]; return h == null ? !!COL_DEFAULT_HIDDEN[label] : h; }
+  function colPick(cols, again) {
+    var box = $('prCols'), opt = cols.filter(function (c) { return c.label !== 'Stravik PN'; });
+    if (box) {
+      var off = opt.filter(function (c) { return colHidden(c.label); }).length;
+      box.innerHTML = '<details class="colpick"' + (S.colOpen ? ' open' : '') + '><summary>Columns' + (off ? ' <span class="muted">(' + off + ' hidden)</span>' : '') + '</summary><div class="colpick-menu">' +
+        opt.map(function (c) { return '<label><input type="checkbox" data-col="' + esc(c.label) + '"' + (colHidden(c.label) ? '' : ' checked') + '> ' + esc(c.label) + '</label>'; }).join('') +
+        '<button type="button" class="btn ghost small" id="pcReset">Default columns</button></div></details>';
+      var d = box.querySelector('details');
+      d.ontoggle = function () { S.colOpen = d.open; };
+      box.onchange = function (e) { var i = e.target.closest('[data-col]'); if (!i) return; S.cols[i.dataset.col] = !i.checked; saveCols(); again(); };
+      $('pcReset').onclick = function () { S.cols = {}; saveCols(); again(); };
+    }
+    return cols.filter(function (c) { return c.label === 'Stravik PN' || !colHidden(c.label); });
+  }
+  function saveCols() { try { localStorage.setItem('stravik.priceCols', JSON.stringify(S.cols)); } catch (e) { /* private mode */ } }
   function loadMoves() { try { return JSON.parse(localStorage.getItem('stravik.priceMoves') || '{}') || {}; } catch (e) { return {}; } }
   function saveMoves() { try { localStorage.setItem('stravik.priceMoves', JSON.stringify(S.moves)); } catch (e) { /* private mode: moves last until the page closes */ } }
   function getMove(pn, regCode) { var m = S.moves[(regCode || S.data.region.code) + '|' + pn]; return typeof m === 'number' && L.bandSteps(L.BAND).indexOf(m) >= 0 ? m : 0; }
@@ -102,7 +122,7 @@
       L.searchBar({ placeholder: 'Search Stravik PN, OE ref or description…', text: S.text, filters: [], onChange: function (s) { S.text = s.text; S.offset = 0; paint(); } });
       L.content('<div class="o-with-panel"><nav class="o-panel"><div class="o-panel-title">Range</div>' +
         (ME.ranges.length ? ME.ranges.map(function (x) { return '<a href="' + L.href('pricing', [], { range: x.subcategory }) + '" class="' + (x.subcategory === S.range ? 'on' : '') + '">' + esc(x.subcategory) + '</a>'; }).join('') : '<p class="small muted" style="padding:6px 14px">No price lists yet.</p>') +
-        '</nav><div><div id="prCond" class="cond-bar" hidden></div><div id="prNote" class="small muted" style="margin:0 0 10px"></div><div id="prBand"></div><div id="prList"><p class="muted">Loading…</p></div></div></div>');
+        '</nav><div><div class="pr-tools"><div id="prCond" class="cond-bar" hidden></div><div id="prCols"></div></div><div id="prNote" class="small muted" style="margin:0 0 10px"></div><div id="prBand"></div><div id="prList"><p class="muted">Loading…</p></div></div></div>');
       if ($('prUp')) $('prUp').onclick = function () { L.pickFile(upload); };
       $('prXls').onclick = excel;
       if ($('prXlsAll')) $('prXlsAll').onclick = excelAll;
@@ -168,8 +188,10 @@
       cols = cols.concat(TIER.map(function (t) { return { label: t[1], num: true, render: function (x) { return two(sell(x, t[0])); } }; }))
         .concat([{ label: 'Market', num: true, render: function (x) { return esc((S.data.costs ? x[px + '_market_price'] : x.market_price) || ''); } }]).concat(bandCols());
     }
+    cols = colPick(cols, paint);
+    var cents = (S.data.rows || []).some(function (x) { var v = Number(sell(x, 'price')); return isFinite(v) && Math.abs(v * 10 - Math.round(v * 10)) > 1e-6; });
     $('prList').innerHTML = L.listView(cols, page, function (x) { return partHref(x); }) +
-      (single(reg) ? '<p class="small muted" style="margin-top:8px">FOB China = landed cost ÷ (1 − margin), rounded to 0.1.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
+      (single(reg) ? '<p class="small muted" style="margin-top:8px">FOB China = landed cost ÷ (1 − margin), rounded to ' + (cents ? '0.01' : '0.1') + '.</p>' : '<p class="small muted" style="margin-top:8px">' + TIER.map(function (t) { return '<b>' + t[1] + '</b> ' + esc(tierName(t[0])); }).join(' · ') + '</p>');
     bandBar(all);
     $('prList').onchange = function (e) {
       var sel = e.target.closest('select[data-mv]'); if (!sel) return;
@@ -250,6 +272,7 @@
       } });
     });
     cols.push({ label: 'MOQ', num: true, render: function (x) { return n0(x.moq); } });
+    cols = colPick(cols, paintAll);
     var usd = regs.filter(single);
     $('prList').innerHTML = L.listView(cols, page, function (x) {
       var g = usd.find(function (y) { return allPrice(x, y) != null; }) || regs[0];
@@ -725,7 +748,7 @@
     L.cp({ crumbs: [['Pricing', BASE], ['Upload']], buttons: '<button type="button" class="btn" id="upGo">Choose the Excel file</button>' });
     L.content('<div class="o-sheet" style="max-width:860px"><h2>Upload a price list</h2><p>Upload the costing sheet as you keep it (one range per file), for example <i>Bulbs.xlsx</i>. Above the table it should have the range name, ' +
       '“Effective 30 October 2026”, “USD → ZAR rate” and “FX buffer”; the table starts at the row with <b>STRAVIK PART NUMBER</b>.</p>' +
-      '<ul><li>South Africa sheets need the exchange rate above the table. Files for the USD regions only need STRAVIK PART NUMBER, FOB and the cost columns, with MARGIN &lt;region&gt; (for example MARGIN NORTH AFRICA): the price is landed cost ÷ (1 − margin), rounded to 0.1.</li>' +
+      '<ul><li>South Africa sheets need the exchange rate above the table. Files for the USD regions only need STRAVIK PART NUMBER, FOB and the cost columns, with MARGIN &lt;region&gt; (for example MARGIN NORTH AFRICA): the price is landed cost ÷ (1 − margin), rounded to 0.1 (to 0.01 for ignition coils).</li>' +
       '<li>Every price is recalculated from the costs with the sheet\'s own formulas. Values that differ by more than a cent (typed over, or a broken formula) are listed before anything is saved.</li>' +
       '<li>You see what is new and what changes, then save. Every change is kept in the history.</li>' +
       '<li>A file with only some columns (e.g. Stravik PN and FOB) changes only those, and recalculates the prices from the part\'s other stored costs.</li>' +
