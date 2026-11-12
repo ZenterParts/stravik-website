@@ -8,7 +8,7 @@
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const ROOT = path.resolve(__dirname, "..");
-const SITE = "https://stravikautomotiveparts.com";
+const SITE = "https://stravikparts.com";
 const rd = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 
 // ---- shared constants from the site's own catalogue script

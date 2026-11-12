@@ -10,7 +10,7 @@
   var BASE = L.href('warranty');
   var STEPS = ['Registered', 'Claim received', 'Claim approved', 'Claim rejected', 'Closed'];
   var FILTERS = STEPS.map(function (s) { return { key: 'st_' + s, label: s, group: 'Status' }; }).concat([{ key: 'ns', label: 'No serial number', group: 'Serial' }]);
-  var SITE = 'https://stravikautomotiveparts.com';
+  var SITE = 'https://stravikparts.com';
   var qrUrl = function (pn) { return SITE + '/warranty/battery/?pn=' + encodeURIComponent(pn); };   // one QR per battery model
   // months between the production month and the purchase date: the warranty policy refuses a battery that sat in stock over 6 months
   function stockMonths(made, bought) {
