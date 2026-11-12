@@ -570,7 +570,7 @@ function contact(params){
     </form>
     <aside class="details"><h3>Get in touch</h3><dl>
       <div><dt>Email</dt><dd><a href="mailto:${EMAIL}">${EMAIL}</a></dd></div>
-      <div><dt>Website</dt><dd>www.stravikautomotiveparts.com</dd></div>
+      <div><dt>Website</dt><dd>www.stravikparts.com</dd></div>
           </dl></aside>
   </div>`;
   const form=app.querySelector("form"),ready=app.querySelector("#ready");

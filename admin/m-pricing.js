@@ -567,7 +567,7 @@
       var last = 11 + rows.length;
       ws.autoFilter = { from: { row: 11, column: 1 }, to: { row: last, column: COLS.length } };
       put('A' + (last + 2), rows.length + ' items  ·  Prices per unit in ' + reg.currency + ', excl. VAT. Costing and pricing columns are live formulas; change the exchange rate above to update.', { italic: true, color: { argb: GREY } });
-      put('A' + (last + 3), 'stravikautomotiveparts.com', { color: { argb: GOLD } });
+      put('A' + (last + 3), 'stravikparts.com', { color: { argb: GOLD } });
     });
     if (!wb.worksheets.length) throw new Error('Nothing to download');
     var buf = await wb.xlsx.writeBuffer();
