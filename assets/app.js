@@ -411,27 +411,14 @@ function productsHome(){
   const lines=c=>c.types.reduce((n,t)=>n+t.subs.length,0);
   const pc=(img,ic,name,txt,meta,links,photo)=>`<article class="pcat"><div class="pic${photo?" photo":""}">${img?`<img src="${img}" alt="Stravik ${esc(name)}${photo?"":" packaging"}" loading="lazy">`:`<span class="pic-ic">${icon(ic)}</span>`}</div>
     <div class="body"><h3>${name}</h3><p>${txt}</p>${meta[1]?`<small class="meta">${meta[1]}</small>`:""}<div class="plinks">${links}</div></div></article>`;
-  const XS=[
-    {cls:"c-ss",eyebrow:"Steering &amp; suspension",title:"Steering &amp; suspension parts",tag:"Matched to OE fit",best:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references.",cat:"#/steering",about:"#/products/steering-suspension",img:"/assets/img/ss-box.webp",alt:"Stravik steering and suspension box"},
-    {cls:"c-ss photo",eyebrow:"Shock absorbers",title:"Shock absorbers",tag:"Matched to OE fit",best:"MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",cat:"#/shock-absorbers",about:"#/products/shock-absorbers",img:"/assets/img/shock-absorbers/hero.webp",alt:"Stravik shock absorbers and struts"},
-    {cls:"c-ss photo",eyebrow:"Filters",title:"Filters",tag:"Air, oil, fuel and cabin",best:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"/filters/",about:"/filters/",img:"/assets/img/filters/hero-slide.webp",alt:"Stravik air, cabin and oil filters"}];
-  const NS=PADS.length+XS.length;
-  const padSlide=(p,k)=>`<div class="slide c-${p.key}" role="group" aria-roledescription="slide" aria-label="${k+1} of ${NS}"><div class="wrap">
-      <div><div class="eyebrow">Brake pads in three compounds</div><h2>${esc(p.name)} brake pads</h2><div class="tag">${esc(p.line)}</div>
-        <p class="best">${esc(p.best)}</p>
-        <div class="actions"><a class="btn gold" href="#/product/brake-pads?c=${p.key}">View ${esc(p.name.toLowerCase())} pads</a><a class="btn line" href="#/product/brake-pads">Compare compounds</a></div></div>
-      <div class="pic"><img src="${p.img}" alt="Stravik ${esc(p.name)} brake pads box"></div>
-    </div></div>`;
-  const xSlide=(x,k)=>`<div class="slide ${x.cls}" role="group" aria-roledescription="slide" aria-label="${PADS.length+k+1} of ${NS}"><div class="wrap">
-      <div><div class="eyebrow">${x.eyebrow}</div><h2>${x.title}</h2><div class="tag">${x.tag}</div>
-        <p class="best">${x.best}</p>
-        <div class="actions"><a class="btn gold" href="${x.cat}">Search the catalogue</a>${x.about!==x.cat?`<a class="btn line" href="${x.about}">About the range</a>`:""}</div></div>
-      <div class="pic"><img src="${x.img}" alt="${x.alt}"></div>
-    </div></div>`;
   app.innerHTML=`
-  <section class="slider pslider" data-slider aria-roledescription="carousel" aria-label="Stravik products">
-    <div class="slides">${PADS.map(padSlide).join("")}${XS.map(xSlide).join("")}</div>
-    ${sliderCtl()}
+  <section class="hero prange" aria-labelledby="prange-h">
+    <video class="pvideo" muted loop playsinline preload="metadata" poster="/assets/products-hero-poster.webp" aria-hidden="true"><source src="/assets/products-hero.webm" type="video/webm"><source src="/assets/products-hero.mp4" type="video/mp4"></video>
+    <div class="wrap"><div class="copy">
+      <h2 id="prange-h">The Stravik range</h2>
+      <p class="sub">One source for every system</p>
+      <div class="actions"><a class="btn gold" href="#/find">Find a part</a><a class="btn line" href="#/request">Request a part</a></div>
+    </div></div>
   </section>
   <div class="pagehead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><span>Our products</span></div>
@@ -462,7 +449,9 @@ function productsHome(){
   <section class="block paper"><div class="wrap">
     <div class="head" style="margin-bottom:0"><div><h2>Can't find your part?</h2><p>Send us the vehicle and the OE number. We'll check it, and every request helps us decide what to add to the range.</p></div><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn gold" href="#/request">Request a part</a><a class="btn line" href="#/find">Find a part</a></div></div>
   </div></section>`;
-  initSlider(app.querySelector("[data-slider]"),6000);
+  const pv=app.querySelector(".pvideo");
+  if(pv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
+    if(!still&&!save){pv.preload="auto";pv.play().catch(()=>{});}}
 }
 
 function products(catId,typeId,q){

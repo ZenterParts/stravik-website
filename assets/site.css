@@ -844,6 +844,18 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
   .hero.hvid .vshade{display:none}
   .hero.hvid .wrap{grid-template-columns:1fr;padding:28px 0 52px;min-height:0}
 }
+/* products: looping video banner. The section takes the footage's own deep navy, so the parts sit in the page and the left edge fades into the copy */
+.hero.prange{background:#06152a}
+.hero .pvideo{position:absolute;top:0;right:0;width:68%;height:100%;object-fit:cover;object-position:50% 55%;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 32%);mask-image:linear-gradient(90deg,transparent 0,#000 32%)}
+.hero.prange .wrap{grid-template-columns:minmax(0,460px);min-height:clamp(440px,38vw,560px);padding:56px 0 60px}
+.hero.prange h2{font-size:clamp(38px,4.6vw,64px);text-transform:uppercase;letter-spacing:-.005em;color:#fff}
+.hero.prange .sub{font-family:var(--display);font-weight:600;font-size:clamp(19px,1.8vw,25px);line-height:1.2;color:#d3a864;margin-top:12px}
+.hero.prange .actions{margin-top:30px}
+@media (min-width:901px) and (max-width:1180px){.hero .pvideo{width:74%}.hero.prange .wrap{grid-template-columns:minmax(0,380px)}}
+@media (max-width:900px){
+  .hero .pvideo{position:relative;display:block;width:100%;height:auto;aspect-ratio:16/9;-webkit-mask-image:linear-gradient(180deg,#000 72%,transparent);mask-image:linear-gradient(180deg,#000 72%,transparent)}
+  .hero.prange .wrap{grid-template-columns:1fr;min-height:0;padding:4px 0 44px}
+}
 .intro-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:52px;align-items:center}
 .intro-txt h2{font-size:clamp(32px,3.6vw,48px)}
 .intro-txt p{color:var(--muted);font-size:18px;margin-top:16px;max-width:34em}
