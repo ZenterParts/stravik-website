@@ -7,7 +7,7 @@ const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const finePointer=matchMedia("(hover:hover) and (pointer:fine)").matches;
 const header=document.querySelector("header.site");
 // rounded floors that stay true as the range grows
-const STATS=[[27000,"+","part numbers"],[13,"","product ranges"],[60,"+","countries supplied"],[115000,"+","vehicle fitments"]];
+const STATS=[[27000,"+","part numbers"],[13,"","product ranges"],[60,"+","countries"],[115000,"+","vehicle fitments"]];
 let undo=[];
 const on=(t,ev,f,o)=>{t.addEventListener(ev,f,o);undo.push(()=>t.removeEventListener(ev,f,o));};
 const fmt=n=>Math.round(n).toLocaleString("en-US");
