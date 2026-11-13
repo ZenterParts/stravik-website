@@ -83,7 +83,6 @@ const rcReady=()=>{const D=SDL();return !!(D&&D.rangesKnown&&D.rangesKnown());};
 const RCN=()=>{const D=SDL();return D&&D.rangeN&&D.rangeN()||{};};
 const rangeHas=cat=>{const D=SDL();return !D||!D.rangeHas||D.rangeHas(cat);};
 function rangeCounts(){const D=SDL();return D&&D.rangeCounts?D.rangeCounts():Promise.resolve(null);}
-const rangesWait=()=>{const D=SDL();return !!(D&&D.rangesPending&&D.rangesPending());};
 async function w3fSend(fields,subject,replyto){
   const r=await fetch("https://api.web3forms.com/submit",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
     body:JSON.stringify(Object.assign({access_key:W3F_KEY,subject,from_name:"Stravik website",replyto},fields))});
@@ -252,23 +251,34 @@ function wireSearchPanel(root,params){
 
 // ---------- home ----------
 const FAMILIES=[
-  {id:"braking",rng:"Brakes",name:"Braking",icon:"disc",img:"/assets/img/braking/card.webp",photo:1,href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
-  {id:"ss",rng:"Steering & Suspension",name:"Steering & suspension",icon:"ball",img:"/assets/img/steering-suspension/card.webp",photo:1,href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
-  {id:"shock",rng:"Shock Absorbers",name:"Shock absorbers",icon:"shock",img:"/assets/img/shock-absorbers/card.webp",photo:1,href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
-  {id:"fl",rng:"Filters",name:"Filtration",icon:"f_oil",img:"/assets/img/filters/card.webp",photo:1,href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
-  {id:"gs",rng:"Gas Springs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs/card.webp",photo:1,href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
-  {id:"bat",rng:"Batteries",name:"Batteries",icon:"battery",img:"/assets/img/batteries/card.webp",photo:1,href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/catalogue/",catText:"Search the catalogue"}];
+  {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking/card.webp",photo:1,href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
+  {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/steering-suspension/card.webp",photo:1,href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
+  {id:"shock",name:"Shock absorbers",icon:"shock",img:"/assets/img/shock-absorbers/card.webp",photo:1,href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
+  {id:"fl",name:"Filtration",icon:"f_oil",img:"/assets/img/filters/card.webp",photo:1,href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
+  {id:"gs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs/card.webp",photo:1,href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
+  {id:"bat",name:"Batteries",icon:"battery",img:"/assets/img/batteries/card.webp",photo:1,href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/catalogue/",catText:"Search the catalogue"}];
 const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic${f.photo?" photo":""}">${f.img?`<img src="${f.img}" alt="${f.photo?"Stravik "+esc(f.name.toLowerCase()):"Stravik "+esc(f.name.toLowerCase())+" box"}" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
-// the family cards: for an approved customer on a priced-only list, the families they have parts in (assets/dealer.js).
-// While a signed-in customer's catalogues are still loading the grid waits, so the full range never shows first.
-function famGrid(){
-  if(rangesWait())return `<p class="loading" style="grid-column:1/-1">Loading your catalogues…</p>`;
-  const mine=FAMILIES.filter(f=>rangeHas(f.rng));
-  return mine.length?mine.map(famCard).join(""):`<p class="loading" style="grid-column:1/-1">Open <a href="#/products">your catalogues</a> to see the ranges on your price list.</p>`;
-}
+// "Shop by product family". An approved customer on a priced-only list (assets/dealer.js) gets a pointer to the Products
+// page instead, which lists the ranges on their account. While a signed-in customer's prices are still on their way
+// the section waits, so neither version shows first. Everyone else sees the six family cards.
+const FAM_HEAD=`<div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a>`;
+const MINE_HEAD=`<div><h2>Your product ranges</h2><p>See the ranges and prices available on your account.</p></div><a class="btn gold" href="#/products">View your products</a>`;
+const famState=()=>dpending()?"wait":pfilt()?"mine":"all";
+const famGrid=st=>st==="wait"?`<p class="loading" style="grid-column:1/-1">Loading…</p>`:st==="mine"?"":FAMILIES.map(famCard).join("");
 let famsNow="";
-document.addEventListener("stravik-ranges",()=>{const g=app.querySelector(".fams[data-fams]");if(!g)return;const h=famGrid();if(h!==famsNow){famsNow=h;g.innerHTML=h;document.dispatchEvent(new Event("stravik-fams"));}});
+function famPaint(){
+  const h=app.querySelector(".head[data-famhead]"),g=app.querySelector(".fams[data-fams]"),st=famState();
+  if(!h||!g||st===famsNow)return;
+  const mineWas=famsNow==="mine";famsNow=st;
+  h.style.visibility=st==="wait"?"hidden":"";
+  if(st==="mine")h.innerHTML=MINE_HEAD;else if(mineWas)h.innerHTML=FAM_HEAD;
+  h.style.marginBottom=st==="mine"?"0":"";
+  g.innerHTML=famGrid(st);g.style.display=st==="mine"?"none":"";
+  if(st==="all")document.dispatchEvent(new Event("stravik-fams"));
+}
+document.addEventListener("stravik-ranges",famPaint);
 function home(){
+  const st=famsNow=famState();
   app.innerHTML=`
   <section class="hero hvid">
     <video class="hvideo" muted loop playsinline preload="auto" poster="/assets/hero-parts-hd-poster.webp" aria-hidden="true"><source src="/assets/hero-parts-hd.webm" type="video/webm"><source src="/assets/hero-parts-hd.mp4" type="video/mp4"></video>
@@ -291,8 +301,8 @@ function home(){
   </div></section>
 
   <section class="block paper"><div class="wrap">
-    <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a></div>
-    <div class="fams fams5" data-fams>${famsNow=famGrid()}</div>
+    <div class="head" data-famhead${st==="wait"?' style="visibility:hidden"':st==="mine"?' style="margin-bottom:0"':""}>${st==="mine"?MINE_HEAD:FAM_HEAD}</div>
+    <div class="fams fams5" data-fams${st==="mine"?' style="display:none"':""}>${famGrid(st)}</div>
   </div></section>`;
   const hv=app.querySelector(".hvideo");
   if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
