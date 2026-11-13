@@ -155,7 +155,7 @@ function load(id){
   const c=cfg(id);c.id=id;
   const photos=c.img?fetch(c.img+"index.json").then(r=>r.ok?r.json():[]).catch(()=>[]):Promise.resolve([]);
   if(!cache[id])cache[id]=Promise.all([fetch(c.data).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),photos])
-    .then(([d,ph])=>{if(c.adapt)d=c.adapt(d);d.photos=photoMap(ph);return prep(d,c);}).catch(e=>{delete cache[id];throw e;});
+    .then(([d,ph])=>{if(c.adapt)d=c.adapt(d);d.photos=photoMap(ph);d=prep(d,c);d.cat=c.cat;return d;}).catch(e=>{delete cache[id];throw e;});
   return cache[id];
 }
 // model text arrives as e.g. "MERCEDES-BENZ A-CLASS 1.4L / 1.6L" and years as "1997-2004", "2011-" or a "|" list
@@ -239,7 +239,7 @@ function pass(i,st,exactQ){
     else if((st.mo||st.en)&&i.apps.some(a=>appMake(a,st)))i._fit=1;
     else return false;}
   for(const k in st.f){const v=st.f[k];if(v&&i.s[k]!==v)return false;}
-  if(st.c&&!(i.k||"N").includes(st.c))return false;
+  if(st.c&&!conds(i).includes(st.c))return false;
   return true;
 }
 
@@ -325,7 +325,15 @@ function page(app,id,params){
   </div>
   </div>`;
   const $=s=>app.querySelector(s);
-  load(id).then(d=>{
+  // a signed-in customer's prices arrive first, so the full list never shows before their own
+  Promise.all([load(id),dealerReady()]).then(([d0])=>{
+    if(!document.body.contains(app.querySelector("#scList")))return;   // the visitor has moved on
+    const d=view(d0);
+    if(filtering()&&!d.items.length){   // priced-only: nothing in this range for this customer
+      $("#scFacts").innerHTML="";$("#scBar").hidden=true;$("#scDetail").hidden=true;
+      $("#scCount").textContent=`No ${c.many} on your price list`;
+      $("#scList").innerHTML=`<li class="sc-empty"><strong>This range isn't on your price list.</strong><br>You can still ask us for a price: <a href="#/request">request a part</a>, or see <a href="#/products">your catalogues</a>.</li>`;
+      return;}
     const facts=c.facts?c.facts(d):[[d.n.items,c.many],[d.n.apps,"applications"],[d.n.makes,"vehicle makes"]];
     $("#scFacts").innerHTML=facts.map(f=>`<span><strong>${fmt(f[0])}</strong>${esc(f[1])}</span>`).join("");
     if(c.order)d.items.sort(c.order);
@@ -390,7 +398,7 @@ function page(app,id,params){
       return `<li><button class="sc-row" type="button" data-pn="${esc(i.pn)}" aria-current="false">
         ${i.ph?`<span class="sc-tile"><img src="${esc(i.ph)}" alt="" loading="lazy"></span>`:""}
         <span class="sc-rmain"><span class="sc-pn">${esc(i.pn)}${condTags(i)}${inCart?`<span class="sc-incart">In cart</span>`:""}</span><span class="sc-mk">${esc(c.rowLine?c.rowLine(i):makesText(i))}</span><span class="sc-spec">${esc(c.specLine(i.s))}</span>${h}</span>
-        <span class="sc-yr">${esc(c.rowRight?c.rowRight(i):i.yrs)}<span class="sc-price" data-price-pn="${esc(i.pn)}"></span></span></button></li>`;
+        <span class="sc-yr">${esc(c.rowRight?c.rowRight(i):i.yrs)}<span class="sc-price" data-price-pn="${esc(i.pn)}"${conds(i)[0]==="R"?' data-price-cond="R"':""}></span></span></button></li>`;
     }
     function paint(){
       if(!list.length){listEl.innerHTML=`<li class="sc-empty"><strong>No ${esc(c.many)} match${st.q?` “${esc(st.q)}”`:""}.</strong><br>Check the number for typing errors, try fewer characters, or reset the filters. You can also <a href="#/request${st.q?"?q="+encodeURIComponent(st.q):""}">request the part</a> and we'll check it for you.</li>`;$("#scMore").hidden=true;return;}
@@ -439,20 +447,39 @@ document.addEventListener("click",e=>{if(repaint&&e.target.closest&&e.target.clo
 const partHref=(i,c)=>c.partUrl?c.partUrl(i):"/part/"+encodeURIComponent(i.pn)+"/";
 const title1=(i,c)=>c.title1?c.title1(i):i.d||c.kind||c.one;
 // new (N) and remanufactured (R): the Stravik number is the same, the condition is a separate SKU
-const conds=i=>i.k?i.k.split(""):["N"];
+// Priced-only (assets/dealer.js): an approved customer sees a condition only if it has a price for them.
+const SD=()=>typeof window!=="undefined"&&window.StravikDealer||null;
+const filtering=()=>{const D=SD();return !!(D&&D.filtering&&D.filtering());};
+const dealerReady=()=>{const D=SD();return D&&D.ready?D.ready():Promise.resolve();};
+const allConds=i=>i.k?i.k.split(""):["N"];
+const conds=i=>{const a=allConds(i);if(!filtering())return a;const D=SD();return a.filter(k=>D.visible(i.pn,k));};
+// the range as this customer sees it: everything, or (priced-only) the parts with a price, with the counts redone
+let VIEWS=new WeakMap();
+function view(d){
+  if(!filtering())return d;
+  const rev=SD().rev(),hit=VIEWS.get(d);if(hit&&hit.rev===rev)return hit.v;
+  const ok=!d.cat||SD().range(d.cat),items=ok?d.items.filter(i=>conds(i).length):[];
+  const mk=new Set();items.forEach(i=>i.mks.forEach(m=>mk.add(m)));
+  const v=Object.assign({},d,{items,mkList:d.mkList.filter(m=>mk.has(m)),hasR:items.some(i=>conds(i).includes("R")),
+    n:{items:items.length,makes:mk.size,apps:items.reduce((n,i)=>n+i.apps.length,0)}});
+  VIEWS.set(d,{rev,v});return v;
+}
 const cartKey=(i,k)=>k==="R"&&i.k!=="R"?i.pn+"-R":i.pn;
 const CONDW={N:"New",R:"Remanufactured"};
 const condTags=i=>conds(i).filter(()=>i.k).map(k=>`<span class="sc-cond sc-cond-${k}" title="${CONDW[k]}">${k}</span>`).join("");
-const condText=i=>i.k==="NR"?"Available new (N) and remanufactured (R)":i.k==="R"?"Remanufactured (R)":"New (N)";
+const condText=i=>{const k=i.k&&filtering()?conds(i).join(""):i.k;return k==="NR"?"Available new (N) and remanufactured (R)":k==="R"?"Remanufactured (R)":"New (N)";};
 // specs; a value that differs by condition shows both ("100 A new · 130 A reman")
 function specRows(i,c){
   const okv=v=>v&&v!=="Not specified",cs=conds(i),both=cs.length>1;
-  const val=k=>{const v=cs.map(x=>(i.ko[x]&&i.ko[x][k])||i.s[k]);return both&&v[0]!==v[1]&&okv(v[0])&&okv(v[1])?null:i.s[k];};
+  const one=cs.length===1&&allConds(i).length>1?cs[0]:"";   // a new-and-reman part shown in one condition only: that condition's values
+  const val=k=>{const v=cs.map(x=>(i.ko[x]&&i.ko[x][k])||i.s[k]);return both&&v[0]!==v[1]&&okv(v[0])&&okv(v[1])?null:one&&i.ko[one]&&okv(i.ko[one][k])?i.ko[one][k]:i.s[k];};
   const two=(k,f)=>cs.map(x=>{const v=(i.ko[x]&&i.ko[x][k])||i.s[k];return (f?f(v,i.s):v)+(x==="R"?" reman":" new");}).join(" · ");
   const keys=c.specs?c.specs.filter(x=>okv(i.s[x[0]])):Object.keys(i.s).filter(k=>okv(i.s[k])).map(k=>[k,k]);
-  return keys.map(x=>[x[1],val(x[0])===null?two(x[0],x[2]):x[2]?x[2](i.s[x[0]],i.s):i.s[x[0]]]);
+  return keys.map(x=>{const v=val(x[0]);return [x[1],v===null?two(x[0],x[2]):x[2]?x[2](v,i.s):v];});
 }
 const cartItem=(i,c,k)=>{k=k||conds(i)[0];const t=title1(i,c),w=i.k?(k==="R"?"Remanufactured ":"New ")+t.charAt(0).toLowerCase()+t.slice(1):t;
-  return {key:cartKey(i,k),no:i.pn,cat:c.cat,desc:w+(i.k?" ("+k+")":"")+(c.rowLine?", "+c.rowLine(i):""),link:partHref(i,c),kind:"std"};};
-window.StdCat={has:id=>!!cfg(id),register:(id,c)=>{OWN[id]=c;},page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText,conds,condText,condTags,specRows};
+  const it={key:cartKey(i,k),no:i.pn,cat:c.cat,desc:w+(i.k?" ("+k+")":"")+(c.rowLine?", "+c.rowLine(i):""),link:partHref(i,c),kind:"std"};
+  if(i.k)it.cond=k;   // "N" or "R": priced and ordered as its own line
+  return it;};
+window.StdCat={has:id=>!!cfg(id),register:(id,c)=>{OWN[id]=c;},page,cats:CATS,load,prep,photoMap,title1,cartItem,makesText,conds,condText,condTags,specRows,view,cartKey};
 })();

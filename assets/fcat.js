@@ -70,12 +70,20 @@ function cartAdd(p){if(!window.STV)return;STV.Cart.add(citem(p),1);STV.toast("1 
 function prices(){const D=window.StravikDealer,t=D&&D.tag;root.querySelectorAll("[data-p]").forEach(el=>{const v=t?t(el.dataset.p)||"":"";if(el.innerHTML!==v)el.innerHTML=v;});}
 // filters.json -> the catalogue's own data shape: [pn, type code, description, {dimensions}, [OE], {brand: [numbers]}, [[make index, model, variant, engine, fuel, cc, years]]]
 const TCODE={OFL:"OR",AFL:"AP",CFL:"H",FFL:"DE",FKT:"J",CLF:"R"};
-function convert(F){return {makes:F.makes||[],p:(F.items||[]).map(i=>[i.pn,i.c||TCODE[i.t]||"J",i.d||"",Object.fromEntries(i.dm||[]),(i.n||[]).slice(0,i.oc||0),Object.fromEntries(i.x||[]),i.a||[]])};}
+// Priced-only (assets/dealer.js): an approved customer sees only the filters on their price list.
+const SD=()=>window.StravikDealer||null;
+const pfilt=()=>{const D=SD();return !!(D&&D.filtering&&D.filtering());};
+const dready=()=>{const D=SD();return D&&D.ready?D.ready():Promise.resolve();};
+const mine=i=>{if(!pfilt())return true;const D=SD();return D.range("Filters")&&D.visible(i.pn,"N");};
+function convert(F){return {makes:F.makes||[],p:(F.items||[]).filter(mine).map(i=>[i.pn,i.c||TCODE[i.t]||"J",i.d||"",Object.fromEntries(i.dm||[]),(i.n||[]).slice(0,i.oc||0),Object.fromEntries(i.x||[]),i.a||[]])};}
 root.innerHTML=`<link rel="stylesheet" href="${host.dataset.css}"><div class="fwrap"><p class="fload">Loading the filter catalogue…</p></div>`;
 const css=root.querySelector("link");
 const ready=new Promise(res=>{css.addEventListener("load",res);css.addEventListener("error",res);setTimeout(res,4000);});
-Promise.all([fetch("/filters.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}),ready]).then(([F])=>{
-  root.innerHTML=`<link rel="stylesheet" href="${host.dataset.css}">`+TPL;init(convert(F));
+// a signed-in customer's prices arrive before the list is drawn, so the full list never shows first
+Promise.all([fetch("/filters.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}),ready,dready()]).then(([F])=>{
+  const C=convert(F);
+  if(pfilt()&&!C.p.length){root.querySelector(".fload").innerHTML=`<b>Filters aren't on your price list.</b> You can still ask us for a price: <a href="/#/request">request a part</a>, or see <a href="/#/products">your catalogues</a>.`;return;}
+  root.innerHTML=`<link rel="stylesheet" href="${host.dataset.css}">`+TPL;init(C);
 }).catch(e=>{const w=root.querySelector(".fload");if(w)w.textContent="The filter catalogue could not be loaded. Check your connection and refresh the page.";console.error(e);});
 function init(C){const MAKES=C.makes;
 const FAM=[
@@ -256,7 +264,7 @@ window.addEventListener('hashchange',route);
 function syncViews(){root.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.view===view));}
 $('cta-type').onclick=()=>{setMode('prod');$('fams').scrollIntoView({behavior:'smooth',block:'start'})};
 $('cta-veh').onclick=()=>{setMode('veh');$('v-veh').scrollIntoView({behavior:'smooth',block:'start'})};
-$('st-n').textContent=P.length.toLocaleString('en');$('st-m').textContent=MAKES.length;
+$('st-n').textContent=P.length.toLocaleString('en');$('st-m').textContent=pfilt()?Object.keys(VI).length:MAKES.length;
 $('st-x').textContent=P.reduce((s,p)=>s+p.oe.length+Object.values(p.xr).flat().length,0).toLocaleString('en');
 const U=new URLSearchParams(location.search);
 if(U.get('q')){q=U.get('q').trim();$('q').value=q;}

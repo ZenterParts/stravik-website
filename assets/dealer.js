@@ -55,10 +55,43 @@ async function refresh(){
   const {data:{session}}=await c.auth.getSession();
   if(!session){S.me=null;S.prices=null;paintAll();return null;}
   S.me=must(await c.rpc("stravik_dealer_me"));
-  if(approved()){const p=must(await c.rpc("stravik_dealer_prices"));S.prices=p?Object.assign(p,{map:new Map((p.prices||[]).map(x=>[x[0],{p:x[1],i:x[2]}]))}):null;}else S.prices=null;
+  // prices: map = new parts, rmap = remanufactured (the same Stravik number, a separate price)
+  const pm=a=>new Map((a||[]).filter(x=>x[1]!=null).map(x=>[x[0],{p:x[1],i:x[2]}]));
+  if(approved()){const p=must(await c.rpc("stravik_dealer_prices"));S.prices=p?Object.assign(p,{map:pm(p.prices),rmap:pm(p.reman)}):null;}else S.prices=null;
   paintAll();return S.me;
 }
 function ensure(){return S.loading||(S.loading=refresh().catch(e=>{console.error(e);return null;}));}
+
+// ---------- priced-only catalogue (database switch "priced_only") ----------
+// With the switch on, an approved customer sees only the parts that have a price for them, in the catalogues chosen
+// at approval. Everyone else (visitors, customers waiting for review, rejected or on hold) and everyone while the
+// switch is off sees the full catalogue: filtering() is false and visible() is always true.
+const filtering=()=>!!(approved()&&S.prices&&(S.prices.priced_only===true||S.prices.priced_only==="on"));
+// cond: "N" new, "R" remanufactured, none = either
+function visible(pn,cond){
+  if(!filtering())return true;
+  const P=S.prices;
+  return cond==="R"?P.rmap.has(pn):cond==="N"?P.map.has(pn):P.map.has(pn)||P.rmap.has(pn);
+}
+// is a catalogue (stravik_categories.subcategory_key, e.g. "Gas Springs") one of the customer's
+const range=cat=>{if(!filtering())return true;const cs=S.prices.categories;return !cs||cs.indexOf(cat)>=0;};
+// resolves once the customer's prices are known; at once for visitors without a customer session in this browser.
+// Catalogue lists wait for it so a signed-in customer never sees the full list first.
+let SETTLED=false;
+function ready(){
+  if(!hasSession())return Promise.resolve();
+  return Promise.race([ensure(),new Promise(r=>setTimeout(r,8000))]).then(()=>{SETTLED=true;});
+}
+// true while a signed-in customer's prices are still on their way
+const pending=()=>hasSession()&&!SETTLED;
+// the condition of a cart line or add button: key "PN-R" (a part sold new and reman) or a reman-only part
+function condOf(it){
+  if(!it)return "N";
+  if(it.no&&it.key===it.no+"-R")return "R";
+  if(it.cond==="R"||it.cond==="N")return it.cond;
+  return it.kind==="std"&&/^Remanufactured\b.*\(R\)/.test(it.desc||"")?"R":"N";
+}
+const NOLIST="This part isn't on your price list";
 
 // ---------- header link and price tags ----------
 function paintNav(){
@@ -71,22 +104,73 @@ function paintNav(){
   a.title=d?"Your customer account":"Sign in for customer prices and ordering";
   a.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="nav-l">${esc(label.length>22?label.slice(0,21)+"…":label)}</span>`;
 }
-function tag(pn){const m=S.prices&&S.prices.map;if(!m||!m.has(pn))return null;return esc(money(m.get(pn).p,CUR()));}
+function tag(pn,cond){const m=S.prices&&(cond==="R"?S.prices.rmap:S.prices.map);if(!m||!m.has(pn))return null;return esc(money(m.get(pn).p,CUR()));}
 function paintPrices(root){
   if(!S.prices)return;
   (root||document).querySelectorAll("button[data-cart-key],button[data-add-qty]").forEach(b=>{
-    let pn=b.dataset.cartKey;if(!pn){try{pn=JSON.parse(b.dataset.item).no;}catch(e){}}
-    const t=pn&&tag(pn);if(!t)return;
+    // the price of this button's own condition: reman for "PN-R" and for reman-only parts, new otherwise
+    let it=null;try{it=JSON.parse(b.dataset.item);}catch(e){}
+    const pn=it&&it.no||b.dataset.cartKey;
+    const t=pn&&tag(pn,condOf(it||{key:pn,no:pn}));if(!t)return;
     const prev=b.previousElementSibling;
     if(prev&&prev.classList.contains("dprice")){if(prev.innerHTML!==t)prev.innerHTML=t;return;}
     const s=document.createElement("span");s.className="dprice"+(b.dataset.addQty?" big":"");s.innerHTML=t;s.title="Your price";
     b.parentNode.insertBefore(s,b);
   });
   // price slots in part lists (e.g. the standard catalogue rows): <span data-price-pn="SLBH0001">
-  (root||document).querySelectorAll("[data-price-pn]").forEach(el=>{const t=tag(el.dataset.pricePn)||"";if(el.innerHTML!==t){el.innerHTML=t;el.title=t?"Your price":"";}});
+  (root||document).querySelectorAll("[data-price-pn]").forEach(el=>{const t=tag(el.dataset.pricePn,el.dataset.priceCond)||"";if(el.innerHTML!==t){el.innerHTML=t;el.title=t?"Your price":"";}});
 }
 function clearPrices(){document.querySelectorAll(".dprice").forEach(x=>x.remove());document.querySelectorAll("[data-price-pn]").forEach(x=>{x.innerHTML="";});}
-function paintAll(){paintNav();if(S.prices)paintPrices();else clearPrices();document.dispatchEvent(new Event("stravik-prices"));}
+let REV=0;   // goes up whenever the customer's prices (and so what they may see) change
+function paintAll(){REV++;paintNav();if(S.prices)paintPrices();else clearPrices();partPage();document.dispatchEvent(new Event("stravik-prices"));}
+
+// ---------- static part pages (/part/<PN>/): the buy box ----------
+// Priced-only: keep the buttons that have a price; if none has, replace the box with a note and a link to the
+// request for price form (the part goes into the cart, where that form is).
+const buyBox=()=>{const b=document.querySelector(".buy [data-add-qty]");return b?b.closest(".buy"):null;};
+// "other parts for the same vehicles" on a part page: only the ones the customer may see
+function related(){
+  document.querySelectorAll(".block.related").forEach(sec=>{
+    sec.style.visibility="";let n=0;const cells=[...sec.querySelectorAll(".fcell")];
+    cells.forEach(c=>{const a=c.querySelector('a[href^="/part/"],a[href^="/filter/"]'),m=a&&/^\/(?:part|filter)\/([^/]+)\//.exec(a.getAttribute("href"));
+      const ok=!m||visible(decodeURIComponent(m[1]));c.hidden=!ok;if(ok)n++;});
+    if(cells.length)sec.hidden=!n;});
+}
+// the batteries page (/batteries/): the battery cards of each range, and the counts written into the page
+function batCards(){
+  const f=filtering();
+  document.querySelectorAll(".brgrid").forEach(g=>{
+    g.style.visibility="";let n=0;
+    g.querySelectorAll('a.brc[href^="/part/"]').forEach(a=>{const m=/^\/part\/([^/]+)\//.exec(a.getAttribute("href")),ok=!m||visible(decodeURIComponent(m[1]),"N");a.hidden=!ok;if(ok)n++;});
+    const panel=g.closest(".ppanel")||g.parentNode;
+    let note=panel.querySelector(".dnolist");if(note)note.remove();
+    // texts with the full range's count ("· 5 batteries", "View all 20 …")
+    panel.querySelectorAll(".brh p,.brh a.btn,.brmore a").forEach(e=>{
+      if(e.dataset.full==null){if(!f)return;e.dataset.full=e.textContent;}
+      e.textContent=!f?e.dataset.full:e.tagName==="A"?"View in the catalogue":e.dataset.full.replace(/\s*·\s*\d+ batter(?:y|ies)\s*$/,"");
+      if(e.tagName==="A")e.hidden=f&&!n;});
+    if(f&&!n){note=document.createElement("p");note.className="dnote dnolist";note.textContent="These batteries aren't on your price list.";g.parentNode.insertBefore(note,g);}
+  });
+}
+function partPage(){
+  related();batCards();
+  const box=buyBox();if(!box)return;
+  box.style.visibility="";
+  const old=box.parentNode.querySelector(".dnolist");if(old)old.remove();
+  const btns=[...box.querySelectorAll("button[data-add-qty]")];
+  btns.forEach(b=>{b.hidden=false;});box.hidden=false;
+  if(!filtering())return;
+  let first=null,any=false;
+  btns.forEach(b=>{let it=null;try{it=JSON.parse(b.dataset.item);}catch(e){}
+    if(!it||!it.no){any=true;return;}
+    first=first||it;const ok=visible(it.no,condOf(it));b.hidden=!ok;if(ok)any=true;});
+  if(any||!first)return;
+  box.hidden=true;
+  const n=document.createElement("div");n.className="replace dnolist";
+  n.innerHTML=`<b>${NOLIST}</b><span>You can still ask us for a price: <a href="/#/cart">add it to a request for price</a>.</span>`;
+  n.querySelector("a").addEventListener("click",()=>{try{if(window.STV&&!STV.Cart.has(first.key))STV.Cart.add(first,1);}catch(e){}});
+  box.parentNode.insertBefore(n,box);
+}
 let raf=0;new MutationObserver(()=>{if(!S.prices||raf)return;raf=requestAnimationFrame(()=>{raf=0;paintPrices();});}).observe(document.body,{childList:true,subtree:true});
 
 // =====================================================================
@@ -253,9 +337,9 @@ async function account(app,c,me){
   else if(d.status==="Rejected")body=`<div class="dstat bad"><h2>We need a few changes</h2>${d.review_note?`<p class="dnote">${esc(d.review_note)}</p>`:"<p>Please check your details and documents.</p>"}<p><a class="btn gold" href="#/dealer/register">Update and send again</a></p></div>`;
   else if(d.status==="Suspended")body=`<div class="dstat bad"><h2>Your account is on hold</h2><p>Ordering is paused for now. Please <a href="#/contact">contact us</a> if you have questions.</p></div>`;
   else{
-    const n=S.prices?S.prices.map.size:0;
+    const n=S.prices?S.prices.map.size+S.prices.rmap.size:0;
     const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="/batteries/catalogue/">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
-    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}) show next to each part in the catalogue${VAT()?`; ${Math.round(VAT()*100)}% VAT is added in your cart`:""}${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
+    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}) show next to each part in the catalogue${VAT()?`; ${Math.round(VAT()*100)}% VAT is added in your cart`:""}${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.${filtering()?" The catalogue shows the parts on your price list; for anything else, send us a request for price.":""}</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
@@ -269,7 +353,7 @@ async function account(app,c,me){
     const os=must(await c.rpc("stravik_dealer_orders"));
     box.innerHTML=!os.length?`<p class="dhint">No orders yet.</p>`:os.map(o=>`<details class="dorder"><summary><b>${esc(o.order_no)}</b><span>${esc(new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}))}</span><span>${o.lines} line${o.lines===1?"":"s"}, ${o.units} units</span><span>${o.total==null?"":esc(money(o.total,o.currency))}</span><span class="dbadge s">${esc(o.status==="With DPW"?"With fulfilment centre":o.status)}</span></summary>
       <div class="dorder-b">${o.po_ref?`<p>Your PO: <b>${esc(o.po_ref)}</b></p>`:""}<p>Deliver to: ${esc(o.delivery_address||"")}</p>${o.invoice_no?`<p>Invoice: <b>${esc(o.invoice_no)}</b></p>`:""}${o.waybill_no?`<p>Waybill: <b>${esc(o.waybill_no)}</b></p>`:""}
-      <table class="ctable"><thead><tr><th>Part</th><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td class="no"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td><td class="dsc">${esc(i.description||"")}</td><td>${i.qty}</td><td>${i.price==null?"on request":esc(money(i.price,o.currency))}</td><td>${esc(money(i.total,o.currency))}</td></tr>`).join("")}</tbody>${o.vat_rate?`<tfoot><tr><td colspan="4">Subtotal</td><td>${esc(money(o.subtotal,o.currency))}</td></tr><tr><td colspan="4">VAT ${Math.round(o.vat_rate*100)}%</td><td>${esc(money(o.vat_amount,o.currency))}</td></tr><tr><td colspan="4"><b>Total</b></td><td><b>${esc(money(o.total,o.currency))}</b></td></tr></tfoot>`:""}</table></div></details>`).join("");
+      <table class="ctable"><thead><tr><th>Part</th><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td class="no"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td><td class="dsc">${esc(i.description||"")}${i.cond==="R"?` <span class="dcond">Remanufactured</span>`:""}</td><td>${i.qty}</td><td>${i.price==null?"on request":esc(money(i.price,o.currency))}</td><td>${esc(money(i.total,o.currency))}</td></tr>`).join("")}</tbody>${o.vat_rate?`<tfoot><tr><td colspan="4">Subtotal</td><td>${esc(money(o.subtotal,o.currency))}</td></tr><tr><td colspan="4">VAT ${Math.round(o.vat_rate*100)}%</td><td>${esc(money(o.vat_amount,o.currency))}</td></tr><tr><td colspan="4"><b>Total</b></td><td><b>${esc(money(o.total,o.currency))}</b></td></tr></tfoot>`:""}</table></div></details>`).join("");
   }catch(e){box.innerHTML=`<p class="dnote bad">${esc(msg(e))}</p>`;}
 }
 
@@ -288,13 +372,19 @@ async function cart(app){
   const items=STV.Cart.items().filter(i=>i.no);
   if(!items.length){sec.remove();return;}
   const c=await client();
-  let chk;try{chk=must(await c.rpc("stravik_dealer_check",{pns:items.map(i=>i.no)}));}catch(e){sec.innerHTML=`<p class="dpad dnote bad">${esc(msg(e))}</p>`;return;}
+  let chk;try{chk=must(await c.rpc("stravik_dealer_check",{pns:[...new Set(items.map(i=>i.no))]}));}catch(e){sec.innerHTML=`<p class="dpad dnote bad">${esc(msg(e))}</p>`;return;}
   const by={};chk.forEach(x=>by[x.pn]=x);
-  const ok=items.filter(i=>by[i.no]&&by[i.no].allowed),no=items.filter(i=>!(by[i.no]&&by[i.no].allowed));
+  // each cart line is one part in one condition: new (N) or remanufactured (R), allowed and priced on its own
+  const po=filtering();
+  const L=items.map(i=>{const x=by[i.no]||{},cond=condOf(i),R=cond==="R",price=R?x.price_r:x.price;
+    return {i,cond,price:price==null?null:Number(price),desc:x.description||i.desc||"",ok:!!(R?x.allowed_r:x.allowed)&&!(po&&price==null)};});
+  const ok=L.filter(l=>l.ok),no=L.filter(l=>!l.ok);
+  const cw=l=>l.cond==="R"?` <span class="dcond">Remanufactured</span>`:"";
   const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
   sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2></div>
     ${ok.length?`<table class="ctable dot"><thead><tr><th>Part</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="dotb"></tbody><tfoot id="dotf"></tfoot></table>`:""}
-    ${no.length?`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(i=>i.no).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`:""}
+    ${!no.length?"":po?`<div class="dpad dnote dnolines"><p><b>${no.length} part${no.length===1?"":"s"}</b> not on your price list - you can send these with the request for price form:</p><ul>${no.map(l=>`<li><b>${esc(l.i.no)}</b>${cw(l)} ${esc(l.desc)}</li>`).join("")}</ul></div>`
+      :`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(l=>l.i.no+(l.cond==="R"?" reman":"")).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`}
     ${ok.length?`<form class="enq" id="dof" novalidate>
       <div><label for="o_po">Your order / PO reference</label><input id="o_po" maxlength="60"></div>
       <div><label for="o_cn">Contact name</label><input id="o_cn" value="${esc(d.contact_name)}" required><div class="err">Required.</div></div>
@@ -305,10 +395,10 @@ async function cart(app){
       <p class="note">Your order request goes to our fulfilment centre, who confirm it, deliver and invoice you. Prices are in ${esc(curName(CUR()))}${VAT()?`; ${Math.round(VAT()*100)}% VAT is added to the total`:""}.</p>
       <div class="status" id="o_st" role="alert"></div></form>`:""}`;
   const C=CUR(),V=VAT(),m=v=>esc(money(v,C)),r2=v=>Math.round(v*100)/100;
+  const qty=l=>{const x=STV.Cart.items().find(x=>x.key===l.i.key);return (x||l.i).qty||1;};
   const paint=()=>{const tb=sec.querySelector("#dotb");if(!tb)return;let tot=0,anyNull=false;
-    const cur=STV.Cart.items();
-    tb.innerHTML=ok.map(i=>{const q=(cur.find(x=>x.key===i.key)||i).qty||1,p=by[i.no].price,t=p==null?null:r2(p*q);if(t==null)anyNull=true;else tot=r2(tot+t);
-      return `<tr><td class="no">${esc(i.no)}<div class="dsc">${esc(by[i.no].description||i.desc||"")}</div></td><td>${q}</td><td>${p==null?'<span class="dhint">on request</span>':m(p)}</td><td>${t==null?"":m(t)}</td></tr>`;}).join("");
+    tb.innerHTML=ok.map(l=>{const q=qty(l),p=l.price,t=p==null?null:r2(p*q);if(t==null)anyNull=true;else tot=r2(tot+t);
+      return `<tr><td class="no">${esc(l.i.no)}${cw(l)}<div class="dsc">${esc(l.desc)}</div></td><td>${q}</td><td>${p==null?'<span class="dhint">on request</span>':m(p)}</td><td>${t==null?"":m(t)}</td></tr>`;}).join("");
     const more=anyNull?" + lines on request":"",vat=r2(tot*V);
     sec.querySelector("#dotf").innerHTML=V?`<tr><td colspan="3">Subtotal</td><td>${m(tot)}${more}</td></tr><tr><td colspan="3">VAT ${Math.round(V*100)}%</td><td>${m(vat)}</td></tr><tr><td colspan="3"><b>Total</b></td><td><b>${m(r2(tot+vat))}</b>${more}</td></tr>`
       :`<tr><td colspan="3">Total</td><td>${m(tot)}${more}</td></tr>`;};
@@ -318,12 +408,13 @@ async function cart(app){
   f.addEventListener("submit",async ev=>{
     ev.preventDefault();const st=f.querySelector("#o_st"),btn=f.querySelector("#o_go");st.classList.remove("show");
     let first=null;["o_cn","o_ph","o_ad"].forEach(id=>{const el=f.querySelector("#"+id),bad=!el.value.trim();el.classList.toggle("invalid",bad);if(bad&&!first)first=el;});if(first){first.focus();return;}
-    const cur=STV.Cart.items(),lines=ok.map(i=>({pn:i.no,qty:(cur.find(x=>x.key===i.key)||i).qty||1}));
+    // one line per part and condition (the same part may be ordered new and remanufactured)
+    const lines=[];ok.forEach(l=>{const q=qty(l),ex=lines.find(x=>x.pn===l.i.no&&x.cond===l.cond);if(ex)ex.qty+=q;else lines.push({pn:l.i.no,qty:q,cond:l.cond});});
     btn.disabled=true;btn.textContent="Sending…";
     try{
       const r=must(await c.rpc("stravik_place_order",{p:{items:lines,po_ref:f.querySelector("#o_po").value,contact_name:f.querySelector("#o_cn").value,contact_phone:f.querySelector("#o_ph").value,delivery_address:f.querySelector("#o_ad").value,notes:f.querySelector("#o_no").value}}));
       let mail=null;try{mail=(await c.functions.invoke("stravik-dealer-mail",{body:{action:"order",order_no:r.order_no}})).data;}catch(e){}
-      ok.forEach(i=>STV.Cart.remove(i.key));
+      ok.forEach(l=>STV.Cart.remove(l.i.key));
       done(app,r.order_no,mail);
     }catch(err){st.textContent=msg(err);st.classList.add("show");btn.disabled=false;btn.textContent="Send order request";}
   });
@@ -340,6 +431,11 @@ function done(app,no,mail){
 
 // ---------- start ----------
 paintNav();
+// a signed-in customer on a part page: hold the buy box back until we know whether the part is on their price list
+if(hasSession()){const hold=[buyBox()].concat([...document.querySelectorAll(".block.related,.brgrid")]).filter(Boolean);
+  if(hold.length){hold.forEach(e=>{e.style.visibility="hidden";});ready().then(()=>hold.forEach(e=>{e.style.visibility="";}));}}
+if(hasSession())ready();
 if(hasSession()||/[?&]code=/.test(location.search))ensure().then(()=>{if(/[?&]code=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash);});
-window.StravikDealer={page,cart,tag,refresh:()=>{S.loading=null;return ensure();},state:S};
+window.StravikDealer={page,cart,tag,refresh:()=>{S.loading=null;return ensure();},state:S,
+  filtering,visible,range,ready,pending,condOf,rev:()=>REV,noList:NOLIST};
 })();

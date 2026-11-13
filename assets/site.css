@@ -1013,6 +1013,10 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 /* buyer accounts (dealer.js): sign in, registration, account, prices, order requests to the fulfilment centre */
 .dprice{display:inline-block;margin-right:8px;padding:3px 8px;border-radius:5px;background:var(--gold-tint);color:var(--gold-deep);font-family:var(--display);font-weight:700;font-size:14.5px;white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
 .dprice.big{font-size:20px;padding:6px 12px;margin:0 12px 0 0;align-self:flex-end}
+.dcond{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.dnolines p{margin:0 0 6px}.dnolines ul{margin:0;padding-left:20px}.dnolines li{margin:2px 0}
+.dnolist a{color:var(--gold-deep);font-weight:600}
+[hidden].fcell,a.brc[hidden],.brh a[hidden],.brmore a[hidden],.buy[hidden],.buy button[hidden]{display:none!important}
 .enq label .lhint{font-weight:400;color:var(--muted,#5b6677);font-size:.9em}
 .dwrap{padding:36px 0 90px}
 .dauth{max-width:520px;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:10px;padding:22px}

@@ -238,16 +238,26 @@ const TPL=`<div class="ewrap"><header class="top">
 root.innerHTML=`<link rel="stylesheet" href="${host.dataset.css}"><div class="ewrap"><p class="ecatload">Loading the battery catalogue…</p></div>`;
 const css=root.querySelector("link");
 const ready=new Promise(res=>{css.addEventListener("load",res);css.addEventListener("error",res);setTimeout(res,4000);});
-Promise.all([fetch("/batteries.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}),ready]).then(([B])=>{
-  root.innerHTML=`<link rel="stylesheet" href="${host.dataset.css}">`+TPL;init(convert(B));
+// Priced-only (assets/dealer.js): an approved customer sees only the batteries on their price list. A signed-in
+// customer's prices arrive before the list is drawn, so the full list never shows first.
+const SD=()=>window.StravikDealer||null;
+const pfilt=()=>{const D=SD();return !!(D&&D.filtering&&D.filtering());};
+const dready=()=>{const D=SD();return D&&D.ready?D.ready():Promise.resolve();};
+Promise.all([fetch("/batteries.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}),ready,dready()]).then(([B])=>{
+  const D=convert(B);
+  if(pfilt()&&!D.cat.length){root.querySelector(".ecatload").innerHTML=`<b>Batteries aren't on your price list.</b> You can still ask us for a price: <a href="/#/request">request a part</a>, or see <a href="/#/products">your catalogues</a>.`;return;}
+  root.innerHTML=`<link rel="stylesheet" href="${host.dataset.css}">`+TPL;init(D);
 }).catch(e=>{const w=root.querySelector(".ecatload");if(w)w.textContent="The battery catalogue could not be loaded. Check your connection and refresh the page.";console.error(e);});
 
 function convert(B){
   const OR={Hungary:"Made in EU",Turkey:"Made in TR",Tunisia:"Made in TN"};
-  const cat=(B.parts||[]).map(p=>({pn:p[0],type:p[1],series:p[2]||"",group:p[3]||"",box:p[4]||"",ah:p[5],cca:String(p[6]),L:p[7],W:p[8],H:p[9],layout:p[10]||"",hd:p[11]||"",dwg:p[12]||"",origin:OR[p[13]]||("Made in "+p[13]),sab:(p[14]||[]).join(" / "),_s:p[14]||[]}));
+  let cat=(B.parts||[]).map(p=>({pn:p[0],type:p[1],series:p[2]||"",group:p[3]||"",box:p[4]||"",ah:p[5],cca:String(p[6]),L:p[7],W:p[8],H:p[9],layout:p[10]||"",hd:p[11]||"",dwg:p[12]||"",origin:OR[p[13]]||("Made in "+p[13]),sab:(p[14]||[]).join(" / "),_s:p[14]||[]}));
   const pns=ix=>(ix||[]).map(i=>cat[i]&&cat[i].pn).filter(Boolean);
-  const veh=(B.vehicles||[]).map(v=>{const sb=String(v[3]||"").replace(/^SAB\s*/i,""),m=sb.match(/^(.*?)\s*\(alt\.\s*(.*)\)\s*$/);
+  let veh=(B.vehicles||[]).map(v=>{const sb=String(v[3]||"").replace(/^SAB\s*/i,""),m=sb.match(/^(.*?)\s*\(alt\.\s*(.*)\)\s*$/);
     return {m:String((B.makes||[])[v[0]]||""),o:v[1]||"",y:v[2]||"",r:m?m[1]:sb,a:m?m[2]:"",s:v[4]||"",fit:pns(v[5]),alt:pns(v[6])};});
+  if(pfilt()){const D=SD(),ok=p=>D.visible(p,"N");   // the customer's batteries, and the vehicles and drawings that still have one
+    cat=D.range("Batteries")?cat.filter(r=>ok(r.pn)):[];const has=new Set(cat.map(r=>r.pn));
+    veh=veh.map(v=>Object.assign(v,{fit:v.fit.filter(p=>has.has(p)),alt:v.alt.filter(p=>has.has(p))})).filter(v=>v.fit.length||v.alt.length);}
   const dwg={};Object.keys(BAT_DWG).forEach(id=>{const rs=cat.filter(r=>r.dwg===id);if(!rs.length)return;const u={};rs.forEach(r=>(u[r.origin]=u[r.origin]||[]).push(r.pn));
     const d=BAT_DWG[id][1];dwg[id]={title:BAT_DWG[id][0],dspec:{L:d[0],W:d[1],H:d[2],htype:"overall"},sabs:[...new Set(rs.flatMap(r=>r._s))].sort(),users:u};});
   return {cat,veh,dwg};
