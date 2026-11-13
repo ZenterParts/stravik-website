@@ -146,8 +146,8 @@
   async function dExcel() {
     try {
       var rows = await L.fetchAll(function () { return sb.from('stravik_dealers').select('*').order('company_name'); });
-      var cols = ['status', 'price_group', 'company_name', 'trading_name', 'cipc_no', 'vat_no', 'business_type', 'years_trading', 'owner_name', 'contact_name', 'contact_role', 'email', 'mobile', 'phone', 'accounts_email', 'country', 'province', 'city', 'store_address', 'postal_code', 'delivery_address', 'receiving_hours', 'truck_access', 'ranges_interest', 'monthly_volume', 'dpw_customer_code', 'review_note', 'submitted_at', 'sales_approved_by', 'sales_approved_at', 'pricing_approved_by', 'pricing_approved_at', 'final_approved_by', 'final_approved_at', 'reviewed_at', 'reviewed_by', 'is_test'];
-      await L.saveXlsx([{ name: 'Customers', head: cols.map(L.label), rows: rows.map(function (r) { return cols.map(function (k) { var v = r[k]; return Array.isArray(v) ? v.join(', ') : v == null ? '' : v; }); }) }], 'Stravik_customers_' + L.today() + '.xlsx');
+      var cols = ['status', 'price_group', 'company_name', 'trading_name', 'cipc_no', 'vat_no', 'business_type', 'years_trading', 'owner_name', 'contact_name', 'contact_role', 'email', 'mobile', 'phone', 'accounts_email', 'country', 'province', 'city', 'store_address', 'postal_code', 'delivery_address', 'delivery_addresses', 'receiving_hours', 'truck_access', 'ranges_interest', 'monthly_volume', 'dpw_customer_code', 'review_note', 'submitted_at', 'sales_approved_by', 'sales_approved_at', 'pricing_approved_by', 'pricing_approved_at', 'final_approved_by', 'final_approved_at', 'reviewed_at', 'reviewed_by', 'is_test'];
+      await L.saveXlsx([{ name: 'Customers', head: cols.map(L.label), rows: rows.map(function (r) { return cols.map(function (k) { var v = r[k]; return Array.isArray(v) ? v.join(k === 'delivery_addresses' ? ' | ' : ', ') : v == null ? '' : v; }); }) }], 'Stravik_customers_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
 
@@ -168,10 +168,17 @@
         if (d.status === 'Rejected') act += '<button type="button" class="btn ghost" id="dReopen">Reopen for approval</button>';
         act += '<button type="button" class="btn ghost" id="dEdit">Edit details</button>';
       }
+      // the four documents every registration needs (the kinds the website uploads them under)
+      var NEED = ['CIPC certificate', 'VAT certificate', 'Proof of address', 'Bank letter'], gotDoc = {}; docs.forEach(function (x) { gotDoc[x.kind] = 1; });
+      var missing = NEED.filter(function (k) { return !gotDoc[k]; });
+      var missWarn = STEP && missing.length ? '<div class="notice bad" id="dMissing" style="flex-basis:100%; margin:0 0 8px"><b>' + (missing.length === 1 ? 'Document' : 'Documents') + ' still missing:</b> ' + esc(missing.join(', ')) + '</div>' : '';
+      // delivery addresses other than the store (older registrations have a single one)
+      var dels = Array.isArray(d.delivery_addresses) ? d.delivery_addresses.filter(Boolean) : []; if (!dels.length && d.delivery_address) dels = [d.delivery_address];
+      var delsHtml = dels.map(function (a, i) { return (dels.length > 1 ? '<span class="muted">' + (i + 1) + '.</span> ' : '') + esc(a); }).join('<br>');
       var by = function (who, at, extra) { return at ? esc(who || '') + ' <span class="small muted">' + esc(L.dt(at)) + '</span>' + (extra || '') : '<span class="muted">waiting</span>'; };
       L.form({
         crumbs: [['Customers', DB], [d.trading_name || d.company_name]],
-        actions: act,
+        actions: missWarn + act,
         status: { steps: STAGES.concat(['Approved']).concat(d.status === 'Rejected' || d.status === 'Suspended' ? [d.status] : []), current: stg, clickable: false },
         sheet: '<div class="o-title"><h1>' + esc(d.trading_name || d.company_name) + '</h1>' + (d.is_test ? L.pill('Test account', 'warn') : '') + (d.group_name || d.price_group ? L.pill(gname(d.price_group), 'Website') : '') + '</div>' +
           '<div class="o-subtitle">' + esc(d.company_name) + ' · registered ' + esc(L.dt(d.submitted_at)) + (d.reviewed_at ? ' · reviewed ' + esc(L.dt(d.reviewed_at)) + ' by ' + esc(d.reviewed_by || '') : '') + '</div>' +
@@ -180,7 +187,7 @@
           L.group('Approval', [['1. Sales team', by(d.sales_approved_by, d.sales_approved_at)], ['2. Pricing team', by(d.pricing_approved_by, d.pricing_approved_at, d.pricing_approved_at && d.price_group ? ' · ' + esc(gname(d.price_group)) : '')], ['3. Final approval', by(d.final_approved_by, d.final_approved_at)]]) +
           L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], [d.country && d.country !== 'South Africa' ? 'Company reg. no.' : 'CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
           L.group('Contacts', [['Owner / director', t(d.owner_name)], ['Contact', t(d.contact_name) + (d.contact_role ? ' <span class="muted">(' + esc(d.contact_role) + ')</span>' : '')], ['Email (login)', '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>'], ['Mobile', t(d.mobile)], ['Phone', t(d.phone)], ['Accounts email', t(d.accounts_email)]]) +
-          L.group('Address', [['Country', t(d.country)], [d.country && d.country !== 'South Africa' ? 'Region' : 'Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], ['Delivery address', t(d.delivery_address)], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
+          L.group('Address', [['Country', t(d.country)], [d.country && d.country !== 'South Africa' ? 'Region' : 'Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], [dels.length > 1 ? 'Delivery addresses (' + dels.length + ')' : 'Delivery address', delsHtml], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
           L.group('Our side', [['Price group', t(gname(d.price_group))], ['Catalogues', d.price_group ? esc(catsText(d)) : ''], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
           '</div>' +
           L.notebook([

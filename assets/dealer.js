@@ -19,8 +19,9 @@ const curName=c=>c==="ZAR"?"rand":c==="USD"?"US dollars":c;
 const COUNTRIES=["South Africa","Algeria","Angola","Bahrain","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde","Central African Republic","Chad","Comoros","Congo (Brazzaville)","Congo (DRC)","Côte d'Ivoire","Djibouti","Egypt","Equatorial Guinea","Eritrea","Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea-Bissau","Iraq","Jordan","Kenya","Kuwait","Lebanon","Lesotho","Liberia","Libya","Madagascar","Malawi","Maldives","Mali","Mauritania","Mauritius","Morocco","Mozambique","Namibia","Niger","Nigeria","Oman","Qatar","Réunion","Rwanda","São Tomé and Príncipe","Saudi Arabia","Senegal","Seychelles","Sierra Leone","Somalia","South Sudan","Sudan","Syria","Tanzania","Togo","Tunisia","Uganda","United Arab Emirates","Yemen","Zambia","Zimbabwe","Other"];
 const isSA=c=>!c||c==="South Africa";
 const PROVINCES=["Eastern Cape","Free State","Gauteng","KwaZulu-Natal","Limpopo","Mpumalanga","Northern Cape","North West","Western Cape"];
-const RANGES=["Batteries","Brakes","Filters","Steering & Suspension","Shock Absorbers","Gas Springs"];
-const DOCS=[["CIPC certificate","Company registration certificate (CIPC in South Africa)"],["VAT certificate","VAT registration certificate"],["Proof of address","Proof of business address"],["Bank letter","Bank confirmation letter (optional)"]];
+// the ranges a customer can say they buy (stravik_categories is not readable by customers, so the list lives here)
+const RANGES=["Brakes","Filters","Steering & Suspension","Shock Absorbers","Batteries","Gas Springs","Alternators","Starters","Ignition Coils","Bulbs","Horns","Water Pumps","Wiper Blades","Clutch Kits"];
+const DOCS=[["CIPC certificate","Company registration certificate (CIPC in South Africa)"],["VAT certificate","VAT registration certificate"],["Proof of address","Proof of business address"],["Bank letter","Bank confirmation letter"]];
 const toast=m=>window.STV&&STV.toast(m);
 const hasSession=()=>{try{return !!localStorage.getItem(STORE);}catch(e){return false;}};
 
@@ -363,39 +364,53 @@ function pwPage(app,c,session){
 }
 
 // ---------- registration form ----------
+// The required fields match the database function stravik_dealer_save, which refuses a registration with any missing.
+const EMAIL_OK=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_DELIVERY=10;
+// a customer's delivery addresses (other than the store); older registrations have a single one
+const deliveryList=d=>{const a=Array.isArray(d.delivery_addresses)?d.delivery_addresses.filter(Boolean):[];return a.length?a:d.delivery_address?[d.delivery_address]:[];};
 function regForm(app,c,me){
   const d=me.dealer||{},v=k=>esc(d[k]||"");
+  const star=' <span class="req" aria-hidden="true">*</span>';
   const sel=(id,opts,cur,blank)=>`<select id="${id}">${blank?`<option value="">${blank}</option>`:""}${opts.map(o=>`<option${o===cur?" selected":""}>${esc(o)}</option>`).join("")}</select>`;
-  const inp=(id,label,o={})=>`<div class="${o.full?"full":""}"><label for="r_${id}">${esc(label)}${o.req?' <span class="req" aria-hidden="true">*</span>':""}</label>${o.area?`<textarea id="r_${id}" rows="3">${v(id)}</textarea>`:`<input id="r_${id}" ${o.type?`type="${o.type}"`:""} ${o.ac?`autocomplete="${o.ac}"`:""} ${o.ph?`placeholder="${esc(o.ph)}"`:""} value="${id==="email"?esc(me.email):v(id)}"${id==="email"?" readonly":""}>`}${o.hint?`<small class="dhint">${o.hint}</small>`:""}<div class="err">Required.</div></div>`;
+  const inp=(id,label,o={})=>`<div class="${o.full?"full":""}"><label for="r_${id}">${esc(label)}${o.req?star:""}</label>${o.area?`<textarea id="r_${id}" rows="3">${v(id)}</textarea>`:`<input id="r_${id}" ${o.type?`type="${o.type}"`:""} ${o.ac?`autocomplete="${o.ac}"`:""} ${o.ph?`placeholder="${esc(o.ph)}"`:""} value="${id==="email"?esc(me.email):v(id)}"${id==="email"?" readonly":""}>`}<div class="err">Required.</div>${o.hint?`<small class="dhint">${o.hint}</small>`:""}</div>`;
   const editing=!!me.dealer;
+  const dels=deliveryList(d),mine=d.ranges_interest||[],ranges=RANGES.concat(mine.filter(r=>RANGES.indexOf(r)<0));
+  // the newest document of each kind already uploaded (a registration that was sent back): it counts, and can be replaced
+  const have={};(d.documents||[]).forEach(x=>{have[x.kind]=x;});
+  const fid=k=>"f_"+k.replace(/\s/g,"");
   app.innerHTML=head(editing?"Update your registration":"Register your business",editing?"Change anything that's wrong and send it again for review.":"Tell us about your business. Our team reviews every registration; once approved you'll see your prices and can order online.",editing?"Update registration":"Register")+
   `<div class="wrap dwrap"><p class="dwho"><span>Signed in as <b>${esc(me.email)}</b>. Not you?</span> <button type="button" class="btn line small" id="rout2">Sign out</button></p><form class="dreg" id="dreg" novalidate>
+   <p class="dhint dreqnote">Fields marked <span class="req">*</span> are required.</p>
    <fieldset><legend>Business</legend><div class="enq">
-     <div class="full"><label for="r_country">Country where the business is registered <span class="req" aria-hidden="true">*</span></label>${sel("r_country",COUNTRIES,d.country||"South Africa")}<small class="dhint">The registration and address fields below follow this choice.</small></div>
-     ${inp("company_name","Registered company name",{req:1,ac:"organization"})}${inp("trading_name","Trading (store) name, if different")}
-     ${inp("cipc_no","CIPC registration number",{ph:"2015/123456/07"})}${inp("vat_no","VAT number",{ph:"4123456789"})}
-     <div><label for="r_business_type">Type of business</label>${sel("r_business_type",["Distributor","Dealer / parts store","Workshop","Fleet operator","Other"],d.business_type,"Choose…")}</div>${inp("years_trading","Years trading")}
+     <div class="full"><label for="r_country">Country where the business is registered${star}</label>${sel("r_country",COUNTRIES,d.country||"South Africa")}<small class="dhint">The registration and address fields below follow this choice.</small></div>
+     ${inp("company_name","Registered company name",{req:1,ac:"organization"})}${inp("trading_name","Trading (store) name",{req:1})}
+     ${inp("cipc_no","CIPC registration number",{req:1,ph:"2015/123456/07"})}${inp("vat_no","VAT number",{req:1,ph:"4123456789"})}
+     <div><label for="r_business_type">Type of business${star}</label>${sel("r_business_type",["Distributor","Dealer / parts store","Workshop","Fleet operator","Other"],d.business_type,"Choose…")}<div class="err">Required.</div></div>${inp("years_trading","Years trading",{req:1})}
    </div></fieldset>
    <fieldset><legend>Contacts</legend><div class="enq">
-     ${inp("owner_name","Owner or director")}${inp("contact_name","Main contact person",{req:1,ac:"name"})}
-     ${inp("contact_role","Their role",{ph:"e.g. Buyer, Store manager"})}${inp("email","Email (your login)",{type:"email"})}
-     ${inp("mobile","Mobile / WhatsApp",{req:1,type:"tel",ac:"tel",ph:"+27 82 123 4567"})}${inp("phone","Office phone",{type:"tel"})}
-     ${inp("accounts_email","Accounts email for invoices",{type:"email",full:1})}
+     ${inp("owner_name","Owner or director",{req:1})}${inp("contact_name","Main contact person",{req:1,ac:"name"})}
+     ${inp("contact_role","Their role",{req:1,ph:"e.g. Buyer, Store manager"})}${inp("email","Email (your login)",{type:"email"})}
+     ${inp("mobile","Mobile / WhatsApp",{type:"tel",ac:"tel",ph:"+27 82 123 4567"})}${inp("phone","Office phone",{req:1,type:"tel"})}
+     ${inp("accounts_email","Accounts email for invoices",{req:1,type:"email",full:1})}
    </div></fieldset>
    <fieldset><legend>Address</legend><div class="enq">
      <div id="provBox"></div>${inp("city","City / town",{req:1,ac:"address-level2"})}
-     ${inp("store_address","Store address",{req:1,full:1,area:1,ac:"street-address"})}${inp("postal_code","Postal code",{ac:"postal-code"})}<div></div>
-     ${inp("delivery_address","Delivery address, if different",{full:1,area:1})}
+     ${inp("store_address","Store address",{req:1,full:1,area:1,ac:"street-address"})}${inp("postal_code","Postal code",{req:1,ac:"postal-code"})}<div></div>
+     <div class="full"><label class="dcheck"><input type="checkbox" id="r_del"${dels.length?" checked":""}> Deliver to a different address</label>
+       <div id="delBox"${dels.length?"":" hidden"}><div id="delList"></div><button type="button" class="btn line small" id="delAdd">Add another delivery address</button></div></div>
      ${inp("receiving_hours","Receiving hours",{ph:"e.g. Mon–Fri 08:00–16:30"})}${inp("truck_access","Truck access / delivery notes",{ph:"e.g. no trucks over 8 t"})}
    </div></fieldset>
    <fieldset><legend>What you buy</legend><div class="enq">
-     <div class="full"><span class="lbl">Ranges you're interested in</span><div class="dchecks">${RANGES.map(r=>`<label><input type="checkbox" name="rng" value="${esc(r)}"${(d.ranges_interest||[]).indexOf(r)>=0?" checked":""}> ${esc(r)}</label>`).join("")}</div></div>
+     <div class="full"><span class="lbl" id="rngL">Ranges you're interested in</span>
+       <div class="dms" id="rngMs"><div class="dms-chips" id="rngChips"></div>
+         <button type="button" class="dms-btn" id="rngBtn" aria-haspopup="true" aria-expanded="false" aria-controls="rngList">Choose ranges…</button>
+         <div class="dms-list" id="rngList" role="group" aria-labelledby="rngL" hidden>${ranges.map(r=>`<label><input type="checkbox" name="rng" value="${esc(r)}"${mine.indexOf(r)>=0?" checked":""}> ${esc(r)}</label>`).join("")}</div></div></div>
      ${inp("monthly_volume","Expected monthly volume",{ph:"e.g. 200 batteries"})}<div></div>
      ${inp("comments","Anything else we should know",{full:1,area:1})}
    </div></fieldset>
-   <fieldset><legend>Documents</legend><p class="dhint">PDF, JPG or PNG, up to 10 MB each. You can also email them to us later.</p>
-     ${(d.documents&&d.documents.length)?`<ul class="ddocs">${d.documents.map(x=>`<li><b>${esc(x.kind)}</b> · ${esc(x.file_name)}</li>`).join("")}</ul>`:""}
-     <div class="enq">${DOCS.map(([k,l])=>`<div><label for="f_${esc(k.replace(/\s/g,""))}">${esc(l)}</label><input type="file" id="f_${esc(k.replace(/\s/g,""))}" data-kind="${esc(k)}" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"></div>`).join("")}</div>
+   <fieldset><legend>Documents</legend><p class="dhint">All four documents are needed. PDF, JPG or PNG, up to 10 MB each.</p>
+     <div class="enq">${DOCS.map(([k,l])=>`<div><label for="${fid(k)}">${esc(l)}${star}</label><input type="file" id="${fid(k)}" data-kind="${esc(k)}"${have[k]?' data-have="1"':""} accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"><div class="err">Required.</div>${have[k]?`<small class="dhint ddochave">Uploaded: ${esc(have[k].file_name)}</small>`:""}</div>`).join("")}</div>
    </fieldset>
    <fieldset><legend>Consent</legend>
      <label class="dcheck"><input type="checkbox" id="r_terms"${d.accepted_terms?" checked":""}> I confirm these details are correct and that I'm authorised to register this business with Stravik.</label>
@@ -409,26 +424,64 @@ function regForm(app,c,me){
   const setLabel=(id,text,ph)=>{const l=f.querySelector('label[for="r_'+id+'"]');if(l)l.firstChild.nodeValue=text;const i=f.querySelector("#r_"+id);if(i)i.placeholder=ph||"";};
   const byCountry=()=>{
     const c=f.querySelector("#r_country").value,sa=isSA(c),cur=(f.querySelector("#r_province")||{}).value||d.province||"";
-    f.querySelector("#provBox").innerHTML=sa?`<label for="r_province">Province <span class="req" aria-hidden="true">*</span></label>${sel("r_province",PROVINCES,PROVINCES.indexOf(cur)>=0?cur:"","Choose…")}<div class="err">Required.</div>`
+    f.querySelector("#provBox").innerHTML=sa?`<label for="r_province">Province${star}</label>${sel("r_province",PROVINCES,PROVINCES.indexOf(cur)>=0?cur:"","Choose…")}<div class="err">Required.</div>`
       :`<label for="r_province">Region / state / province</label><input id="r_province" value="${esc(PROVINCES.indexOf(cur)>=0?"":cur)}" autocomplete="address-level1">`;
     setLabel("cipc_no",sa?"CIPC registration number":"Company registration number",sa?"2015/123456/07":"");
     setLabel("vat_no",sa?"VAT number":"VAT / tax number",sa?"4123456789":"");
-    setLabel("mobile","Mobile / WhatsApp ",sa?"+27 82 123 4567":"Include the country code, e.g. +254 712 345 678");
+    setLabel("mobile","Mobile / WhatsApp",sa?"+27 82 123 4567":"Include the country code, e.g. +254 712 345 678");
   };
   f.querySelector("#r_country").addEventListener("change",byCountry);byCountry();
+  // delivery addresses: a tick box, then one box per address (up to ten)
+  const delOn=f.querySelector("#r_del"),delBox=f.querySelector("#delBox"),delList=f.querySelector("#delList"),delAdd=f.querySelector("#delAdd");
+  const delTidy=()=>{const rows=[...delList.children];
+    rows.forEach((r,i)=>{r.querySelector("label").textContent=rows.length>1?"Delivery address "+(i+1):"Delivery address";r.querySelector("label").htmlFor=r.querySelector("textarea").id="r_del"+i;r.querySelector("[data-del-x]").hidden=rows.length<2;});
+    delAdd.hidden=rows.length>=MAX_DELIVERY;};
+  const delRow=text=>{const r=document.createElement("div");r.className="ddel";
+    r.innerHTML=`<label></label><textarea rows="2" maxlength="400" autocomplete="off"></textarea><div class="err">Enter the address, or remove this box.</div><button type="button" class="linkbtn" data-del-x>Remove this address</button>`;
+    r.querySelector("textarea").value=text||"";delList.appendChild(r);delTidy();return r;};
+  dels.slice(0,MAX_DELIVERY).forEach(delRow);
+  delOn.addEventListener("change",()=>{delBox.hidden=!delOn.checked;if(delOn.checked){if(!delList.children.length)delRow("");delList.querySelector("textarea").focus();}});
+  delAdd.addEventListener("click",()=>{if(delList.children.length<MAX_DELIVERY)delRow("").querySelector("textarea").focus();});
+  delList.addEventListener("click",e=>{const x=e.target.closest("[data-del-x]");if(x){x.closest(".ddel").remove();delTidy();}});
+  // ranges: a dropdown to pick several, the picked ones shown as chips that can be removed
+  const ms=f.querySelector("#rngMs"),msBtn=f.querySelector("#rngBtn"),msList=f.querySelector("#rngList"),chips=f.querySelector("#rngChips");
+  const picked=()=>[...msList.querySelectorAll("input:checked")].map(x=>x.value);
+  const msPaint=()=>{const a=picked();chips.innerHTML=a.map(r=>`<span class="dchip">${esc(r)}<button type="button" data-rng-x="${esc(r)}" aria-label="Remove ${esc(r)}">×</button></span>`).join("");
+    msBtn.textContent=a.length?"Add or remove ranges…":"Choose ranges…";};
+  const msOpen=o=>{msList.hidden=!o;msBtn.setAttribute("aria-expanded",o);};
+  msBtn.addEventListener("click",()=>msOpen(msList.hidden));
+  msList.addEventListener("change",msPaint);
+  chips.addEventListener("click",e=>{const x=e.target.closest("[data-rng-x]");if(!x)return;const i=[...msList.querySelectorAll("input")].find(i=>i.value===x.dataset.rngX);if(i)i.checked=false;msPaint();msBtn.focus();});
+  ms.addEventListener("keydown",e=>{if(e.key==="Escape"&&!msList.hidden){msOpen(false);msBtn.focus();}});
+  const msAway=e=>{if(!document.body.contains(ms)){document.removeEventListener("click",msAway);return;}if(!ms.contains(e.target))msOpen(false);};
+  document.addEventListener("click",msAway);
+  msPaint();
   const ro=f.querySelector("#rout");if(ro)ro.onclick=()=>signOut(c);
   app.querySelector("#rout2").onclick=()=>signOut(c);
+  // a field marked red clears as soon as it is filled in
+  ["input","change"].forEach(ev=>f.addEventListener(ev,e=>{if(e.target.classList)e.target.classList.remove("invalid");}));
+  const say=t=>{st.textContent=t;st.classList.add("show");st.scrollIntoView({block:"center",behavior:"smooth"});};
   f.addEventListener("submit",async ev=>{
     ev.preventDefault();st.classList.remove("show");
     const val=id=>{const el=f.querySelector("#r_"+id);return el?el.value.trim():"";};
-    const req=["company_name","contact_name","mobile","city","store_address"].concat(isSA(val("country"))?["province"]:[]);let first=null;
-    req.forEach(id=>{const el=f.querySelector("#r_"+id),bad=!el.value.trim();el.classList.toggle("invalid",bad);if(bad&&!first)first=el;});
-    if(first){first.focus();return;}
-    if(!f.querySelector("#r_terms").checked||!f.querySelector("#r_popia").checked){st.textContent="Please tick both consent boxes.";st.classList.add("show");return;}
-    const files=[...f.querySelectorAll("input[type=file]")].filter(i=>i.files[0]);
-    const big=files.find(i=>i.files[0].size>10485760);if(big){st.textContent=big.files[0].name+" is larger than 10 MB.";st.classList.add("show");return;}
-    const p={};["company_name","trading_name","cipc_no","vat_no","business_type","years_trading","owner_name","contact_name","contact_role","mobile","phone","accounts_email","country","province","city","store_address","postal_code","delivery_address","receiving_hours","truck_access","monthly_volume","comments"].forEach(k=>p[k]=val(k));
-    p.ranges_interest=[...f.querySelectorAll("input[name=rng]:checked")].map(x=>x.value);p.accepted_terms=true;p.accepted_popia=true;
+    const sa=isSA(val("country"));let first=null;
+    const mark=(el,bad,text)=>{el.classList.toggle("invalid",bad);if(bad&&text){const e=el.nextElementSibling;if(e&&e.classList.contains("err"))e.textContent=text;}if(bad&&!first)first=el;};
+    // in the order they appear on the page, so the first one missing is the one scrolled to
+    ["company_name","trading_name","cipc_no","vat_no","business_type","years_trading","owner_name","contact_name","contact_role","phone"].forEach(id=>mark(f.querySelector("#r_"+id),!val(id)));
+    mark(f.querySelector("#r_accounts_email"),!EMAIL_OK.test(val("accounts_email")),val("accounts_email")?"Enter a valid email address.":"Required.");
+    if(sa)mark(f.querySelector("#r_province"),!val("province"));
+    ["city","store_address","postal_code"].forEach(id=>mark(f.querySelector("#r_"+id),!val(id)));
+    const delTa=delOn.checked?[...delList.querySelectorAll("textarea")]:[];
+    delTa.forEach(t=>mark(t,!t.value.trim()));
+    const fileIn=[...f.querySelectorAll("input[type=file]")];
+    fileIn.forEach(i=>mark(i,!i.files[0]&&!i.dataset.have));
+    if(first){first.scrollIntoView({block:"center",behavior:"smooth"});first.focus({preventScroll:true});return;}
+    if(!f.querySelector("#r_terms").checked||!f.querySelector("#r_popia").checked){say("Please tick both consent boxes.");return;}
+    const files=fileIn.filter(i=>i.files[0]);
+    const big=files.find(i=>i.files[0].size>10485760);if(big){say(big.files[0].name+" is larger than 10 MB.");return;}
+    const p={};["company_name","trading_name","cipc_no","vat_no","business_type","years_trading","owner_name","contact_name","contact_role","mobile","phone","accounts_email","country","province","city","store_address","postal_code","receiving_hours","truck_access","monthly_volume","comments"].forEach(k=>p[k]=val(k));
+    p.delivery_addresses=delTa.map(t=>t.value.trim());
+    p.ranges_interest=picked();p.accepted_terms=true;p.accepted_popia=true;
     btn.disabled=true;btn.textContent="Sending…";
     try{
       const me2=must(await c.rpc("stravik_dealer_save",{p}));
@@ -441,7 +494,7 @@ function regForm(app,c,me){
       }
       c.functions.invoke("stravik-dealer-mail",{body:{action:"registered"}}).catch(()=>{});
       S.me=me2;paintAll();toast("Registration sent for review");go("#/dealer");
-    }catch(err){st.textContent=msg(err);st.classList.add("show");btn.disabled=false;btn.textContent=editing?"Send for review again":"Send for review";}
+    }catch(err){say(msg(err));btn.disabled=false;btn.textContent=editing?"Send for review again":"Send for review";}
   });
 }
 
@@ -496,7 +549,11 @@ async function cart(app){
     return {i,cond,price:price==null?null:Number(price),desc:x.description||i.desc||"",ok:!!(R?x.allowed_r:x.allowed)&&!(po&&price==null)};});
   const ok=L.filter(l=>l.ok),no=L.filter(l=>!l.ok);
   const cw=l=>l.cond==="R"?` <span class="dcond">Remanufactured</span>`:"";
-  const addr=d.delivery_address||[d.store_address,d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
+  // where to deliver: the store, one of the customer's delivery addresses, or another address typed for this order
+  const oneLine=t=>String(t||"").replace(/\s*\n\s*/g,", ").trim();
+  const store=[oneLine(d.store_address),d.city,d.province,d.postal_code,isSA(d.country)?"":d.country].filter(Boolean).join(", ");
+  const ADDR=(store?[["Store",store]]:[]).concat(deliveryList(d).map(a=>["Delivery",oneLine(a)]));
+  const first=ADDR.findIndex(a=>a[0]==="Delivery");   // as before: a registered delivery address is offered first
   sec.innerHTML=`<div class="panel-head"><h2>Send order request</h2></div>
     ${ok.length?`<table class="ctable dot"><thead><tr><th>Part</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="dotb"></tbody><tfoot id="dotf"></tfoot></table>`:""}
     ${!no.length?"":po?`<div class="dpad dnote dnolines"><p><b>${no.length} part${no.length===1?"":"s"}</b> not on your price list - you can send these with the request for price form:</p><ul>${no.map(l=>`<li><b>${esc(l.i.no)}</b>${cw(l)} ${esc(l.desc)}</li>`).join("")}</ul></div>`
@@ -505,7 +562,8 @@ async function cart(app){
       <div><label for="o_po">Your order / PO reference</label><input id="o_po" maxlength="60"></div>
       <div><label for="o_cn">Contact name</label><input id="o_cn" value="${esc(d.contact_name)}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_ph">Contact phone</label><input id="o_ph" type="tel" value="${esc(d.mobile||d.phone||"")}" required><div class="err">Required.</div></div>
-      <div class="full"><label for="o_ad">Deliver to <span class="lhint">(your registered delivery address: change it only if this order goes somewhere else)</span></label><textarea id="o_ad" rows="3" required>${esc(addr)}</textarea><div class="err">Required.</div></div>
+      <div class="full"><label for="o_as">Deliver to</label><select id="o_as">${ADDR.map((a,i)=>`<option value="${i}"${i===(first<0?0:first)?" selected":""}>${esc(a[0]+": "+a[1])}</option>`).join("")}<option value="other"${ADDR.length?"":" selected"}>Another address…</option></select></div>
+      <div class="full" id="o_adb"${ADDR.length?" hidden":""}><label for="o_ad">Delivery address for this order</label><textarea id="o_ad" rows="3"></textarea><div class="err">Required.</div></div>
       <div class="full"><label for="o_no">Notes for the fulfilment centre (optional)</label><textarea id="o_no" rows="2"></textarea></div>
       <div class="full"><button class="btn gold" type="submit" id="o_go">Send order request</button></div>
       <p class="note">Your order request goes to our fulfilment centre, who confirm it, deliver and invoice you. Prices are in ${esc(curName(CUR()))}${VAT()?`; ${Math.round(VAT()*100)}% VAT is added to the total`:""}.</p>
@@ -521,14 +579,17 @@ async function cart(app){
   paint();
   const ci=app.querySelector("#citems");if(ci)ci.addEventListener("change",()=>setTimeout(paint,0));
   const f=sec.querySelector("#dof");if(!f)return;
+  const as=f.querySelector("#o_as"),adb=f.querySelector("#o_adb"),ad=f.querySelector("#o_ad");
+  as.addEventListener("change",()=>{const o=as.value==="other";adb.hidden=!o;if(o)ad.focus();});
+  const deliverTo=()=>as.value==="other"?ad.value.trim():ADDR[+as.value][1];
   f.addEventListener("submit",async ev=>{
     ev.preventDefault();const st=f.querySelector("#o_st"),btn=f.querySelector("#o_go");st.classList.remove("show");
-    let first=null;["o_cn","o_ph","o_ad"].forEach(id=>{const el=f.querySelector("#"+id),bad=!el.value.trim();el.classList.toggle("invalid",bad);if(bad&&!first)first=el;});if(first){first.focus();return;}
+    let first=null;["o_cn","o_ph","o_ad"].forEach(id=>{const el=f.querySelector("#"+id),bad=id==="o_ad"?!deliverTo():!el.value.trim();el.classList.toggle("invalid",bad);if(bad&&!first)first=el;});if(first){first.focus();return;}
     // one line per part and condition (the same part may be ordered new and remanufactured)
     const lines=[];ok.forEach(l=>{const q=qty(l),ex=lines.find(x=>x.pn===l.i.no&&x.cond===l.cond);if(ex)ex.qty+=q;else lines.push({pn:l.i.no,qty:q,cond:l.cond});});
     btn.disabled=true;btn.textContent="Sending…";
     try{
-      const r=must(await c.rpc("stravik_place_order",{p:{items:lines,po_ref:f.querySelector("#o_po").value,contact_name:f.querySelector("#o_cn").value,contact_phone:f.querySelector("#o_ph").value,delivery_address:f.querySelector("#o_ad").value,notes:f.querySelector("#o_no").value}}));
+      const r=must(await c.rpc("stravik_place_order",{p:{items:lines,po_ref:f.querySelector("#o_po").value,contact_name:f.querySelector("#o_cn").value,contact_phone:f.querySelector("#o_ph").value,delivery_address:deliverTo(),notes:f.querySelector("#o_no").value}}));
       let mail=null;try{mail=(await c.functions.invoke("stravik-dealer-mail",{body:{action:"order",order_no:r.order_no}})).data;}catch(e){}
       ok.forEach(l=>STV.Cart.remove(l.i.key));
       done(app,r.order_no,mail);
