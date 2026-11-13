@@ -20,7 +20,7 @@ const SS_SLUG=c=>{const t=SS_TYPES.find(x=>x[0]===c);return t?{name:t[2],href:"/
 const brType=c=>{const t=BR_TYPES.find(x=>x[0]===c);return {name:t[2],href:"/#/brakes/"+slug(t[2])};};
 const BRK=CATALOG.find(c=>c.id==="braking-system");
 const MENU=[
-  {name:"Braking systems",icon:"disc",href:"/#/products/braking-system",kids:[
+  {name:"Braking systems",icon:"disc",cat:"Brakes",href:"/#/products/braking-system",kids:[
     brType("PAD"),brType("CVP"),brType("DSC"),
     {name:"Brake calipers",href:"/#/product/brake-calipers"},
     brType("SHO"),
@@ -28,34 +28,61 @@ const MENU=[
     {name:"Brake hoses",href:"/#/product/brake-hose-flexible"},
     {name:"More braking parts",href:"/#/products/braking-system",kids:BRK.types.map(t=>({name:t.name,href:`/#/products/braking-system/${slug(t.name)}`}))},
     {name:"Search the catalogue",href:"/#/brakes"}]},
-  {name:"Steering & suspension",icon:"ball",href:"/#/products/steering-suspension",kids:
+  {name:"Steering & suspension",icon:"ball",cat:"Steering & Suspension",href:"/#/products/steering-suspension",kids:
     ["CA","TE","BS","SL","BJ","RE","IA","SR","DL","SM","EM","IS","OS"].map(SS_SLUG).filter(Boolean).concat([{name:"Search the catalogue",href:"/#/steering"}])},
-  {name:"Shock absorbers",icon:"shock",href:"/#/products/shock-absorbers",kids:SA_TYPES.filter(t=>!/gas spring/i.test(t[2])).map(t=>({name:t[2],href:"/#/shock-absorbers/"+slug(t[2])})).concat([{name:"Gas springs",href:"/#/products/gas-springs",kids:GS_TYPES.map(t=>({name:t[2],href:"/#/gas-springs/"+t[3]})).concat([{name:"Search the catalogue",href:"/#/gas-springs"}])},{name:"Search the catalogue",href:"/#/shock-absorbers"}])},   // gas springs (their own catalogue) sit with the shock absorbers
-  {name:"Filters",icon:"f_oil",href:"/filters/",kids:[["O","Oil filters"],["A","Air filters"],["H","Cabin filters"],["D","Diesel fuel filters"],["G","Petrol fuel filters"],["R","Coolant filters"],["J","Filter kits"]].map(f=>({name:f[1],href:"/filters/?fam="+f[0]})).concat([{name:"Find by vehicle",href:"/filters/#vehicles"},{name:"Search the catalogue",href:"/filters/"}])},
+  {name:"Shock absorbers",icon:"shock",cat:"Shock Absorbers",href:"/#/products/shock-absorbers",kids:SA_TYPES.filter(t=>!/gas spring/i.test(t[2])).map(t=>({name:t[2],href:"/#/shock-absorbers/"+slug(t[2])})).concat([{name:"Gas springs",cat:"Gas Springs",href:"/#/products/gas-springs",kids:GS_TYPES.map(t=>({name:t[2],href:"/#/gas-springs/"+t[3]})).concat([{name:"Search the catalogue",href:"/#/gas-springs"}])},{name:"Search the catalogue",href:"/#/shock-absorbers"}])},   // gas springs (their own catalogue) sit with the shock absorbers
+  {name:"Filters",icon:"f_oil",cat:"Filters",href:"/filters/",kids:[["O","Oil filters"],["A","Air filters"],["H","Cabin filters"],["D","Diesel fuel filters"],["G","Petrol fuel filters"],["R","Coolant filters"],["J","Filter kits"]].map(f=>({name:f[1],href:"/filters/?fam="+f[0]})).concat([{name:"Find by vehicle",href:"/filters/#vehicles"},{name:"Search the catalogue",href:"/filters/"}])},
   {name:"Electrical",icon:"bolt",href:"/#/products",kids:[
-    {name:"Alternators",href:"/#/alternators"},
-    {name:"Bulbs",href:"/#/bulbs"},
-    {name:"Horns",href:"/#/horns"},
-    {name:"Starter motors",href:"/#/starters"},
-    {name:"Ignition coils",href:"/#/ignition-coils"}]},
-  {name:"Batteries",icon:"battery",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"}]},
-  {name:"Engine cooling",icon:"pump",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
-  {name:"Wiper systems",icon:"wiper",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
+    {name:"Alternators",cat:"Alternators",href:"/#/alternators"},
+    {name:"Bulbs",cat:"Bulbs",href:"/#/bulbs"},
+    {name:"Horns",cat:"Horns",href:"/#/horns"},
+    {name:"Starter motors",cat:"Starters",href:"/#/starters"},
+    {name:"Ignition coils",cat:"Ignition Coils",href:"/#/ignition-coils"}]},
+  {name:"Batteries",icon:"battery",cat:"Batteries",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"}]},
+  {name:"Engine cooling",icon:"pump",cat:"Water Pumps",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
+  {name:"Wiper systems",icon:"wiper",cat:"Wiper Blades",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const megaCol=(items,lvl)=>`<ul class="mcol" data-lvl="${lvl}">${items.map((it,k)=>`<li${it.kids&&it.kids.length?' class="has"':""} data-k="${k}"><a href="${it.href}">${esc(it.name)}</a>${it.kids&&it.kids.length?`<span class="chev">${CHEV}</span>`:""}</li>`).join("")}</ul>`;
 ddMenu.classList.add("mega");
-ddMenu.innerHTML=`<div class="mega-cols">${megaCol(MENU,0)}<div class="mcol2"></div><div class="mcol3"></div></div>
-  <div class="mega-m">${MENU.map(f=>!f.kids.length?`<a class="mega-solo" href="${f.href}">${esc(f.name)}</a>`:`<details><summary><a href="${f.href}">${esc(f.name)}</a></summary><ul>${f.kids.flatMap(g=>g.href==="/#/steering"&&g.kids?g.kids:[g]).map(g=>`<li><a href="${g.href}">${esc(g.name)}</a></li>`).join("")}</ul></details>`).join("")}<a class="mega-all" href="/#/products">All products</a></div>
+// The menu as one visitor sees it. Priced-only (assets/dealer.js): an approved customer gets only the ranges they have
+// parts in. A node's "cat" is its catalogue; nodes without one belong to their parent's. A family shows if its own
+// catalogue or one of the ranges inside it is the customer's; if only a range inside is (gas springs without shock
+// absorbers), that range takes the family's place.
+function prune(items,ok,inh){
+  const out=[];
+  items.forEach(it=>{const cat=it.cat||inh,mine=!cat||ok(cat);
+    if(!it.kids){if(mine)out.push(it);return;}
+    const kids=prune(it.kids,ok,cat);
+    if(mine){if(kids.length)out.push(Object.assign({},it,{kids}));}
+    else kids.forEach(k=>{if(k.cat)out.push(k);});});
+  return out;
+}
+let CUR=MENU,menuKey="all";
+function menuDraw(list,note){
+  CUR=list;
+  ddMenu.innerHTML=note?`<p class="mega-note">${esc(note)}</p><div class="mega-m"><a class="mega-all" href="/#/products">All products</a></div><a class="mega-foot" href="/#/products">All products</a>`:
+  `<div class="mega-cols">${megaCol(list,0)}<div class="mcol2"></div><div class="mcol3"></div></div>
+  <div class="mega-m">${list.map(f=>!f.kids||!f.kids.length?`<a class="mega-solo" href="${f.href}">${esc(f.name)}</a>`:`<details><summary><a href="${f.href}">${esc(f.name)}</a></summary><ul>${f.kids.flatMap(g=>g.href==="/#/steering"&&g.kids?g.kids:[g]).map(g=>`<li><a href="${g.href}">${esc(g.name)}</a></li>`).join("")}</ul></details>`).join("")}<a class="mega-all" href="/#/products">All products</a></div>
   <a class="mega-foot" href="/#/products">All products</a>`;
-(function(){
-  const c1=ddMenu.querySelector('[data-lvl="0"]'),c2=ddMenu.querySelector(".mcol2"),c3=ddMenu.querySelector(".mcol3");let f=null;
-  const act=(ul,li)=>{ul.querySelectorAll("li").forEach(x=>x.classList.toggle("on",x===li));};
-  const open1=li=>{f=MENU[li.dataset.k];act(c1,li);c2.innerHTML=megaCol(f.kids,1);c3.innerHTML="";};
-  const open2=li=>{const g=f.kids[li.dataset.k];act(c2.firstElementChild,li);c3.innerHTML=g.kids&&g.kids.length?megaCol(g.kids,2):"";};
-  ["mouseover","focusin"].forEach(ev=>ddMenu.addEventListener(ev,e=>{const li=e.target.closest&&e.target.closest("li[data-k]");if(!li)return;
-    const lvl=li.parentElement.dataset.lvl;if(lvl==="0"&&!li.classList.contains("on"))open1(li);else if(lvl==="1"&&!li.classList.contains("on"))open2(li);else if(lvl==="2")act(li.parentElement,li);}));
-  open1(c1.firstElementChild);
-})();
+  const first=ddMenu.querySelector('[data-lvl="0"] li');if(first)open1(first);
+}
+// ok: a test for one catalogue name (priced-only), null for the full menu, or "wait" while a signed-in customer's
+// catalogues are still loading (nothing is listed, so the full menu never shows first)
+function menu(ok){
+  if(ok==="wait"){if(menuKey!=="wait"){menuKey="wait";menuDraw([],"Loading your catalogues…");}return;}
+  const list=ok?prune(MENU,ok):MENU,key=ok?JSON.stringify(list.map(function k(n){return [n.href,(n.kids||[]).map(k)];})):"all";
+  if(key===menuKey)return;menuKey=key;
+  if(list.length)menuDraw(list);else menuDraw([],"There are no parts on your price list yet.");
+}
+let fam=null;
+const mAct=(ul,li)=>{ul.querySelectorAll("li").forEach(x=>x.classList.toggle("on",x===li));};
+function open1(li){const c2=ddMenu.querySelector(".mcol2"),c3=ddMenu.querySelector(".mcol3");fam=CUR[li.dataset.k];mAct(li.parentElement,li);c2.innerHTML=megaCol(fam.kids||[],1);c3.innerHTML="";}
+function open2(li){const c3=ddMenu.querySelector(".mcol3"),g=fam.kids[li.dataset.k];mAct(li.parentElement,li);c3.innerHTML=g.kids&&g.kids.length?megaCol(g.kids,2):"";}
+["mouseover","focusin"].forEach(ev=>ddMenu.addEventListener(ev,e=>{const li=e.target.closest&&e.target.closest("li[data-k]");if(!li)return;
+  const lvl=li.parentElement.dataset.lvl;if(lvl==="0"&&!li.classList.contains("on"))open1(li);else if(lvl==="1"&&!li.classList.contains("on"))open2(li);else if(lvl==="2")mAct(li.parentElement,li);}));
+// a signed-in customer (assets/dealer.js keeps its session under this key): hold the menu until dealer.js has their catalogues
+let held=false;try{held=!!localStorage.getItem("stravik-buyer-auth");}catch(e){}
+if(held){menu("wait");setTimeout(()=>{if(menuKey==="wait")menu(null);},10000);}else menuDraw(MENU);   // the timer: never leave the menu empty if dealer.js could not answer
 const DDS=[...document.querySelectorAll(".dd")];
 const ddOne=(d,o)=>{d.classList.toggle("open",o);d.querySelector(".dd-btn").setAttribute("aria-expanded",o);};
 const ddSet=o=>DDS.forEach(d=>ddOne(d,o));
@@ -135,5 +162,5 @@ document.addEventListener("keydown",e=>{
 })();
 
 cartPaint();
-window.STV={Cart,cartPaint,toast,clampQty,ddSet,ddBtn,nav,menuBtn,esc};
+window.STV={Cart,cartPaint,toast,clampQty,ddSet,ddBtn,nav,menuBtn,esc,menu};
 })();

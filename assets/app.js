@@ -77,17 +77,13 @@ const viewed=load=>Promise.all([load(),dready()]).then(([d])=>pview(d));
 const mkOn=(d,ix)=>!pfilt()||d.mkCount[ix]>0;
 const mkN=d=>pfilt()?d.mkCount.filter(Boolean).length:d.makes.length;
 const notMine=what=>`<div class="noresults"><p><b>${esc(what)} ${/s$/.test(what)?"aren't":"isn't"} on your price list.</b></p><p style="margin-top:8px">You can still ask us for a price.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn gold" href="#/request">Request a part</a><a class="btn line" href="#/products">Your catalogues</a></p></div>`;
-// how many parts of each catalogue the customer sees, e.g. {"Brakes": 120}; catalogues outside theirs are not downloaded
-let RC=null;   // {rev, n}: the counts for the current price list (n null if they could not be loaded)
-const rcReady=()=>!!(RC&&RC.rev===drev());
-const rangeHas=cat=>!pfilt()?true:rcReady()&&RC.n?RC.n[cat]>0:rangeOk(cat);
-function rangeCounts(){
-  if(rcReady()&&RC.n)return Promise.resolve(RC.n);
-  const rev=drev();
-  const one=(cat,load)=>rangeOk(cat)?load().then(d=>[cat,d.items.length]).catch(()=>[cat,0]):Promise.resolve([cat,0]);
-  return Promise.all([one("Brakes",loadBR),one("Steering & Suspension",loadSS),one("Shock Absorbers",loadSA),one("Filters",loadFilters),one("Gas Springs",loadGS),one("Batteries",loadBAT),
-    loadStd().then(a=>a.map(r=>[r.c.cat,r.d.items.length]))]).then(a=>{const n={};a.slice(0,6).concat(a[6]).forEach(x=>n[x[0]]=x[1]);RC={rev,n};return n;});
-}
+// which catalogues the customer has parts in, and how many (e.g. {"Brakes": 120}): worked out once for the whole
+// site by assets/dealer.js, which also keeps the Products menu, the footer and every link to a range in step
+const rcReady=()=>{const D=SDL();return !!(D&&D.rangesKnown&&D.rangesKnown());};
+const RCN=()=>{const D=SDL();return D&&D.rangeN&&D.rangeN()||{};};
+const rangeHas=cat=>{const D=SDL();return !D||!D.rangeHas||D.rangeHas(cat);};
+function rangeCounts(){const D=SDL();return D&&D.rangeCounts?D.rangeCounts():Promise.resolve(null);}
+const rangesWait=()=>{const D=SDL();return !!(D&&D.rangesPending&&D.rangesPending());};
 async function w3fSend(fields,subject,replyto){
   const r=await fetch("https://api.web3forms.com/submit",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
     body:JSON.stringify(Object.assign({access_key:W3F_KEY,subject,from_name:"Stravik website",replyto},fields))});
@@ -256,13 +252,22 @@ function wireSearchPanel(root,params){
 
 // ---------- home ----------
 const FAMILIES=[
-  {id:"braking",name:"Braking",icon:"disc",img:"/assets/img/braking/card.webp",photo:1,href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
-  {id:"ss",name:"Steering & suspension",icon:"ball",img:"/assets/img/steering-suspension/card.webp",photo:1,href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
-  {id:"shock",name:"Shock absorbers",icon:"shock",img:"/assets/img/shock-absorbers/card.webp",photo:1,href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
-  {id:"fl",name:"Filtration",icon:"f_oil",img:"/assets/img/filters/card.webp",photo:1,href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
-  {id:"gs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs/card.webp",photo:1,href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
-  {id:"bat",name:"Batteries",icon:"battery",img:"/assets/img/batteries/card.webp",photo:1,href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/catalogue/",catText:"Search the catalogue"}];
+  {id:"braking",rng:"Brakes",name:"Braking",icon:"disc",img:"/assets/img/braking/card.webp",photo:1,href:"#/products/braking-system",text:"Brake pads in three compounds, discs, shoes, hydraulics, electronic control and parking brake parts.",cat:"#/brakes",catText:"Search the catalogue"},
+  {id:"ss",rng:"Steering & Suspension",name:"Steering & suspension",icon:"ball",img:"/assets/img/steering-suspension/card.webp",photo:1,href:"#/products/steering-suspension",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts.",cat:"#/steering",catText:"Search the catalogue"},
+  {id:"shock",rng:"Shock Absorbers",name:"Shock absorbers",icon:"shock",img:"/assets/img/shock-absorbers/card.webp",photo:1,href:"#/products/shock-absorbers",text:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit.",cat:"#/shock-absorbers",catText:"Search the catalogue"},
+  {id:"fl",rng:"Filters",name:"Filtration",icon:"f_oil",img:"/assets/img/filters/card.webp",photo:1,href:"#/products/filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",cat:"#/filters",catText:"Search the catalogue"},
+  {id:"gs",rng:"Gas Springs",name:"Gas springs",icon:"sa_gas",img:"/assets/img/gas-springs/card.webp",photo:1,href:"#/products/gas-springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, matched to OE length, stroke and force.",cat:"#/gas-springs",catText:"Search the catalogue"},
+  {id:"bat",rng:"Batteries",name:"Batteries",icon:"battery",img:"/assets/img/batteries/card.webp",photo:1,href:"/batteries/",text:"SMF, EFB, AGM and heavy duty starter batteries for cars, bakkies, trucks, buses and tractors.",cat:"/batteries/catalogue/",catText:"Search the catalogue"}];
 const famCard=f=>`<article class="fam${f.soon?" soon":""}">${f.soon?`<div class="fam-top">`:`<a class="fam-top" href="${f.href}">`}<div class="fam-pic${f.photo?" photo":""}">${f.img?`<img src="${f.img}" alt="${f.photo?"Stravik "+esc(f.name.toLowerCase()):"Stravik "+esc(f.name.toLowerCase())+" box"}" loading="lazy">`:`<span class="ic">${icon(f.icon)}</span>`}${f.soon?`<span class="fam-soon">Coming soon</span>`:""}</div><div class="fam-body"><h3>${esc(f.name)}</h3><p>${esc(f.text)}</p></div>${f.soon?`</div>`:`</a>`}<a class="fam-cat" href="${f.cat}">${f.catText} →</a></article>`;
+// the family cards: for an approved customer on a priced-only list, the families they have parts in (assets/dealer.js).
+// While a signed-in customer's catalogues are still loading the grid waits, so the full range never shows first.
+function famGrid(){
+  if(rangesWait())return `<p class="loading" style="grid-column:1/-1">Loading your catalogues…</p>`;
+  const mine=FAMILIES.filter(f=>rangeHas(f.rng));
+  return mine.length?mine.map(famCard).join(""):`<p class="loading" style="grid-column:1/-1">Open <a href="#/products">your catalogues</a> to see the ranges on your price list.</p>`;
+}
+let famsNow="";
+document.addEventListener("stravik-ranges",()=>{const g=app.querySelector(".fams[data-fams]");if(!g)return;const h=famGrid();if(h!==famsNow){famsNow=h;g.innerHTML=h;document.dispatchEvent(new Event("stravik-fams"));}});
 function home(){
   app.innerHTML=`
   <section class="hero hvid">
@@ -287,7 +292,7 @@ function home(){
 
   <section class="block paper"><div class="wrap">
     <div class="head"><div><div class="eyebrow-d">Products</div><h2>Shop by product family</h2><p>Choose a family to see its part types, or open a catalogue to search by part, OE or cross-reference number.</p></div><a class="btn line" href="#/products">All products</a></div>
-    <div class="fams fams5">${FAMILIES.map(famCard).join("")}</div>
+    <div class="fams fams5" data-fams>${famsNow=famGrid()}</div>
   </div></section>`;
   const hv=app.querySelector(".hvideo");
   if(hv){const still=matchMedia("(prefers-reduced-motion: reduce)").matches,save=navigator.connection&&navigator.connection.saveData;
@@ -476,7 +481,7 @@ function productsHome(){
     ["Starters",m=>pc("/assets/img/starters/card.webp","starter","Starter Motors","12 V and 24 V starter motors for cars, pickups and light commercials, with vehicle fitment and OE numbers.",["",m],`<a class="btn gold" href="#/starters">Open the catalogue</a>`,1)],
     ["Batteries",m=>pc("/assets/img/batteries/card.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",m],`<a class="btn gold" href="/batteries/catalogue/">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`,1)]];
   // priced-only: the customer's catalogues that have parts for them, each with its number of parts
-  const mine=RANGES.filter(r=>rangeHas(r[0])),cnt=c=>pfilt()&&rcReady()&&RC.n?RC.n[c].toLocaleString("en-US")+(RC.n[c]===1?" part":" parts")+" on your price list":"";
+  const mine=RANGES.filter(r=>rangeHas(r[0])),cnt=c=>pfilt()&&rcReady()&&RCN()[c]!=null?RCN()[c].toLocaleString("en-US")+(RCN()[c]===1?" part":" parts")+" on your price list":"";
   app.innerHTML=`
   <section class="hero prange" aria-labelledby="prange-h">
     <video class="pvideo" muted loop playsinline preload="metadata" poster="/assets/products-hero-poster.webp" aria-hidden="true"><source src="/assets/products-hero.webm" type="video/webm"><source src="/assets/products-hero.mp4" type="video/mp4"></video>
@@ -1700,12 +1705,12 @@ function route(){
   const parts=path.split("/").filter(Boolean);
   // a signed-in customer: the pages that list catalogues wait for their prices, so the full range never flashes first
   if(dpending()&&(parts[0]==="products"||parts[0]==="new")&&!(parts[0]==="products"&&parts[1]==="filters")){
-    const at=location.hash;app.innerHTML=`<div class="wrap" style="padding:60px 0"><p class="loading">Loading…</p></div>`;
+    const at=location.hash;app.innerHTML=`<div class="wrap" style="padding:60px 0" data-rwait><p class="loading">Loading…</p></div>`;
     dready().then(()=>{if(location.hash===at)route();});return;}
   // priced-only: these pages also need to know which catalogues have parts for the customer
   if(pfilt()&&!rcReady()&&(parts[0]==="products"||parts[0]==="new")&&!(parts[0]==="products"&&parts[1]==="filters")){
-    const at=location.hash,rev=drev();app.innerHTML=`<div class="wrap" style="padding:60px 0"><p class="loading">Loading your catalogues…</p></div>`;
-    rangeCounts().catch(()=>{RC={rev,n:null};}).then(()=>{if(location.hash===at)route();});return;}
+    const at=location.hash;app.innerHTML=`<div class="wrap" style="padding:60px 0" data-rwait><p class="loading">Loading your catalogues…</p></div>`;
+    rangeCounts().catch(()=>null).then(()=>{if(location.hash===at&&rcReady())route();});return;}
   let key="home";
   if(!parts.length)home();
   else if(parts[0]==="find"){key="find";findPage(params);}
@@ -1739,4 +1744,6 @@ function route(){
   if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="products"&&parts[1]==="shock-absorbers")document.title="Shock Absorbers | Stravik";else if(parts[0]==="products"&&parts[1]==="braking-system"&&!parts[2])document.title="Braking System | Stravik";else if(parts[0]==="products"&&parts[1]==="batteries")document.title="Batteries | Stravik";else if(parts[0]==="products"&&parts[1]==="gas-springs")document.title="Gas Springs | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(key!=="stdcat"&&!["filter","steering","shock-absorbers","brakes","batteries","gas-springs","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key]||"Stravik";
 }
 addEventListener("hashchange",route);route();
+// the price list changed while a page was waiting for it (e.g. the customer signed in in another tab): draw it now
+document.addEventListener("stravik-ranges",()=>{if(app.querySelector("[data-rwait]")&&!dpending()&&!(pfilt()&&!rcReady()))route();});
 })();

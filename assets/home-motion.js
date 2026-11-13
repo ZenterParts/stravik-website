@@ -38,8 +38,9 @@ function init(){
   // what reveals, and how
   const mark=(sel,kind,step)=>app.querySelectorAll(sel).forEach((el,i)=>{el.dataset.rv=kind;if(step)el.style.setProperty("--d",(i*step).toFixed(2)+"s");});
   mark(".intro-txt","left");mark(".intro-pic","right");mark("section.paper .head","up");mark(".fams .fam","zoom",.09);
+  let io=null;
   if(!still){
-    const io=new IntersectionObserver(es=>es.forEach(e=>{
+    io=new IntersectionObserver(es=>es.forEach(e=>{
       if(!e.isIntersecting)return;const el=e.target;io.unobserve(el);el.classList.add("in");
       const d=parseFloat(el.style.getPropertyValue("--d"))||0;
       setTimeout(()=>el.style.removeProperty("--d"),(d+1.1)*1000); // hover reacts instantly once shown
@@ -49,12 +50,18 @@ function init(){
   }else app.querySelectorAll("[data-rv]").forEach(el=>el.classList.add("in"));
 
   // cards: glow follows the pointer, gentle 3D tilt
-  if(finePointer)app.querySelectorAll(".fams .fam").forEach(c=>{
+  const tilt=c=>{
     on(c,"pointermove",e=>{const r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
       c.style.setProperty("--mx",(x*100).toFixed(1)+"%");c.style.setProperty("--my",(y*100).toFixed(1)+"%");
       if(!still){c.style.setProperty("--rx",((.5-y)*7).toFixed(2)+"deg");c.style.setProperty("--ry",((x-.5)*9).toFixed(2)+"deg");}});
     on(c,"pointerleave",()=>{c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg");});
-  });
+  };
+  if(finePointer)app.querySelectorAll(".fams .fam").forEach(tilt);
+  // a signed-in customer's family cards are drawn once their catalogues are known (assets/app.js): give those the same motion
+  on(document,"stravik-fams",()=>app.querySelectorAll(".fams .fam:not([data-rv])").forEach((c,i)=>{
+    c.dataset.rv="zoom";c.style.setProperty("--d",(i*.09).toFixed(2)+"s");
+    if(io)io.observe(c);else c.classList.add("in");
+    if(finePointer)tilt(c);}));
 
   // progress bar and dot navigation
   const bar=document.createElement("div");bar.className="hm-progress";bar.setAttribute("aria-hidden","true");document.body.append(bar);

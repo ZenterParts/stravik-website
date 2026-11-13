@@ -93,6 +93,123 @@ function condOf(it){
 }
 const NOLIST="This part isn't on your price list";
 
+// ---------- priced-only: the ranges the customer has parts in ----------
+// A range (catalogue) is the customer's when it is one of their catalogues and at least one of its parts has a price
+// for them. Ranges that are not are left out of the Products menu, the footer, the home page and every other link
+// (their own pages stay as a fallback for old links). The counts come from the published catalogue files and are
+// kept in this browser, so the next page knows them at once; they are checked again in the background.
+const CAT_DATA={"Brakes":"/brakes.json","Steering & Suspension":"/steering-suspension.json","Shock Absorbers":"/shock-absorbers.json","Filters":"/filters.json","Gas Springs":"/gas-springs.json","Batteries":"/batteries.json",
+  "Ignition Coils":"/ignition-coils.json","Bulbs":"/bulbs.json","Horns":"/horns.json","Wiper Blades":"/wiper-blades.json","Water Pumps":"/water-pumps.json","Alternators":"/alternators.json","Starters":"/starters.json"};
+const RC_STORE="stravik-range-counts-v1",RC_FRESH=10*60*1000;
+let RC=null,RCP=null;   // RC {rev, n:{catalogue: parts}} for the current price list; n[catalogue] is null if its file could not be read
+// tells one price list from another: the customer, their catalogues and every priced part
+function rcSig(){
+  const P=S.prices;let h=2166136261;
+  const add=t=>{for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619);}};
+  add((D()&&(D().id||D().email)||"")+"|"+(P.categories||[]).join(",")+"|");
+  P.map.forEach((v,k)=>add(k+";"));add("|");P.rmap.forEach((v,k)=>add(k+";"));
+  return (h>>>0).toString(36)+"."+P.map.size+"."+P.rmap.size;
+}
+// the parts of one catalogue file this customer sees: new parts by their price, new and remanufactured ("k") by either
+function countFile(url){
+  return fetch(url,{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(d=>{
+    let n=0;(d.parts||d.items||[]).forEach(p=>{const arr=Array.isArray(p),pn=arr?p[0]:p.pn;
+      if((arr||!p.k?["N"]:p.k.split("")).some(k=>visible(pn,k)))n++;});
+    return n;});
+}
+function rcLoad(rev){
+  if(RCP&&RCP.rev===rev)return RCP.p;
+  const sig=rcSig(),cats=Object.keys(CAT_DATA);
+  const p=Promise.all(cats.map(c=>range(c)?countFile(CAT_DATA[c]).catch(()=>null):0)).then(a=>{
+    if(rev!==REV)return null;
+    const n={};cats.forEach((c,i)=>n[c]=a[i]);
+    const was=RC&&RC.rev===rev?JSON.stringify(RC.n):"";
+    RC={rev,n};
+    if(a.every(x=>x!=null)){try{localStorage.setItem(RC_STORE,JSON.stringify({sig,at:Date.now(),n}));}catch(e){}}
+    if(JSON.stringify(n)!==was)paintRanges(true);
+    return n;});
+  RCP={rev,p};return p;
+}
+// called whenever the price list changes: use the counts kept in this browser, and read the files if they are old or missing
+function rcStart(){
+  RC=null;RCP=null;if(!filtering())return;
+  let c=null;try{c=JSON.parse(localStorage.getItem(RC_STORE)||"null");}catch(e){}
+  if(c&&c.n&&c.sig===rcSig()){RC={rev:REV,n:c.n};if(Date.now()-c.at<RC_FRESH)return;}
+  rcLoad(REV);
+}
+const rcKnown=()=>!!(RC&&RC.rev===REV);
+// {catalogue: number of parts the customer sees}, or null when not filtering
+function rangeCounts(){return !filtering()?Promise.resolve(null):rcKnown()?Promise.resolve(RC.n):rcLoad(REV);}
+// does the customer have parts in this catalogue (always true for visitors and while the switch is off)
+function rangeHas(cat){
+  if(!filtering())return true;
+  const n=rcKnown()?RC.n[cat]:null;
+  return n==null?range(cat):n>0;
+}
+// resolves once we know which ranges to show; at once for visitors without a customer session
+function rangesReady(){return !hasSession()?Promise.resolve():ready().then(()=>rangeCounts()).catch(()=>null);}
+const rangesPending=()=>pending()||(filtering()&&!rcKnown());
+
+// which catalogue a link opens, from its address (null: not a link to a range)
+const HASH_CAT={brakes:"Brakes",steering:"Steering & Suspension","shock-absorbers":"Shock Absorbers","gas-springs":"Gas Springs",filters:"Filters",batteries:"Batteries",
+  "ignition-coils":"Ignition Coils",bulbs:"Bulbs",horns:"Horns","wiper-blades":"Wiper Blades","water-pumps":"Water Pumps",alternators:"Alternators",starters:"Starters"};
+const PROD_CAT={"braking-system":"Brakes","steering-suspension":"Steering & Suspension","shock-absorbers":"Shock Absorbers",filters:"Filters","gas-springs":"Gas Springs",batteries:"Batteries"};
+const ELECTRICAL=["Alternators","Bulbs","Horns","Starters","Ignition Coils"];
+const pslug=t=>t.toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+let PRODUCT=null;   // #/product/<part type> pages: the family the part type belongs to
+function productCat(id){
+  if(!PRODUCT){PRODUCT={};try{CATALOG.forEach(c=>c.types.forEach(t=>t.subs.forEach(s=>{PRODUCT[pslug(s[0])]=PROD_CAT[c.id];})));}catch(e){}}
+  return PRODUCT[id]||null;
+}
+const HREFS=new Map();
+function hrefCat(h){
+  if(HREFS.has(h))return HREFS.get(h);
+  let cat=null;const m=/^(?:https?:\/\/[^/]+)?\/?#\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?/i.exec(h),s=/^(?:https?:\/\/[^/]+)?\/(batteries|filters)\//.exec(h);
+  if(s)cat=s[1]==="batteries"?"Batteries":"Filters";
+  else if(m){const std=window.StdCat&&StdCat.cats&&StdCat.cats[m[1]];
+    cat=m[1]==="products"?PROD_CAT[m[2]]||null:m[1]==="product"?productCat(m[2]):HASH_CAT[m[1]]||(std&&std.cat)||null;}
+  HREFS.set(h,cat);return cat;
+}
+// the catalogues a link stands for: its own, or the electrical ranges for the footer's "Electrical"
+const linkCats=a=>{const li=a.closest("footer.site li");
+  if(li&&a.textContent.trim()==="Electrical")return ELECTRICAL;
+  const c=hrefCat(a.getAttribute("href"));return c?[c]:null;};
+// what goes with a link: its line in the footer, its "/" in a breadcrumb trail
+function linkBox(a){
+  const li=a.closest("footer.site li");if(li)return [li];
+  if(a.parentElement&&a.parentElement.classList.contains("crumbs")){const n=a.nextElementSibling;return n&&n.tagName==="SPAN"?[a,n]:[a];}
+  return [a];
+}
+const RSEL='a[href*="#/"],a[href^="/batteries/"],a[href^="/filters/"],footer.site li a';
+let rstyle=false;
+// hide the links to ranges the customer has no parts in (held back, not shown, while their catalogues are loading)
+function sweepRanges(){
+  const f=filtering(),wait=rangesPending();
+  if(!f&&!wait){document.querySelectorAll("[data-rhid],[data-rpend]").forEach(e=>{e.removeAttribute("data-rhid");e.removeAttribute("data-rpend");});return;}
+  if(!rstyle){rstyle=true;const st=document.createElement("style");st.textContent="[data-rhid]{display:none!important}[data-rpend]{visibility:hidden!important}";document.head.appendChild(st);}
+  document.querySelectorAll(RSEL).forEach(a=>{
+    if(a.closest("#dd-products"))return;
+    const cats=linkCats(a);if(!cats)return;
+    const hide=!wait&&!cats.some(rangeHas);
+    linkBox(a).forEach(e=>{
+      if(wait){if(!e.hasAttribute("data-rpend"))e.setAttribute("data-rpend","");}else if(e.hasAttribute("data-rpend"))e.removeAttribute("data-rpend");
+      if(hide){if(!e.hasAttribute("data-rhid"))e.setAttribute("data-rhid","");}else if(e.hasAttribute("data-rhid"))e.removeAttribute("data-rhid");});});
+}
+// the Products menu (assets/common.js), the links on the page, and a signal for the pages that list ranges
+function paintRanges(tell){
+  const wait=rangesPending();
+  if(window.STV&&STV.menu)STV.menu(wait?"wait":filtering()?rangeHas:null);
+  sweepRanges();watchRanges();
+  if(tell)document.dispatchEvent(new Event("stravik-ranges"));
+}
+// pages are drawn after this script runs (the home app, the catalogues): sweep whatever is added
+let rwatch=null,rraf=0;
+function watchRanges(){
+  if(rwatch||!(hasSession()||S.me))return;
+  rwatch=new MutationObserver(()=>{if(rraf||!(filtering()||rangesPending()))return;rraf=requestAnimationFrame(()=>{rraf=0;sweepRanges();});});
+  rwatch.observe(document.body,{childList:true,subtree:true});
+}
+
 // ---------- header link and price tags ----------
 function paintNav(){
   const nav=document.getElementById("mainnav");if(!nav)return;
@@ -122,7 +239,7 @@ function paintPrices(root){
 }
 function clearPrices(){document.querySelectorAll(".dprice").forEach(x=>x.remove());document.querySelectorAll("[data-price-pn]").forEach(x=>{x.innerHTML="";});}
 let REV=0;   // goes up whenever the customer's prices (and so what they may see) change
-function paintAll(){REV++;paintNav();if(S.prices)paintPrices();else clearPrices();partPage();document.dispatchEvent(new Event("stravik-prices"));}
+function paintAll(){REV++;paintNav();if(S.prices)paintPrices();else clearPrices();partPage();rcStart();paintRanges();document.dispatchEvent(new Event("stravik-prices"));document.dispatchEvent(new Event("stravik-ranges"));}
 
 // ---------- static part pages (/part/<PN>/): the buy box ----------
 // Priced-only: keep the buttons that have a price; if none has, replace the box with a note and a link to the
@@ -433,8 +550,9 @@ paintNav();
 // a signed-in customer on a part page: hold the buy box back until we know whether the part is on their price list
 if(hasSession()){const hold=[buyBox()].concat([...document.querySelectorAll(".block.related,.brgrid")]).filter(Boolean);
   if(hold.length){hold.forEach(e=>{e.style.visibility="hidden";});ready().then(()=>hold.forEach(e=>{e.style.visibility="";}));}}
-if(hasSession())ready();
+if(hasSession()){ready();paintRanges();rangesReady().then(()=>paintRanges(true));}   // the menu and the range links wait for the customer's catalogues
 if(hasSession()||/[?&]code=/.test(location.search))ensure().then(()=>{if(/[?&]code=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash);});
 window.StravikDealer={page,cart,tag,refresh:()=>{S.loading=null;return ensure();},state:S,
-  filtering,visible,range,ready,pending,condOf,rev:()=>REV,noList:NOLIST};
+  filtering,visible,range,ready,pending,condOf,rev:()=>REV,noList:NOLIST,
+  rangeHas,rangeCounts,rangesReady,rangesPending,rangesKnown:rcKnown,rangeN:()=>rcKnown()?RC.n:null};
 })();
