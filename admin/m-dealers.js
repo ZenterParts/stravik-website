@@ -16,8 +16,29 @@
   var gopt = function (g) { return (/^T\d$/.test(g.code) && g.name.indexOf(g.code) < 0 ? g.code + ' · ' : '') + g.name + (g.categories ? ' (' + g.categories.join(', ') + ' only)' : ''); };
   var GROUPS = [];
   // orders are in the order's currency: ZAR (excl. VAT, VAT added) for South African tier customers, USD for the older groups
+  var condName = function (c) { return c === 'R' ? 'Remanufactured' : 'New'; };
   var omoney = function (v, cur) { return v == null || v === '' ? '' : (cur || 'USD') + ' ' + L.money(v); };
   async function groups() { if (!GROUPS.length) GROUPS = L.must(await sb.from('stravik_group_price_counts').select('*').order('sort')); return GROUPS; }
+  // Catalogues a customer may see and order (stravik_dealers.categories; null = every range of the price group).
+  // The names are stravik_categories.subcategory_key, the same values as stravik_parts.subcategory.
+  var CATS = [];
+  async function cats() { if (!CATS.length) CATS = L.must(await sb.from('stravik_categories').select('subcategory_key,name,sort_order').order('sort_order')); return CATS; }
+  var gcats = function (code) { var g = GROUPS.find(function (x) { return x.code === code; }); return g && g.categories ? g.categories : null; };
+  var catsText = function (d) { var g = gcats(d.price_group), c = d.categories; return c && c.length ? c.join(', ') : g ? g.join(', ') + ' (the price group\'s ranges)' : 'All ranges'; };
+  // tick-boxes: all ticked = all ranges. A price group limited to some ranges (e.g. batteries only) greys out the others.
+  var catBoxes = function (boxId, sel, group) {
+    var g = gcats(group);
+    return '<div id="' + boxId + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 14px">' + CATS.map(function (c) {
+      var k = c.subcategory_key, off = g && g.indexOf(k) < 0, on = !off && (!sel || !sel.length || sel.indexOf(k) >= 0);
+      return '<label style="font-weight:400' + (off ? ';opacity:.5' : '') + '"><input type="checkbox" value="' + esc(k) + '"' + (on ? ' checked' : '') + (off ? ' disabled' : '') + '> ' + esc(c.name || k) + '</label>'; }).join('') + '</div>' +
+      '<div class="small muted" style="margin-top:4px">All ticked = every range' + (g ? ' of this price group (' + esc(g.join(', ')) + ')' : '') + ', including ranges added later. With the priced-only switch on (Customers &gt; Settings) the customer sees only these catalogues.</div>';
+  };
+  // the choice to save: null when everything that can be ticked is ticked
+  var catPick = function (boxId) {
+    var all = Array.from($(boxId).querySelectorAll('input:not([disabled])')), on = all.filter(function (i) { return i.checked; });
+    if (!on.length) return false;
+    return on.length === all.length ? null : on.map(function (i) { return i.value; });
+  };
   var gname = function (code) { var g = GROUPS.find(function (x) { return x.code === code; }); return g ? g.name : (code || ''); };
   // Pricing approval / change of group: exactly what the customer would see with the chosen group (their country decides the region)
   async function tierPreview(box, dealerId, code, d0name) {
@@ -133,7 +154,7 @@
   // =================================================================== customer form
   async function dForm(id) {
     try {
-      await groups();
+      await groups(); await cats();
       var r = await Promise.all([sb.from('stravik_dealers').select('*').eq('id', id).maybeSingle(), sb.from('stravik_dealer_documents').select('*').eq('dealer_id', id).order('id'), sb.from('stravik_order_list').select('*').eq('dealer_id', id).order('created_at', { ascending: false })]);
       var d = L.must(r[0]), docs = L.must(r[1]), orders = L.must(r[2]), ed = L.isEditor();
       if (!d) { L.cp({ crumbs: [['Customers', DB], ['Not found']] }); return L.content(L.empty('Account not found', '')); }
@@ -160,7 +181,7 @@
           L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], [d.country && d.country !== 'South Africa' ? 'Company reg. no.' : 'CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
           L.group('Contacts', [['Owner / director', t(d.owner_name)], ['Contact', t(d.contact_name) + (d.contact_role ? ' <span class="muted">(' + esc(d.contact_role) + ')</span>' : '')], ['Email (login)', '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>'], ['Mobile', t(d.mobile)], ['Phone', t(d.phone)], ['Accounts email', t(d.accounts_email)]]) +
           L.group('Address', [['Country', t(d.country)], [d.country && d.country !== 'South Africa' ? 'Region' : 'Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], ['Delivery address', t(d.delivery_address)], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
-          L.group('Our side', [['Price group', t(gname(d.price_group))], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
+          L.group('Our side', [['Price group', t(gname(d.price_group))], ['Catalogues', d.price_group ? esc(catsText(d)) : ''], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
           '</div>' +
           L.notebook([
             { key: 'docs', label: 'Documents (' + docs.length + ')', html: docs.length ? '<table class="grid compact"><thead><tr><th>Document</th><th>File</th><th>Uploaded</th><th></th></tr></thead><tbody>' + docs.map(function (x) { return '<tr><td>' + esc(x.kind) + '</td><td>' + esc(x.file_name) + ' <span class="small muted">' + (x.size_bytes ? Math.round(x.size_bytes / 1024) + ' KB' : '') + '</span></td><td class="small">' + esc(L.dt(x.uploaded_at)) + '</td><td><button type="button" class="btn ghost small" data-doc="' + esc(x.path) + '">Open</button></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">No documents uploaded. Ask the customer to email them, or to upload them under “Update your details”.</p>' },
@@ -171,24 +192,30 @@
         b.onclick = async function () { try { var u = L.must(await sb.storage.from('stravik-dealer-docs').createSignedUrl(b.dataset.doc, 300)); window.open(u.signedUrl, '_blank', 'noopener'); } catch (e) { L.fail(e); } };
       });
       var opt = function (sel) { return GROUPS.map(function (g) { return '<option value="' + esc(g.code) + '"' + (g.code === sel ? ' selected' : '') + '>' + esc(gopt(g)) + '</option>'; }).join(''); };
-      var approve = async function (step, group, note) {
-        L.must(await sb.rpc('stravik_dealer_approve', { p_id: id, p_step: step, p_price_group: group || null, p_note: note || null }));
+      var approve = async function (step, group, note, pick) {
+        var args = { p_id: id, p_step: step, p_price_group: group || null, p_note: note || null };
+        if (step === 'pricing') args.p_categories = pick || null;
+        L.must(await sb.rpc('stravik_dealer_approve', args));
         var m = step === 'final' || step === 'reject' ? await mail({ action: 'dealer-status', dealer_id: id }) : '';
         if (step === 'sales' || step === 'pricing') { try { await sb.functions.invoke('stravik-dealer-mail', { body: { action: 'approval-step', dealer_id: id } }); } catch (e) { /* the next approver also sees it in the list */ } }
         L.closeModal(); L.toast({ sales: 'Sales approval done · next: pricing team', pricing: 'Pricing approval done · next: final approval', final: 'Approved', reject: 'Sent back to the customer' }[step] + (m ? ' · ' + m : '')); GROUPS = []; dForm(id);
       };
       if ($('dApprove')) $('dApprove').onclick = function () {
         var intro = { sales: '<p>Step 1 of 3. Confirm the business details and documents are in order. Next, the pricing team chooses the price group.</p>',
-          pricing: '<p>Step 2 of 3. Choose the price list this customer gets. Then it goes for final approval.</p>',
-          final: '<p>Step 3 of 3. Price group: <b>' + esc(gname(d.price_group)) + '</b>. Once approved, the customer gets an email, sees these prices in the catalogue and can send order requests.</p>' }[STEP];
+          pricing: '<p>Step 2 of 3. Choose the price list this customer gets and the catalogues they may see and order. Then it goes for final approval.</p>',
+          final: '<p>Step 3 of 3. Price group: <b>' + esc(gname(d.price_group)) + '</b>. Catalogues: <b>' + esc(catsText(d)) + '</b>. Once approved, the customer gets an email, sees these prices in the catalogue and can send order requests.</p>' }[STEP];
         L.modal(STEPNAME[STEP] + ': ' + (d.trading_name || d.company_name), intro +
-          L.group('', (STEP === 'pricing' ? [['Price group', '<select id="apG"><option value="">Choose a price group…</option>' + opt(d.price_group || '') + '</select>']] : []).concat([['Note (internal, optional)', '<textarea id="apN"></textarea>']])) +
+          L.group('', (STEP === 'pricing' ? [['Price group', '<select id="apG"><option value="">Choose a price group…</option>' + opt(d.price_group || '') + '</select>'], ['Catalogues', '<div id="apCw">' + catBoxes('apC', d.categories, d.price_group || '') + '</div>']] : []).concat([['Note (internal, optional)', '<textarea id="apN"></textarea>']])) +
           (STEP === 'pricing' || STEP === 'final' ? '<div id="apP"></div>' : '') +
           '<div class="o-footer"><button class="btn" id="apGo"' + (STEP === 'pricing' && !d.price_group ? ' disabled' : '') + '>' + (STEP === 'final' ? 'Approve customer' : 'Approve') + '</button><button class="btn ghost" id="apX">Cancel</button></div>', STEP === 'pricing' || STEP === 'final');
         $('apX').onclick = L.closeModal;
         if ($('apP')) tierPreview($('apP'), id, STEP === 'pricing' ? $('apG').value : d.price_group, d.trading_name || d.company_name);
-        if ($('apG')) $('apG').onchange = function () { $('apGo').disabled = !this.value; tierPreview($('apP'), id, this.value, d.trading_name || d.company_name); };
-        $('apGo').onclick = function () { var b = this; b.disabled = true; approve(STEP, $('apG') ? $('apG').value : null, $('apN').value.trim()).catch(function (e) { b.disabled = false; L.fail(e); }); };
+        if ($('apG')) $('apG').onchange = function () { $('apGo').disabled = !this.value; var keep = catPick('apC'); $('apCw').innerHTML = catBoxes('apC', keep || null, this.value); tierPreview($('apP'), id, this.value, d.trading_name || d.company_name); };
+        $('apGo').onclick = function () {
+          var b = this, pick = null;
+          if (STEP === 'pricing') { pick = catPick('apC'); if (pick === false) return L.toast('Tick at least one catalogue'); }
+          b.disabled = true; approve(STEP, $('apG') ? $('apG').value : null, $('apN').value.trim(), pick).catch(function (e) { b.disabled = false; L.fail(e); });
+        };
       };
       if ($('dReject')) $('dReject').onclick = function () {
         L.modal('Ask for changes or reject', '<p>The customer sees this note on their account page and gets it by email. When they update their details and send them again, the approval starts again from the sales team.</p><textarea id="rjN" rows="4" placeholder="e.g. Please upload your CIPC certificate and VAT certificate.">' + esc(d.review_note || '') + '</textarea>' +
@@ -206,10 +233,13 @@
       if ($('dReopen')) $('dReopen').onclick = function () { if (confirm('Reopen this account for approval? It starts again at the sales team.')) setStatus({ status: 'Pending', sales_approved_at: null, sales_approved_by: null, pricing_approved_at: null, pricing_approved_by: null, final_approved_at: null, final_approved_by: null }, 'Reopened').catch(L.fail); };
       if ($('dSuspend')) $('dSuspend').onclick = function () { if (confirm('Put this account on hold? The customer can no longer see prices or order.')) setStatus({ status: 'Suspended' }, 'On hold').catch(L.fail); };
       if ($('dGroup')) $('dGroup').onclick = function () {
-        L.modal('Change price group', L.group('', [['Price group', '<select id="cgG">' + opt(d.price_group) + '</select>'], ['DPW customer code', '<input id="cgC" value="' + esc(d.dpw_customer_code || '') + '">']]) + '<div id="cgP"></div><div class="o-footer"><button class="btn" id="cgGo">Save</button><button class="btn ghost" id="cgX">Cancel</button></div>', true);
+        L.modal('Change price group', L.group('', [['Price group', '<select id="cgG">' + opt(d.price_group) + '</select>'], ['Catalogues', '<div id="cgKw">' + catBoxes('cgK', d.categories, d.price_group) + '</div>'], ['DPW customer code', '<input id="cgC" value="' + esc(d.dpw_customer_code || '') + '">']]) + '<div id="cgP"></div><div class="o-footer"><button class="btn" id="cgGo">Save</button><button class="btn ghost" id="cgX">Cancel</button></div>', true);
         $('cgX').onclick = L.closeModal;
-        tierPreview($('cgP'), id, $('cgG').value, d.trading_name || d.company_name); $('cgG').onchange = function () { tierPreview($('cgP'), id, this.value, d.trading_name || d.company_name); };
-        $('cgGo').onclick = function () { setStatus({ price_group: $('cgG').value, dpw_customer_code: $('cgC').value.trim() || null }, 'Saved').catch(L.fail); };
+        tierPreview($('cgP'), id, $('cgG').value, d.trading_name || d.company_name); $('cgG').onchange = function () { var keep = catPick('cgK'); $('cgKw').innerHTML = catBoxes('cgK', keep || null, this.value); tierPreview($('cgP'), id, this.value, d.trading_name || d.company_name); };
+        $('cgGo').onclick = function () {
+          var pick = catPick('cgK'); if (pick === false) return L.toast('Tick at least one catalogue');
+          setStatus({ price_group: $('cgG').value, categories: pick, dpw_customer_code: $('cgC').value.trim() || null }, 'Saved').catch(L.fail);
+        };
       };
       $('dEdit').onclick = function () {
         var F = [['company_name', 'Company'], ['trading_name', 'Trading as'], ['cipc_no', 'CIPC no.'], ['vat_no', 'VAT no.'], ['contact_name', 'Contact'], ['mobile', 'Mobile'], ['phone', 'Phone'], ['accounts_email', 'Accounts email'], ['province', 'Province'], ['city', 'City'], ['store_address', 'Store address'], ['delivery_address', 'Delivery address'], ['receiving_hours', 'Receiving hours'], ['truck_access', 'Truck access'], ['dpw_customer_code', 'DPW customer code'], ['internal_notes', 'Internal notes']];
@@ -302,11 +332,26 @@
       var ORD = ['approvers_sales', 'approvers_pricing', 'approvers_final', 'order_email_team', 'order_email_dpw', 'order_email_from', 'site_url'], rank = function (k) { var i = ORD.indexOf(k); return i < 0 ? 99 : i; };
       var rows = L.must(await sb.from('stravik_settings').select('*').order('key')).sort(function (x, y) { return rank(x.key) - rank(y.key); }), ed = L.isEditor();
       L.cp({ crumbs: [['Customers', DB], ['Settings']], buttons: ed ? '<button type="button" class="btn" id="seSave">Save</button>' : '' });
-      L.content('<div class="o-sheet" style="max-width:820px"><p class="muted">Approvers: the staff who may give each approval step, by their admin login email (several separated by commas). They also need a staff login. Emails go out through Resend.</p>' +
+      var po = rows.find(function (r) { return r.key === 'priced_only'; }), poOn = !!po && ['on', 'yes', 'true', '1'].indexOf(String(po.value || '').trim().toLowerCase()) >= 0;
+      rows = rows.filter(function (r) { return r.key !== 'priced_only'; });
+      // priced_only: an on/off switch (the website and the order function read "on" / "off")
+      var poHtml = !po ? '' : '<div class="o-field" style="grid-template-columns:200px minmax(0,1fr)"><label for="sePo">Priced-only catalogue</label><div class="o-val">' +
+        '<label style="display:inline-flex;align-items:center;gap:10px;font-weight:600;cursor:' + (ed ? 'pointer' : 'default') + '"><input type="checkbox" id="sePo" role="switch"' + (poOn ? ' checked' : '') + (ed ? '' : ' disabled') + ' style="position:absolute;opacity:0;width:0;height:0">' +
+        '<span id="sePoT" aria-hidden="true" style="position:relative;display:inline-block;width:44px;height:24px;border-radius:12px;transition:background .15s"><span style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s"></span></span><span id="sePoL"></span></label>' +
+        '<div class="small muted">' + esc(po.description || '') + '</div></div></div>';
+      L.content('<div class="o-sheet" style="max-width:820px">' + poHtml + '<p class="muted">Approvers: the staff who may give each approval step, by their admin login email (several separated by commas). They also need a staff login. Emails go out through Resend.</p>' +
         rows.map(function (r) { return '<div class="o-field" style="grid-template-columns:200px minmax(0,1fr)"><label for="se_' + esc(r.key) + '">' + esc(({ approvers_sales: '1. Sales team', approvers_pricing: '2. Pricing team', approvers_final: '3. Final approval (Pedro)', order_email_dpw: 'Fulfilment centre email (DP World SA)', order_email_team: 'Our team email', order_email_from: 'Sender', site_url: 'Website address' })[r.key] || L.label(r.key)) + '</label><div class="o-val"><input id="se_' + esc(r.key) + '" data-k="' + esc(r.key) + '" value="' + esc(r.value || '') + '"' + (ed ? '' : ' readonly') + '><div class="small muted">' + esc(r.description || '') + '</div></div></div>'; }).join('') + '</div>');
+      var poPaint = function () { if (!$('sePo')) return; var on = $('sePo').checked; $('sePoT').style.background = on ? '#2f7d5b' : '#b9c0bb'; $('sePoT').firstChild.style.transform = on ? 'translateX(20px)' : ''; $('sePoL').textContent = on ? 'On' : 'Off'; };
+      poPaint(); if ($('sePo')) $('sePo').onchange = poPaint;
       if (!ed) return;
       $('seSave').onclick = async function () {
-        try { for (var i of Array.from($('content').querySelectorAll('[data-k]'))) L.must(await sb.from('stravik_settings').update({ value: i.value.trim() }).eq('key', i.dataset.k)); L.toast('Saved'); } catch (e) { L.fail(e); }
+        try {
+          var sw = $('sePo'), flip = sw && sw.checked !== poOn;
+          if (flip && !confirm(sw.checked ? 'Turn the priced-only catalogue ON?\n\nApproved customers will then see and order only the parts that have a price for their region, in the catalogues chosen for them.' : 'Turn the priced-only catalogue OFF?\n\nApproved customers will see the full catalogue again.')) { sw.checked = poOn; poPaint(); return; }
+          for (var i of Array.from($('content').querySelectorAll('[data-k]'))) L.must(await sb.from('stravik_settings').update({ value: i.value.trim() }).eq('key', i.dataset.k));
+          if (flip) { L.must(await sb.from('stravik_settings').update({ value: sw.checked ? 'on' : 'off' }).eq('key', 'priced_only')); poOn = sw.checked; }
+          L.toast('Saved');
+        } catch (e) { L.fail(e); }
       };
     } catch (e) { L.fail(e); }
   }
@@ -340,12 +385,16 @@
   async function oLoad() {
     try {
       var res = await oQuery({ count: 'exact' }).range(O.offset, O.offset + L.PAGE - 1), rows = L.must(res);
+      // remanufactured lines per order (cond R; every other line is new)
+      var rem = {};
+      if (rows.length) { try { L.must(await sb.from('stravik_order_items').select('order_id,cond').eq('cond', 'R').in('order_id', rows.map(function (o) { return o.id; }))).forEach(function (i) { rem[i.order_id] = (rem[i.order_id] || 0) + 1; }); } catch (e) { /* the list still shows */ } }
+      var condNote = function (o) { var r = rem[o.id] || 0; return !r ? '' : '<div class="small muted">' + (r === o.lines ? 'reman' : (o.lines - r) + ' new · ' + r + ' reman') + '</div>'; };
       L.pager(O.offset, res.count || 0, function (o) { O.offset = o; oLoad(); });
       if (!rows.length) { $('oListBox').innerHTML = L.empty('No orders yet', 'Approved customers place orders from their cart on the website. Each order is emailed to DP World SA and to us, and shows up here.'); return; }
       $('oListBox').innerHTML = L.listView([
         { label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>' + (o.is_test ? ' ' + L.pill('Test', 'warn') : ''); } }, { label: 'Date', render: function (o) { return '<span class="small">' + esc(L.dt(o.created_at)) + '</span>'; } },
         { label: 'Customer', render: function (o) { return esc(o.company_name) + '<div class="small muted">' + esc(gname(o.price_group)) + '</div>'; } }, { label: 'Status', render: function (o) { return pill(o.status); } },
-        { label: 'PO', render: function (o) { return esc(o.po_ref || ''); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Units', num: true, render: function (o) { return o.units; } },
+        { label: 'PO', render: function (o) { return esc(o.po_ref || ''); } }, { label: 'Lines', num: true, render: function (o) { return o.lines + condNote(o); } }, { label: 'Units', num: true, render: function (o) { return o.units; } },
         { label: 'Total', num: true, render: function (o) { var t = o.total != null ? o.total : o.total_usd; return t == null ? '' : esc(omoney(t, o.currency)) + (o.vat_amount ? '<div class="small muted">incl. VAT</div>' : ''); } }, { label: 'Email', render: function (o) { return o.email_status === 'sent' ? '<span class="ok">Sent</span>' : '<span class="flag">' + esc(o.email_status) + '</span>'; } },
         { label: 'DPW invoice', render: function (o) { return esc(o.invoice_no || '') + (o.invoice_amount != null ? ' <span class="small muted">' + L.money(o.invoice_amount) + '</span>' : ''); } }
       ], rows, function (o) { return L.href('orders', [o.order_no]); });
@@ -354,11 +403,11 @@
   async function oExcel() {
     try {
       var os = await L.fetchAll(function () { return oQuery(); });
-      var items = await L.fetchAll(function () { return sb.from('stravik_order_items').select('order_id,line,sv_pn,description,qty,unit_price,line_total,unit_price_usd,line_total_usd').order('order_id').order('line'); });
+      var items = await L.fetchAll(function () { return sb.from('stravik_order_items').select('order_id,line,sv_pn,cond,description,qty,unit_price,line_total,unit_price_usd,line_total_usd').order('order_id').order('line'); });
       var byId = {}; os.forEach(function (o) { byId[o.id] = o; });
       await L.saveXlsx([
         { name: 'Orders', head: ['Order', 'Date', 'Customer', 'Price group', 'Status', 'PO', 'Lines', 'Units', 'Currency', 'Subtotal excl. VAT', 'VAT', 'Total', 'Email', 'DPW invoice', 'Invoice amount', 'Waybill', 'Test'], rows: os.map(function (o) { return [o.order_no, L.dt(o.created_at), o.company_name, gname(o.price_group), o.status, o.po_ref || '', o.lines, o.units, o.currency || 'USD', o.subtotal != null ? Number(o.subtotal) : o.total_usd == null ? '' : Number(o.total_usd), o.vat_amount == null ? '' : Number(o.vat_amount), o.total != null ? Number(o.total) : o.total_usd == null ? '' : Number(o.total_usd), o.email_status, o.invoice_no || '', o.invoice_amount == null ? '' : Number(o.invoice_amount), o.waybill_no || '', o.is_test ? 'Yes' : '']; }) },
-        { name: 'Order lines', head: ['Order', 'Customer', 'Line', 'Stravik PN', 'Description', 'Qty', 'Currency', 'Unit price excl. VAT', 'Line total excl. VAT'], rows: items.filter(function (i) { return byId[i.order_id]; }).map(function (i) { var o = byId[i.order_id]; return [o.order_no, o.company_name, i.line, i.sv_pn, i.description, i.qty, o.currency || 'USD', (i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '' : Number(i.unit_price != null ? i.unit_price : i.unit_price_usd), (i.line_total != null ? i.line_total : i.line_total_usd) == null ? '' : Number(i.line_total != null ? i.line_total : i.line_total_usd)]; }) }
+        { name: 'Order lines', head: ['Order', 'Customer', 'Line', 'Stravik PN', 'Condition', 'Description', 'Qty', 'Currency', 'Unit price excl. VAT', 'Line total excl. VAT'], rows: items.filter(function (i) { return byId[i.order_id]; }).map(function (i) { var o = byId[i.order_id]; return [o.order_no, o.company_name, i.line, i.sv_pn, condName(i.cond), i.description, i.qty, o.currency || 'USD', (i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '' : Number(i.unit_price != null ? i.unit_price : i.unit_price_usd), (i.line_total != null ? i.line_total : i.line_total_usd) == null ? '' : Number(i.line_total != null ? i.line_total : i.line_total_usd)]; }) }
       ], 'Stravik_orders_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
@@ -379,10 +428,10 @@
           '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Email to DP World SA and us: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
           '<div class="o-groups">' + L.group('Order', [['Customer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['Company reg. no.', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
           L.group('From DP World SA', [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
-          L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th><th class="num">Total ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th></tr></thead><tbody>' +
-            items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + ((i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '<span class="muted">on request</span>' : L.money(i.unit_price != null ? i.unit_price : i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total != null ? i.line_total : i.line_total_usd) + '</td></tr>'; }).join('') +
-            '</tbody><tfoot>' + (o.vat_rate ? '<tr><td colspan="6">Subtotal excl. VAT</td><td class="num">' + L.money(o.subtotal) + '</td></tr><tr><td colspan="6">VAT ' + Math.round(o.vat_rate * 100) + '%</td><td class="num">' + L.money(o.vat_amount) + '</td></tr>' : '') +
-            '<tr><td colspan="4">' + o.lines + ' lines</td><td class="num">' + o.units + '</td><td>' + (o.vat_rate ? 'Total incl. VAT' : '') + '</td><td class="num"><b>' + esc(omoney(o.total != null ? o.total : o.total_usd, o.currency)) + '</b></td></tr></tfoot></table>' }])
+          L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Condition</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th><th class="num">Total ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th></tr></thead><tbody>' +
+            items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + (i.cond === 'R' ? L.pill('Remanufactured', 'warn') : 'New') + '</td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + ((i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '<span class="muted">on request</span>' : L.money(i.unit_price != null ? i.unit_price : i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total != null ? i.line_total : i.line_total_usd) + '</td></tr>'; }).join('') +
+            '</tbody><tfoot>' + (o.vat_rate ? '<tr><td colspan="7">Subtotal excl. VAT</td><td class="num">' + L.money(o.subtotal) + '</td></tr><tr><td colspan="7">VAT ' + Math.round(o.vat_rate * 100) + '%</td><td class="num">' + L.money(o.vat_amount) + '</td></tr>' : '') +
+            '<tr><td colspan="5">' + o.lines + ' lines</td><td class="num">' + o.units + '</td><td>' + (o.vat_rate ? 'Total incl. VAT' : '') + '</td><td class="num"><b>' + esc(omoney(o.total != null ? o.total : o.total_usd, o.currency)) + '</b></td></tr></tfoot></table>' }])
       });
       if (!ed) return;
       $('oSave').onclick = async function () {
