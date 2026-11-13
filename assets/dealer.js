@@ -337,9 +337,8 @@ async function account(app,c,me){
   else if(d.status==="Rejected")body=`<div class="dstat bad"><h2>We need a few changes</h2>${d.review_note?`<p class="dnote">${esc(d.review_note)}</p>`:"<p>Please check your details and documents.</p>"}<p><a class="btn gold" href="#/dealer/register">Update and send again</a></p></div>`;
   else if(d.status==="Suspended")body=`<div class="dstat bad"><h2>Your account is on hold</h2><p>Ordering is paused for now. Please <a href="#/contact">contact us</a> if you have questions.</p></div>`;
   else{
-    const n=S.prices?S.prices.map.size+S.prices.rmap.size:0;
     const where=cats&&cats.length===1&&cats[0]==="Batteries"?`<a class="btn gold" href="/batteries/catalogue/">Open the battery catalogue</a>`:`<a class="btn gold" href="#/products">Browse the catalogue</a>`;
-    body=`<div class="dstat ok"><h2>Your prices are switched on</h2><p>${cats?`Your account orders ${esc(cats.join(", "))}. `:""}Your prices (${esc(curName(CUR()))}) show next to each part in the catalogue${VAT()?`; ${Math.round(VAT()*100)}% VAT is added in your cart`:""}${n?"":", as soon as our team has loaded them"}. Add parts to your cart and send your order request from there: it goes straight to our fulfilment centre, who confirm it, deliver and invoice you.${filtering()?" The catalogue shows the parts on your price list; for anything else, send us a request for price.":""}</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
+    body=`<div class="dstat ok"><h2>Welcome to Stravik</h2><p>Thank you for choosing Stravik. Browse the catalogue to find the parts you need.</p><p>${where} <a class="btn line" href="#/cart">Your cart</a></p></div>
     <section class="dorders"><h2>Your orders</h2><div id="dord"><p class="dhint">Loading…</p></div></section>`;
   }
   app.innerHTML=head(d.trading_name||d.company_name,null)+`<div class="wrap dwrap"><div class="dacc">
