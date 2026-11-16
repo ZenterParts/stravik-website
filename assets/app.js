@@ -189,7 +189,7 @@ function flResults(d,list,q,max){
   <div class="ftable-wrap"><table class="ftable"><thead><tr><th>Stravik no.</th><th>Filter</th><th>Fits</th><th>OE / ref. numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(x=>frow(d,x.i,q)).join("")}</tbody></table></div>
   ${list.length>max?`<p class="rmore"><a class="btn line" href="/filters/?q=${encodeURIComponent(q)}">See all ${list.length} in the filter catalogue</a></p>`:""}</div>`;
 }
-// standard catalogue ranges (assets/stdcat.js): ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters
+// standard catalogue ranges (assets/stdcat.js): ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters, spark plugs
 function loadStd(){
   if(!window.StdCat)return Promise.resolve([]);
   return Promise.all([dready()].concat(Object.keys(StdCat.cats).map(id=>StdCat.load(id).then(d=>({id,c:StdCat.cats[id],d})).catch(()=>null))))
@@ -483,6 +483,7 @@ function productsHome(){
     ["Filters",m=>pc("/assets/img/filters/card.webp","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",m],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/filters/">About the range</a>`,1)],
     ["Gas Springs",m=>pc("/assets/img/gas-springs/card.webp","sa_gas","Gas Springs","Gas springs for boots, tailgates, bonnets and rear windows, each with its length, stroke, force, OE numbers and vehicles.",["",m],`<a class="btn gold" href="#/gas-springs">Open the catalogue</a><a class="btn line" href="#/products/gas-springs">About the range</a>`,1)],
     ["Ignition Coils",m=>pc("/assets/img/ignition-coils/card.webp","bolt","Ignition Coils","Ignition coils, coil packs and pencil coils for cars, bakkies and motorcycles, each with its connector, OE numbers and vehicles.",["",m],`<a class="btn gold" href="#/ignition-coils">Open the catalogue</a>`,1)],
+    ["Spark Plugs",m=>pc("","spark","Spark Plugs","Nickel copper, platinum and iridium spark plugs, each with its plug type, electrode gap, NGK and OE numbers and the vehicles it fits.",["",m],`<a class="btn gold" href="#/spark-plugs">Open the catalogue</a>`)],
     ["Bulbs",m=>pc("/assets/img/bulbs/card.webp","bulb","Bulbs","Halogen, miniature, LED and HID xenon bulbs, each with its bulb type, base, voltage and wattage.",["",m],`<a class="btn gold" href="#/bulbs">Open the catalogue</a>`,1)],
     ["Horns",m=>pc("/assets/img/horns/card.webp","horn","Horns","Disc and trumpet horns for 12 V and 24 V, single or as high and low tone sets, with their Bosch, Fiamm and Hella numbers.",["",m],`<a class="btn gold" href="#/horns">Open the catalogue</a>`,1)],
     ["Wiper Blades",m=>pc("/assets/img/wiper-blades/card.webp","wiper","Wiper Blades","Conventional, flat, hybrid, rear and truck and bus wiper blades from 10\" to 40\", with their OE and Bosch, Denso and Valeo numbers.",["",m],`<a class="btn gold" href="#/wiper-blades">Open the catalogue</a>`,1)],

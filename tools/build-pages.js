@@ -2,7 +2,7 @@
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
 //   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json), brakes (brakes.json), batteries (batteries.json) and gas springs (gas-springs.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
-//   /part/<Stravik no.>/    the standard catalogue ranges in assets/stdcat.js (ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters)
+//   /part/<Stravik no.>/    the standard catalogue ranges in assets/stdcat.js (ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters, spark plugs)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
 "use strict";

@@ -117,6 +117,9 @@ Object.assign(ICONS,{
  sa_steer:'<circle cx="32" cy="32" r="23"/><circle cx="32" cy="32" r="5"/><path d="M9 32h18M37 32h18M32 37v18"/>',
  sa_gas:'<path d="M8 56l11-11M45 19l11-11"/><path d="M17 39l19-19 8 8-19 19z"/>'
 });
+Object.assign(ICONS,{   // spark plug: terminal, insulator, hex, thread and electrodes
+ spark:'<path d="M29 5h6v6h-6z"/><path d="M27 11h10l2 15H25z"/><path d="M26 16h12M25.5 21h13"/><rect x="21" y="26" width="22" height="8" rx="1.5"/><path d="M26 34h12v14H26z"/><path d="M26 39h12M26 43.5h12"/><path d="M32 48v5M38 48v10h-9"/>'
+});
 const FICON={AFL:"f_air",OFL:"f_oil",FFL:"f_fuel",CFL:"f_cabin",FKT:"f_kit",CLF:"f_coolant",FHS:"f_housing"};
 function icon(k){return '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[k]||ICONS.kit)+'</svg>';}
 // steering & suspension part types: code, one, many, group, icon

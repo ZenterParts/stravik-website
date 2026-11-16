@@ -30,6 +30,19 @@ const CATS={
     specLine:s=>[s["Connector"]&&s["Connector"]!=="Not specified"?s["Connector"]+" connector":"Connector to be confirmed",
       s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
   },
+  "spark-plugs":{
+    icon:"spark",
+    title:"Spark plugs", one:"spark plug", many:"spark plugs", cat:"Spark Plugs", data:"/spark-plugs.json", engines:true,
+    crumbs:[["Our products","#/products"]],
+    lead:"Nickel copper, platinum and iridium spark plugs. Find the right Stravik spark plug by Stravik number, NGK or OE number, or vehicle.",
+    placeholder:"Stravik no., NGK no., OE no., or vehicle (e.g. Corolla 1.6)",
+    filters:[{k:"Plug type",h:"Plug type",any:"All types",order:["Nickel Copper","Platinum","Double Platinum","Iridium","Iridium Platinum","Double Iridium"]},
+      {k:"Electrode gap",h:"Gap",any:"Any gap",sort:"num"}],
+    kind:"Spark plug",
+    title1:i=>(i.d||"Spark plug").replace(/^Spark Plug\b/,"Spark plug"),   // the database title in sentence case, like the other ranges ("Stravik spark plug - Iridium, 1.1 mm gap")
+    specLine:s=>[s["Plug type"],s["Electrode gap"]?s["Electrode gap"]+" gap":""].filter(Boolean).join(", "),
+    specs:[["Plug type","Plug type"],["Electrode gap","Electrode gap"]]
+  },
   "horns":{
     photo:"/assets/img/horns/photo.webp",
     icon:"horn",
@@ -137,7 +150,7 @@ const OWN={};
 const cfg=id=>CATS[id]||OWN[id];
 // browser tab titles, worded like the other catalogues ("Brake catalogue")
 const TAB={"ignition-coils":"Ignition coil catalogue","bulbs":"Bulb catalogue","horns":"Horn catalogue","wiper-blades":"Wiper blade catalogue",
-  "water-pumps":"Water pump catalogue","alternators":"Alternator catalogue","starters":"Starter motor catalogue"};
+  "water-pumps":"Water pump catalogue","alternators":"Alternator catalogue","starters":"Starter motor catalogue","spark-plugs":"Spark plug catalogue"};
 const ROT={CW:"Clockwise (CW)",CCW:"Anticlockwise (CCW)"},ROT_S={CW:"clockwise",CCW:"anticlockwise"};
 const WB_ORDER=["Conventional","Flat","Hybrid","Rear","Truck & Bus"];
 // bulbs: technology and range code names (as in the Lucas bulb catalogue's "reading the range codes")

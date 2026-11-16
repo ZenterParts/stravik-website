@@ -20,7 +20,7 @@ const COUNTRIES=["South Africa","Algeria","Angola","Bahrain","Benin","Botswana",
 const isSA=c=>!c||c==="South Africa";
 const PROVINCES=["Eastern Cape","Free State","Gauteng","KwaZulu-Natal","Limpopo","Mpumalanga","Northern Cape","North West","Western Cape"];
 // the ranges a customer can say they buy (stravik_categories is not readable by customers, so the list lives here)
-const RANGES=["Brakes","Filters","Steering & Suspension","Shock Absorbers","Batteries","Gas Springs","Alternators","Starters","Ignition Coils","Bulbs","Horns","Water Pumps","Wiper Blades","Clutch Kits"];
+const RANGES=["Brakes","Filters","Steering & Suspension","Shock Absorbers","Batteries","Gas Springs","Alternators","Starters","Ignition Coils","Spark Plugs","Bulbs","Horns","Water Pumps","Wiper Blades","Clutch Kits"];
 const DOCS=[["CIPC certificate","Company registration certificate (CIPC in South Africa)"],["VAT certificate","VAT registration certificate"],["Proof of address","Proof of business address"],["Bank letter","Bank confirmation letter"]];
 const toast=m=>window.STV&&STV.toast(m);
 const hasSession=()=>{try{return !!localStorage.getItem(STORE);}catch(e){return false;}};
@@ -100,7 +100,7 @@ const NOLIST="This part isn't on your price list";
 // (their own pages stay as a fallback for old links). The counts come from the published catalogue files and are
 // kept in this browser, so the next page knows them at once; they are checked again in the background.
 const CAT_DATA={"Brakes":"/brakes.json","Steering & Suspension":"/steering-suspension.json","Shock Absorbers":"/shock-absorbers.json","Filters":"/filters.json","Gas Springs":"/gas-springs.json","Batteries":"/batteries.json",
-  "Ignition Coils":"/ignition-coils.json","Bulbs":"/bulbs.json","Horns":"/horns.json","Wiper Blades":"/wiper-blades.json","Water Pumps":"/water-pumps.json","Alternators":"/alternators.json","Starters":"/starters.json"};
+  "Ignition Coils":"/ignition-coils.json","Bulbs":"/bulbs.json","Horns":"/horns.json","Wiper Blades":"/wiper-blades.json","Water Pumps":"/water-pumps.json","Alternators":"/alternators.json","Starters":"/starters.json","Spark Plugs":"/spark-plugs.json"};
 const RC_STORE="stravik-range-counts-v1",RC_FRESH=10*60*1000;
 let RC=null,RCP=null;   // RC {rev, n:{catalogue: parts}} for the current price list; n[catalogue] is null if its file could not be read
 // tells one price list from another: the customer, their catalogues and every priced part
@@ -153,9 +153,9 @@ const rangesPending=()=>pending()||(filtering()&&!rcKnown());
 
 // which catalogue a link opens, from its address (null: not a link to a range)
 const HASH_CAT={brakes:"Brakes",steering:"Steering & Suspension","shock-absorbers":"Shock Absorbers","gas-springs":"Gas Springs",filters:"Filters",batteries:"Batteries",
-  "ignition-coils":"Ignition Coils",bulbs:"Bulbs",horns:"Horns","wiper-blades":"Wiper Blades","water-pumps":"Water Pumps",alternators:"Alternators",starters:"Starters"};
+  "ignition-coils":"Ignition Coils",bulbs:"Bulbs",horns:"Horns","wiper-blades":"Wiper Blades","water-pumps":"Water Pumps",alternators:"Alternators",starters:"Starters","spark-plugs":"Spark Plugs"};
 const PROD_CAT={"braking-system":"Brakes","steering-suspension":"Steering & Suspension","shock-absorbers":"Shock Absorbers",filters:"Filters","gas-springs":"Gas Springs",batteries:"Batteries"};
-const ELECTRICAL=["Alternators","Bulbs","Horns","Starters","Ignition Coils"];
+const ELECTRICAL=["Alternators","Bulbs","Horns","Starters","Ignition Coils","Spark Plugs"];
 const pslug=t=>t.toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 let PRODUCT=null;   // #/product/<part type> pages: the family the part type belongs to
 function productCat(id){

@@ -37,7 +37,8 @@ const MENU=[
     {name:"Bulbs",cat:"Bulbs",href:"/#/bulbs"},
     {name:"Horns",cat:"Horns",href:"/#/horns"},
     {name:"Starter motors",cat:"Starters",href:"/#/starters"},
-    {name:"Ignition coils",cat:"Ignition Coils",href:"/#/ignition-coils"}]},
+    {name:"Ignition coils",cat:"Ignition Coils",href:"/#/ignition-coils"},
+    {name:"Spark plugs",cat:"Spark Plugs",href:"/#/spark-plugs"}]},
   {name:"Batteries",icon:"battery",cat:"Batteries",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"}]},
   {name:"Engine cooling",icon:"pump",cat:"Water Pumps",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
   {name:"Wiper systems",icon:"wiper",cat:"Wiper Blades",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
