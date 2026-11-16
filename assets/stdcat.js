@@ -31,6 +31,7 @@ const CATS={
       s["Ignition module"]&&s["Ignition module"]!=="Not specified"?lc(s["Ignition module"]):""].filter(Boolean).join(", ")
   },
   "spark-plugs":{
+    photo:"/assets/img/spark-plugs/photo.webp",
     icon:"spark",
     title:"Spark plugs", one:"spark plug", many:"spark plugs", cat:"Spark Plugs", data:"/spark-plugs.json", engines:true,
     crumbs:[["Our products","#/products"]],
