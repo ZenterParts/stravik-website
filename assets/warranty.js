@@ -1,4 +1,5 @@
 // Stravik battery warranty registration (/warranty/battery/?pn=<Stravik no.> from the QR code on the battery, or ?s=<serial no.>).
+// ?pn= of a known battery shows that battery above the serial number box, starts the serial with its number ("SVADH001-") and refuses a serial of another battery.
 // Registration is by serial number only: it is checked with public.stravik_serial_check (which battery, already registered?). The form is saved with public.stravik_warranty_register,
 // which accepts each serial once (anyone may call it; only staff can read the registrations).
 (function(){
@@ -11,12 +12,13 @@ const clean=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
 let BAT=null,ORIG={};
 const list=fetch("/batteries.json").then(r=>r.json()).then(d=>{const T={};(d.types||[]).forEach(t=>T[t[0]]=t[1]);BAT={};
-  (d.parts||[]).forEach(p=>{BAT[p[0]]={pn:p[0],desc:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A (EN)",ser:p[2]||"",box:p[4]||""};});}).catch(()=>{BAT=null;});
+  (d.parts||[]).forEach(p=>{BAT[p[0]]={pn:p[0],desc:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A (EN)",ser:p[2]||"",box:p[4]||"",
+    line:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A"+(p[4]?", "+p[4]+" case":"")};});}).catch(()=>{BAT=null;});
 // serial numbers: SVPDH003-2611-7K3M9 (Stravik no., YYMM made, 5 characters)
 const snFmt=s=>{const c=clean(s);return /^SV[A-Z0-9]{6}\d{4}[A-Z0-9]{5}$/.test(c)?c.slice(0,8)+"-"+c.slice(8,12)+"-"+c.slice(12):null;};
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],ym=s=>{const p=String(s||"").split("-");return p.length>1?MON[+p[1]-1]+" "+p[0]:"";};
 const dmy=s=>{const p=String(s||"").split("-");return p.length>2?(+p[2])+" "+MON[+p[1]-1]+" "+p[0]:s;};
-let SN={ok:false},snSeq=0;
+let SN={ok:false},snSeq=0,EXP=null;   // EXP: the battery in ?pn=, when it is a known one
 async function checkSn(){const el=$("w_snmsg"),v=$("w_sn").value,sn=snFmt(v),seq=++snSeq;SN={ok:false};el.classList.remove("bad");
   if(!clean(v)){el.textContent="";return;}
   if(!sn){el.textContent=clean(v).length>=17?"This doesn't look like a Stravik serial number. It looks like SVPDH003-2611-7K3M9.":"";el.classList.toggle("bad",clean(v).length>=17);return;}
@@ -24,9 +26,11 @@ async function checkSn(){const el=$("w_snmsg"),v=$("w_sn").value,sn=snFmt(v),seq
   try{const r=await fetch(SB_URL+"/rest/v1/rpc/stravik_serial_check",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},body:JSON.stringify({p_serial:sn})});
     const j=await r.json();if(seq!==snSeq)return;
     if(!j.found){el.classList.add("bad");el.textContent="We can't find serial number "+sn+". Check it against the label on the battery.";return;}
+    await list;if(seq!==snSeq)return;
+    if(EXP&&j.pn!==EXP){el.classList.add("bad");el.innerHTML=`<b>This serial number is for ${esc(j.pn)}, not ${esc(EXP)}.</b> Check it against the label on the battery. If your battery is ${esc(j.pn)}, <a href="/warranty/battery/?s=${encodeURIComponent(sn)}">register ${esc(j.pn)} instead</a>.`;return;}
     if(j.registered){el.classList.add("bad");el.innerHTML="This battery was already registered"+(j.registered_on?" on "+esc(dmy(j.registered_on)):"")+". If it is yours, contact us at <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a> with your invoice.";return;}
     if(j.void){el.classList.add("bad");el.innerHTML="This serial number can't be registered. Contact us at <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a>.";return;}
-    await list;const b=BAT&&BAT[j.pn];SN={ok:true,sn,pn:j.pn,made:j.made};
+    const b=BAT&&BAT[j.pn];SN={ok:true,sn,pn:j.pn,made:j.made};
     if(sn!==$("w_sn").value)$("w_sn").value=sn;
     el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b?", "+esc(b.ser):""}, made ${esc(ym(j.made))}${j.months?" · "+j.months+"-month warranty":""} · <a href="/part/${encodeURIComponent(j.pn)}/">battery page</a>`+
       (q&&clean(q)!==j.pn?`<br>This serial is for battery ${esc(j.pn)}, not ${esc(clean(q))}: check that you scanned the QR code on the same battery.`:"");
@@ -36,6 +40,12 @@ if(qs)$("w_sn").value=String(qs).toUpperCase().slice(0,24);
 let snT=0;$("w_sn").addEventListener("input",()=>{clearTimeout(snT);snT=setTimeout(checkSn,350);});
 $("w_sn").addEventListener("blur",()=>{clearTimeout(snT);checkSn();});
 if(qs)checkSn();
+// ?pn=<known battery>: name the battery above the serial number box and start the serial with its number
+list.then(()=>{const b=BAT&&BAT[clean(q)];if(!b)return;EXP=b.pn;
+  const d=document.createElement("div");d.className="wbat";d.id="w_bat";d.style.margin="0 0 10px";d.innerHTML=`Battery: <b>${esc(b.pn)}</b>, ${esc(b.line)}`;
+  const row=$("w_snrow");row.insertBefore(d,row.firstChild);
+  const el=$("w_sn");if(!el.value){el.value=b.pn+"-";el.focus({preventScroll:true});el.setSelectionRange(el.value.length,el.value.length);}
+  else if(snFmt(el.value))checkSn();});
 $("w_date").max=today();
 // test readings at fitment (same ranges as the warranty registration): resting 12.4–12.9 V, cranking 9.6–13.0 V,
 // alternator 13.4–14.4 V (the warranty terms). A reading outside its range shows a warning that must be ticked.
