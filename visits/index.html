@@ -122,7 +122,7 @@ legend{padding:0; font-weight:600; font-size:.92rem;}
 .thumbs img{width:64px; height:64px; object-fit:cover; border-radius:6px; border:1px solid var(--line);}
 #sReport .btn{margin-top:12px;}
 
-/* visit in progress: the one loud screen */
+/* visit in progress: mostly a notes page; the elapsed time is a small line under the start time */
 .onsite{position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; background:var(--navy); color:#fff; padding:calc(var(--top) + 22px) 20px calc(var(--bottom) + 20px); overflow-y:auto;}
 .onsite .tag{display:inline-flex; align-items:center; gap:8px; font-weight:600; color:#e3c79b;}
 .onsite .tag i{width:10px; height:10px; border-radius:50%; background:#5fd39a; animation:pulse 2s ease-in-out infinite;}
@@ -130,12 +130,12 @@ legend{padding:0; font-weight:600; font-size:.92rem;}
 @media (prefers-reduced-motion:reduce){.onsite .tag i{animation:none;}}
 .onsite h1{font-size:2.1rem; margin:10px 0 2px; overflow-wrap:anywhere;}
 .onsite .since{color:#b9c3d2;}
-.timer{font-family:var(--display); font-weight:700; font-size:clamp(4rem,22vw,6.4rem); line-height:1; letter-spacing:.01em; margin:26px 0 6px; font-variant-numeric:tabular-nums;}
-.onsite .thumbs{margin:18px 0 4px;}
+.timer{font-family:var(--display); font-weight:600; font-size:1.25rem; line-height:1.2; color:#b9c3d2; margin:4px 0 0; font-variant-numeric:tabular-nums;}
+.onsite .thumbs{margin:14px 0 0;}
 .onsite .thumbs img{border-color:rgba(255,255,255,.3);}
 .onsite label{color:#b9c3d2;}
-.onsite textarea{color:var(--ink); border-color:transparent;}
-.onsite .actions{margin-top:auto; padding-top:22px; display:grid; gap:12px;}
+.onsite textarea{flex:1 1 auto; min-height:38vh; color:var(--ink); border-color:transparent; font-size:1.05rem; line-height:1.45; resize:none;}
+.onsite .actions{padding-top:16px; display:grid; gap:12px;}
 .onsite .btn.ghost{background:transparent; color:#fff; border-color:rgba(255,255,255,.55);}
 .onsite .sync{color:#b9c3d2; font-size:.88rem; text-align:center; background:none; border:0; min-height:40px;}
 
@@ -282,8 +282,8 @@ legend{padding:0; font-weight:600; font-size:.92rem;}
   <div class="since" id="osSince"></div>
   <div class="timer" id="osTimer" aria-label="Time on site">0:00:00</div>
   <div class="thumbs" id="osThumbs"></div>
-  <label for="osNotes">Notes <span>(optional)</span></label>
-  <textarea id="osNotes" maxlength="2000" placeholder="Who you met, what was discussed"></textarea>
+  <label for="osNotes">Notes</label>
+  <textarea id="osNotes" maxlength="2000" placeholder="Who you met, what was discussed, what they need, next steps"></textarea>
   <div class="actions">
     <button type="button" class="btn ghost" id="osPhoto">Add a photo</button>
     <button type="button" class="btn gold" id="osLeave">End visit</button>
