@@ -44,6 +44,20 @@ const CATS={
     specLine:s=>[s["Plug type"],s["Electrode gap"]?s["Electrode gap"]+" gap":""].filter(Boolean).join(", "),
     specs:[["Plug type","Plug type"],["Electrode gap","Electrode gap"]]
   },
+  "clutch-kits":{
+    photo:"/assets/img/clutch-kits/photo.webp",
+    icon:"kit",
+    title:"Clutch kits", one:"clutch kit", many:"clutch kits", cat:"Clutch Kits", data:"/clutch-kits.json", engines:true,
+    crumbs:[["Our products","#/products"]],
+    lead:"Clutch kits and clutch discs for cars, bakkies and light commercials. Find the right Stravik clutch kit by Stravik number, OE number, LuK, Valeo or Sachs number, or vehicle.",
+    placeholder:"Stravik no., OE no., LuK / Valeo / Sachs no., or vehicle (e.g. Hilux 2.5 D-4D)",
+    filters:[{k:"Type",h:"Type",any:"All types"},{k:"Outer diameter (OD)",h:"OD",any:"Any OD",sort:"num"},{k:"Splines",h:"Splines",any:"Any splines",sort:"num"}],
+    kind:"Clutch kit",
+    title1:i=>i.d||"Clutch kit",   // the database title as it is ("Clutch Kit - 3in1, OD 200 mm, 18 splines")
+    keepCase:true,                 // tools/build-pages.js: don't lower-case the title's first letter ("Stravik Clutch Kit - ...")
+    specLine:s=>[s["Type"],s["Outer diameter (OD)"]?"OD "+s["Outer diameter (OD)"]:"",s["Splines"]?s["Splines"]+" splines":""].filter(Boolean).join(", "),
+    specs:[["Type","Type"],["Outer diameter (OD)","Outer diameter (OD)"],["Splines","Splines"],["Disc diameter","Disc diameter"],["Transmission","Transmission"]]
+  },
   "horns":{
     photo:"/assets/img/horns/photo.webp",
     icon:"horn",
@@ -151,7 +165,7 @@ const OWN={};
 const cfg=id=>CATS[id]||OWN[id];
 // browser tab titles, worded like the other catalogues ("Brake catalogue")
 const TAB={"ignition-coils":"Ignition coil catalogue","bulbs":"Bulb catalogue","horns":"Horn catalogue","wiper-blades":"Wiper blade catalogue",
-  "water-pumps":"Water pump catalogue","alternators":"Alternator catalogue","starters":"Starter motor catalogue","spark-plugs":"Spark plug catalogue"};
+  "water-pumps":"Water pump catalogue","alternators":"Alternator catalogue","starters":"Starter motor catalogue","spark-plugs":"Spark plug catalogue","clutch-kits":"Clutch kit catalogue"};
 const ROT={CW:"Clockwise (CW)",CCW:"Anticlockwise (CCW)"},ROT_S={CW:"clockwise",CCW:"anticlockwise"};
 const WB_ORDER=["Conventional","Flat","Hybrid","Rear","Truck & Bus"];
 // bulbs: technology and range code names (as in the Lucas bulb catalogue's "reading the range codes")
@@ -173,7 +187,9 @@ function load(id){
   return cache[id];
 }
 // model text arrives as e.g. "MERCEDES-BENZ A-CLASS 1.4L / 1.6L" and years as "1997-2004", "2011-" or a "|" list
-const CAPS=w=>/\d/.test(w)||/^[IVX]+$/.test(w)||w.length<=2&&!/^(MK|DE|LA|LE)$/.test(w)?w:w.charAt(0)+w.slice(1).toLowerCase();
+// a word keeps its capitals when it is a code: digits, an underscore (chassis codes "(PA_, PS_)"), a Roman numeral or two letters;
+// brackets, commas and slashes around it don't count ("(ASIA)" -> "(Asia)", "F/L" stays)
+const CAPS=w=>{const k=w.replace(/[(),\/]/g,"");return /\d|_/.test(w)||/^[IVX]+$/.test(k)||k.length<=2&&!/^(MK|DE|LA|LE)$/.test(k)?w:w.toLowerCase().replace(/[a-z]/,c=>c.toUpperCase());};
 function tidyModel(make,m){
   let s=String(m||"").trim();const mk=make.toUpperCase();
   if(s.toUpperCase().startsWith(mk+" "))s=s.slice(mk.length+1);

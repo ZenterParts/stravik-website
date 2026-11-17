@@ -40,6 +40,7 @@ const MENU=[
     {name:"Ignition coils",cat:"Ignition Coils",href:"/#/ignition-coils"},
     {name:"Spark plugs",cat:"Spark Plugs",href:"/#/spark-plugs"}]},
   {name:"Batteries",icon:"battery",cat:"Batteries",href:"/batteries/",kids:[{name:"All batteries",href:"/batteries/"},{name:"Car batteries",href:"/batteries/catalogue/?app=car"},{name:"Commercial vehicle batteries",href:"/batteries/catalogue/?app=cv"},{name:"Full battery catalogue",href:"/batteries/catalogue/"},{name:"Vehicle finder",href:"/batteries/catalogue/?tab=vehicles"},{name:"Battery guide",href:"/batteries/catalogue/?tab=guide"}]},
+  {name:"Transmission",icon:"kit",cat:"Clutch Kits",href:"/#/clutch-kits",kids:[{name:"Clutch kits",cat:"Clutch Kits",href:"/#/clutch-kits"}]},
   {name:"Engine cooling",icon:"pump",cat:"Water Pumps",href:"/#/water-pumps",kids:[{name:"Water pumps",href:"/#/water-pumps"}]},
   {name:"Wiper systems",icon:"wiper",cat:"Wiper Blades",href:"/#/wiper-blades",kids:[{name:"Wiper blades",href:"/#/wiper-blades"}]}];
 const CHEV='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';

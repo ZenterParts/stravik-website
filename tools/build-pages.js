@@ -2,7 +2,7 @@
 // Builds one static, indexable page per catalogue part, plus sitemap.xml and robots.txt.
 //   /part/<Stravik no.>/    steering & suspension (steering-suspension.json), shock absorbers (shock-absorbers.json), brakes (brakes.json), batteries (batteries.json) and gas springs (gas-springs.json)
 //   /filter/<Stravik no.>/  filters (from filters.json)
-//   /part/<Stravik no.>/    the standard catalogue ranges in assets/stdcat.js (ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters, spark plugs)
+//   /part/<Stravik no.>/    the standard catalogue ranges in assets/stdcat.js (ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters, spark plugs, clutch kits)
 // Header, footer and styles come from index.html and /assets, so pages always match the site.
 // Run: node tools/build-pages.js   (the GitHub Action runs it whenever the catalogue data changes)
 "use strict";
@@ -579,7 +579,7 @@ const stdCounts = [];
     const related = i => { const score = new Map();
       uniq(i.apps.filter(a => !a.any).map(a => a.mk + "|" + a.mo)).forEach(k => (byVeh.get(k) || []).forEach(x => { if (x !== i) score.set(x, (score.get(x) || 0) + 1); }));
       return [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]).slice(0, 8); };
-    const t1 = i => STD.title1(i, c), sl = i => (c.specLine ? c.specLine(i.s) : "");
+    const t1 = i => STD.title1(i, c), lt = s => (c.keepCase ? s : lc1(s)), sl = i => (c.specLine ? c.specLine(i.s) : "");
     const fits = i => i.mks.length ? list(i.mks, 3) : "";
     const card = x => `<div class="fcell"><a class="fcard" href="/part/${esc(x.pn)}/"><span class="ic">${x.ph ? `<img src="${esc(x.ph)}" alt="" loading="lazy" style="max-height:100%;max-width:100%">` : icon(c.icon)}</span><span class="pn">${esc(x.pn)}</span><span class="ty">${esc(t1(x))}</span>${sl(x) ? `<span class="veh">${esc(sl(x))}</span>` : ""}${x.mks.length ? `<span class="veh"><b>Fits</b> ${esc(fits(x))}</span>` : ""}</a></div>`;
     for (const i of d.items) {
@@ -597,11 +597,11 @@ const stdCounts = [];
       const head = rich ? `<th>Model</th><th>Version</th><th>Engine</th>${kw ? "<th>kW</th>" : ""}<th>Years</th>` : `<th>Model and engine</th><th>Years</th>`;
       const mks = uniq(i.apps.map(a => a.mk)), vh = uniq(ex.map(a => a.mo));
       const title = `Stravik ${i.pn} ${name}${mks.length ? " | " + list(mks.slice(0, 2), 2) : ""}`.slice(0, 120);
-      const desc = `Stravik ${lc1(name)} ${i.pn}.` + (sl(i) ? ` ${sl(i).charAt(0).toUpperCase() + sl(i).slice(1)}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mks.length ? ` Fits ${list(mks, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
+      const desc = `Stravik ${lt(name)} ${i.pn}.` + (sl(i) ? ` ${sl(i).charAt(0).toUpperCase() + sl(i).slice(1)}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mks.length ? ` Fits ${list(mks, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
       const rel = related(i);
-      const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], [`/#/${id}`, c.title], ["", i.pn]])}<h1>${esc(i.pn)}${i.k ? STD.condTags(i) : ""}</h1><p>Stravik ${esc(lc1(name))}${i.k ? " · " + (i.k === "NR" ? "new and remanufactured" : i.k === "R" ? "remanufactured" : "new") : ""}</p></div></div>
+      const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], [`/#/${id}`, c.title], ["", i.pn]])}<h1>${esc(i.pn)}${i.k ? STD.condTags(i) : ""}</h1><p>Stravik ${esc(lt(name))}${i.k ? " · " + (i.k === "NR" ? "new and remanufactured" : i.k === "R" ? "remanufactured" : "new") : ""}</p></div></div>
 <div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(c.title)}</span>${i.ph ? `<img class="bphoto stdph" src="${esc(i.ph)}" alt="${esc(name)}">` : `<div class="big">${icon(c.icon)}</div>`}</div>
-<div class="info"><div class="type">Stravik ${esc(lc1(name))}</div>
+<div class="info"><div class="type">Stravik ${esc(lt(name))}</div>
 <dl class="specs">${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
 ${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
 ${i.xr.length ? `<h2 class="nums-h">Cross-reference numbers</h2><div class="chips">${i.xr.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}

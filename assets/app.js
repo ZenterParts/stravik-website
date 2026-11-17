@@ -189,7 +189,7 @@ function flResults(d,list,q,max){
   <div class="ftable-wrap"><table class="ftable"><thead><tr><th>Stravik no.</th><th>Filter</th><th>Fits</th><th>OE / ref. numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(x=>frow(d,x.i,q)).join("")}</tbody></table></div>
   ${list.length>max?`<p class="rmore"><a class="btn line" href="/filters/?q=${encodeURIComponent(q)}">See all ${list.length} in the filter catalogue</a></p>`:""}</div>`;
 }
-// standard catalogue ranges (assets/stdcat.js): ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters, spark plugs
+// standard catalogue ranges (assets/stdcat.js): ignition coils, bulbs, horns, wiper blades, water pumps, alternators, starters, spark plugs, clutch kits
 function loadStd(){
   if(!window.StdCat)return Promise.resolve([]);
   return Promise.all([dready()].concat(Object.keys(StdCat.cats).map(id=>StdCat.load(id).then(d=>({id,c:StdCat.cats[id],d})).catch(()=>null))))
@@ -481,7 +481,7 @@ function productsHome(){
     ["Filters",m=>pc("/assets/img/filters/card.webp","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",m],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/filters/">About the range</a>`,1)],
     ["Spark Plugs",m=>pc("/assets/img/spark-plugs/card.webp","spark","Spark Plugs","Nickel copper, platinum and iridium spark plugs, each with its plug type, electrode gap, NGK and OE numbers and the vehicles it fits.",["",m],`<a class="btn gold" href="#/spark-plugs">Open the catalogue</a>`,1)],
     ["Batteries",m=>pc("/assets/img/batteries/card.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",m],`<a class="btn gold" href="/batteries/catalogue/">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`,1)],
-    ["Clutch Kits",m=>pc("/assets/img/clutch-kits/card.webp","kit","Clutch Kits","Clutch kits and clutch discs for cars, bakkies and light commercials. The catalogue is coming soon.",["",m],`<a class="btn gold" href="#/contact?part=clutch%20kit">Ask about clutch kits</a>`,1)],
+    ["Clutch Kits",m=>pc("/assets/img/clutch-kits/card.webp","kit","Clutch Kits","Clutch kits and clutch discs for cars, bakkies and light commercials, each with its kit type, OD, splines, OE and cross-reference numbers.",["",m],`<a class="btn gold" href="#/clutch-kits">Open the catalogue</a>`,1)],
     ["Brakes",m=>pc("/assets/img/braking/card.webp","disc","Braking System",esc(B.intro),["",m],`<a class="btn gold" href="#/brakes">Open the catalogue</a><a class="btn line" href="#/products/braking-system">About the range</a>`,1,"pcat-row2")],
     ["Steering & Suspension",m=>pc("/assets/img/steering-suspension/card.webp","ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its OE numbers.",["",m],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`,1)],
     ["Shock Absorbers",m=>pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",m],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`,1)],
