@@ -1,6 +1,6 @@
 /* App: My visits. Each person's own customer site visits and visit reports, written with the phone app (/visits/).
-   Overview: a dashboard of the person's own visits since a chosen date (visits, sites, time on site, outcomes, visits over
-   time, by country, most visited sites) plus what is waiting for them (reports to complete, open follow-ups).
+   Overview: a dashboard of the person's own visits since a chosen date (visits, sites, outcomes, visits over time, by
+   country, most visited sites; deliberately no totals or averages of time spent) plus what is waiting for them (reports to complete, open follow-ups).
    Visits: the list and one visit, report side only: site, date, time on site, outcome, follow-up, summary, report photos.
    Every staff member has this app and sees only their own visits: every query is filtered to the signed-in person, and row
    level security enforces it. Positions, distances and checks are not shown here; they are in the Site visits app.
@@ -79,7 +79,6 @@
     } catch (e) { L.fail(e); }
   }
   function tile(label, value, sub, extra) { return '<' + (extra && extra.href ? 'a href="' + extra.href + '" data-f="' + extra.f + '"' : 'div') + ' class="mv-tile' + (extra ? ' todo' : '') + '"><span class="l">' + esc(label) + '</span><b>' + esc(value) + '</b><span class="s' + (extra && extra.bad ? ' bad' : '') + '">' + esc(sub || '') + '</span></' + (extra && extra.href ? 'a' : 'div') + '>'; }
-  function hours(m) { return m < 60 ? m + ' min' : (Math.round(m / 6) / 10).toLocaleString() + ' h'; }
   function buckets(rows) {   // visits per day (up to 2 weeks), per week (up to about 4 months) or per month
     var end = new Date(); end.setHours(0, 0, 0, 0);
     var start = S.since ? new Date(S.since + 'T00:00:00') : new Date(rows[rows.length - 1].check_in_at); start.setHours(0, 0, 0, 0);
@@ -99,18 +98,17 @@
       tile('Follow-ups open', String(fus.length), fus.length ? (late ? late + ' overdue' : 'none overdue') : 'all dates, nothing waiting', { href: LIST, f: 'fu', bad: late > 0 });
     var label = S.since ? 'since ' + fuDate(S.since) : 'all time';
     if (!rows.length) return '<div class="mv-tiles">' + tile('Visits', '0', label) + todo + '</div>' + L.empty('No visits ' + esc(label), 'Choose an earlier date, or press <b>New visit</b> to start one.');
-    var sites = {}, byC = {}, o = { proceed: 0, in_progress: 0, no_business: 0 }, norep = 0, open = 0, total = 0, done = 0, reported = 0;
+    var sites = {}, byC = {}, o = { proceed: 0, in_progress: 0, no_business: 0 }, norep = 0, open = 0, reported = 0;
     rows.forEach(function (v) {
-      var m = mins(v), c = (v.site && v.site.country) || 'No country', s = sites[v.site_id] = sites[v.site_id] || { name: v.site ? v.site.name : 'Site', where: where(v), n: 0, last: v };   // rows are newest first
+      var c = (v.site && v.site.country) || 'No country', s = sites[v.site_id] = sites[v.site_id] || { name: v.site ? v.site.name : 'Site', where: where(v), n: 0, last: v };   // rows are newest first
       s.n++;
       var b = byC[c] = byC[c] || { n: 0, sites: {}, fwd: 0 }; b.n++; b.sites[v.site_id] = 1;
-      if (m != null) { total += m; done++; } else open++;
+      if (!v.check_out_at) open++;
       if (v.outcome && o[v.outcome] != null) { o[v.outcome]++; reported++; if (v.outcome === 'proceed') b.fwd++; } else if (v.check_out_at) norep++;
     });
     var nSites = Object.keys(sites).length;
     var tiles = tile('Visits', rows.length.toLocaleString(), label) +
       tile('Sites visited', nSites.toLocaleString(), rows.length > nSites ? (rows.length - nSites) + ' repeat visit' + (rows.length - nSites === 1 ? '' : 's') : 'each visited once') +
-      tile('Time on site', hours(total), done ? 'average ' + durText(Math.round(total / done)) + ' per visit' : '') +
       tile('Moving forward', String(o.proceed), reported ? 'of ' + reported + ' report' + (reported === 1 ? '' : 's') + ' (' + Math.round(100 * o.proceed / reported) + '%)' : 'no reports yet') + todo;
     // how the visits went
     var bars = [['Moving forward', o.proceed, 'a'], ['In discussion', o.in_progress, 'b'], ['Not at this time', o.no_business, 'c'], ['Report to complete', norep, 'd']];
