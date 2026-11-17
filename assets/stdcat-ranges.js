@@ -20,25 +20,25 @@ const withCode=(model,code)=>model?model+(code?" ("+code+")":""):null;
 const crumbs=(name,href)=>[["Our products","#/products"],[name,href]];
 
 // ---------------------------------------------------------------- brakes
-// brakes.json parts: [Stravik no, type, position, size, disc type, external no, [OE], [WVA], [[make, model, years, position, note]]]
+// brakes.json parts: [Stravik no, type, position, size, disc type, (unused), [OE], [WVA], [[make, model, years, position, note]]]
 const BRT={};BR_TYPES.forEach(t=>BRT[t[0]]=t);
 const BR_NOTVEH=new Set(BR_BRANDS.concat(["COMMERCIAL VEHICLES","IMPORT"]));
 const brMake=m=>BR_MKL[m]||MKL[m]||tc(m);
 const BRAKES={
   icon:"disc",title:"Brakes",tab:"Brake catalogue",one:"brake part",many:"brake parts",cat:"Brakes",data:"/brakes.json",
   crumbs:crumbs("Braking systems","#/products/braking-system"),hero:"/assets/img/pads-comfort.webp",
-  lead:"Brake pads, discs, shoes and commercial vehicle pads. Find the right Stravik part by Stravik, external, OE or WVA number, size or vehicle.",
-  placeholder:"Stravik, external, OE or WVA no., size, or vehicle (e.g. Corolla)",
+  lead:"Brake pads, discs, shoes and commercial vehicle pads. Find the right Stravik part by Stravik, OE or WVA number, size or vehicle.",
+  placeholder:"Stravik, OE or WVA no., size, or vehicle (e.g. Corolla)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:BR_TYPES.map(t=>t[1])},
     {k:"Position",h:"Position",any:"Front and rear",order:["Front","Rear","Front or rear","Front left","Front right"]},
     {k:"Disc type",h:"Disc type",any:"Any",order:["Vented","Solid","With bearing"]}],
   facts:d=>[[d.n.items,"brake parts"],[d.n.apps,"vehicle applications"],[d.n.makes,"vehicle makes"]],
   title1:i=>i.s["Part type"],
   specLine:s=>join([s["Part type"],lc(s["Position"]),s["Size"],lc(s["Disc type"])]),
-  specs:[["Part type","Part type"],["Position","Position"],["Size","Size"],["Disc type","Disc type"],["External no.","External no."],["Also fits","Also fits"]],
+  specs:[["Part type","Part type"],["Position","Position"],["Size","Size"],["Disc type","Disc type"],["Also fits","Also fits"]],
   adapt(raw){const M=makes();
-    const parts=raw.parts.map(p=>{const [pn,t,pos,sz,dt,k,oe,wva,apps]=p,s={"Part type":(BRT[t]||[])[1]||"Brake part"},ap=[],also=[];
-      if(pos)s["Position"]=pos;if(sz)s["Size"]=sz;if(dt)s["Disc type"]=dt;if(k)s["External no."]=k;
+    const parts=raw.parts.map(p=>{const [pn,t,pos,sz,dt,,oe,wva,apps]=p,s={"Part type":(BRT[t]||[])[1]||"Brake part"},ap=[],also=[];
+      if(pos)s["Position"]=pos;if(sz)s["Size"]=sz;if(dt)s["Disc type"]=dt;
       (apps||[]).forEach(a=>{const mk=raw.makes[a[0]];
         if(BR_NOTVEH.has(mk))also.push(mk==="COMMERCIAL VEHICLES"||mk==="IMPORT"?tc(a[1]||mk):[brMake(mk),a[1]].filter(Boolean).join(" "));
         else ap.push([M.add(brMake(mk)),a[1]||null,years(a[2])]);});
@@ -48,13 +48,13 @@ const BRAKES={
 };
 
 // ---------------------------------------------------------------- steering & suspension
-// steering-suspension.json parts: [Stravik no, type, CTR no, [old CTR], position, [OE], hidden OE count, [[make, vehicle, model code, years]]]
+// steering-suspension.json parts: [Stravik no, type, (unused), (unused), position, [OE], hidden OE count, [[make, vehicle, model code, years]]]
 const SST={};SS_TYPES.forEach(t=>SST[t[0]]=t);
 const STEERING={
   icon:"ball",title:"Steering & suspension",tab:"Steering & suspension catalogue",one:"part",many:"parts",cat:"Steering & Suspension",data:"/steering-suspension.json",
   crumbs:crumbs("Steering & suspension","#/products/steering-suspension"),hero:"/assets/img/ss-box.webp",
-  lead:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts. Find the right Stravik part by Stravik, CTR or OE number, or vehicle.",
-  placeholder:"Stravik, CTR or OE no., or vehicle and model code (e.g. Hilux KUN25)",
+  lead:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts. Find the right Stravik part by Stravik or OE number, or vehicle.",
+  placeholder:"Stravik or OE no., or vehicle and model code (e.g. Hilux KUN25)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:SS_TYPES.map(t=>t[1])},
     {k:"Group",h:"Group",any:"All groups",order:["Suspension","Steering","Mountings"]},
     {k:"Position",h:"Position",any:"Any position"}],
@@ -63,22 +63,22 @@ const STEERING={
   specLine:s=>join([s["Part type"],lc(s["Position"])]),
   specs:[["Part type","Part type"],["Group","Group"],["Position","Position"]],
   adapt(raw){const M=makes(),name=ix=>{const m=raw.makes[ix];const n=Array.isArray(m)?m[0]:m;return MKL[n]||tc(n);};
-    const parts=raw.parts.map(p=>{const [pn,t,ctr,old,pos,oe,,apps]=p,T=SST[t]||[],s={"Part type":T[1]||"Part"};
+    const parts=raw.parts.map(p=>{const [pn,t,,,pos,oe,,apps]=p,T=SST[t]||[],s={"Part type":T[1]||"Part"};
       if(T[3])s["Group"]=T[3];if(pos)s["Position"]=ssCase(pos);
-      return {pn,t,d:"",s,oe:oe||[],xr:[ctr].concat(old||[]).filter(Boolean).map(x=>"CTR "+x),
+      return {pn,t,d:"",s,oe:oe||[],xr:[],
         ap:(apps||[]).map(a=>[M.add(name(a[0])),withCode(a[1],a[2]),years(a[3])])};});
     return {makes:M.list,parts};}
 };
 
 // ---------------------------------------------------------------- shock absorbers
 // shock-absorbers.json parts: [Stravik no, type, description, position, fitting position, damper type, system, upper mount,
-//   lower mount, supplied with, external no, availability, new, [OE], [[make, model, model code, years, position]]]
+//   lower mount, supplied with, (unused), availability, new, [OE], [[make, model, model code, years, position]]]
 const SAT={};SA_TYPES.forEach(t=>SAT[t[0]]=t);
 const SHOCKS={
   icon:"shock",title:"Shock absorbers",tab:"Shock absorber catalogue",one:"part",many:"parts",cat:"Shock Absorbers",data:"/shock-absorbers.json",
   crumbs:crumbs("Shock absorbers","#/products/shock-absorbers"),
-  lead:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit. Find the right Stravik part by Stravik, external or OE number, or vehicle.",
-  placeholder:"Stravik, external or OE no., or vehicle and model code (e.g. Corolla ZZE121)",
+  lead:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit. Find the right Stravik part by Stravik or OE number, or vehicle.",
+  placeholder:"Stravik or OE no., or vehicle and model code (e.g. Corolla ZZE121)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:SA_TYPES.map(t=>t[1])},
     {k:"Position",h:"Position",any:"Any position",order:["Front","Front left","Front right","Rear"]},
     {k:"Damper type",h:"Damper",any:"Any",order:["Gas pressure","Oil pressure"]},
@@ -87,11 +87,10 @@ const SHOCKS={
   title1:i=>i.s["Part type"],
   specLine:s=>join([s["Part type"],lc(s["Position"]),lc(s["Damper type"]),lc(s["System"])]),
   specs:[["Part type","Part type"],["Position","Position"],["Damper type","Damper type"],["System","System"],["Upper mount","Upper mount"],
-    ["Lower mount","Lower mount"],["Supplied with","Supplied with"],["External no.","External no."],["Availability","Availability"]],
+    ["Lower mount","Lower mount"],["Supplied with","Supplied with"],["Availability","Availability"]],
   adapt(raw){const M=makes(),name=ix=>{const m=raw.makes[ix];return MKL[m]||tc(m);};
     const parts=raw.parts.map(p=>{const t=p[1],s={"Part type":(SAT[t]||[])[1]||"Shock absorber"};
-      [["Position",p[3]&&ssCase(p[3])],["Damper type",p[5]],["System",p[6]],["Upper mount",p[7]],["Lower mount",p[8]],["Supplied with",p[9]],
-        ["External no.",p[10]],["Availability",p[11]]].forEach(([k,v])=>{if(v)s[k]=v;});
+      [["Position",p[3]&&ssCase(p[3])],["Damper type",p[5]],["System",p[6]],["Upper mount",p[7]],["Lower mount",p[8]],["Supplied with",p[9]],["Availability",p[11]]].forEach(([k,v])=>{if(v)s[k]=v;});
       return {pn:p[0],t,d:"",s,oe:p[13]||[],xr:[],ap:(p[14]||[]).map(a=>[M.add(name(a[0])),withCode(a[1],a[2]),years(a[3])])};});
     return {makes:M.list,parts};}
 };

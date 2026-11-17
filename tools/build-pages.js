@@ -95,7 +95,7 @@ const urls = [];
 // ================= steering & suspension =================
 const raw = JSON.parse(rd("steering-suspension.json"));
 const makes = raw.makes.map(m => ({ name: m[0], label: MKL[m[0]] || m[0] }));
-const SS = raw.parts.map(p => ({ pn: p[0], t: p[1], ctr: p[2] || "", old: p[3] || [], pos: p[4] || "", oe: p[5] || [], hid: p[6] || 0, apps: (p[7] || []).map(a => ({ mk: a[0], veh: a[1] || "", mc: a[2] || "", yr: a[3] || "" })) }));
+const SS = raw.parts.map(p => ({ pn: p[0], t: p[1], pos: p[4] || "", oe: p[5] || [], hid: p[6] || 0, apps: (p[7] || []).map(a => ({ mk: a[0], veh: a[1] || "", mc: a[2] || "", yr: a[3] || "" })) }));
 const byVeh = new Map();
 SS.forEach(i => uniq(i.apps.map(a => a.mk + "|" + a.veh)).forEach(k => { if (!byVeh.has(k)) byVeh.set(k, []); byVeh.get(k).push(i); }));
 const ssPos = i => ssCase(i.pos);
@@ -123,11 +123,11 @@ for (const i of SS) {
   const url = `${SITE}/part/${i.pn}/`, mk = ssMakes(i), vh = ssVehs(i);
   const side = SIDE[i.pn.slice(-1)] || "";
   const sibs = groups.get(i.pn.slice(0, 8)).filter(x => x !== i);
-  const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Group", T.group], ["Position", ssPos(i)], ["Side", side], ["CTR number", i.ctr], ["Previous CTR numbers", i.old.join(", ")]].filter(r => r[1]);
+  const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Group", T.group], ["Position", ssPos(i)], ["Side", side]].filter(r => r[1]);
   const byMk = [...new Set(i.apps.map(a => a.mk))].filter(ix => makes[ix]).map(ix => ({ m: makes[ix], apps: i.apps.filter(a => a.mk === ix && (a.veh || a.mc || a.yr)) }));
   const nApps = byMk.reduce((s, g) => s + g.apps.length, 0);
   const title = `Stravik ${i.pn} ${ssDesc(i)}${mk.length ? " | " + list(mk.slice(0, 2), 2) : ""}`;
-  const desc = `Stravik ${lc1(ssDesc(i))} ${i.pn}.` + (i.ctr ? ` CTR ${i.ctr}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
+  const desc = `Stravik ${lc1(ssDesc(i))} ${i.pn}.` + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
   const item = { key: i.pn, no: i.pn, cat: "Steering & Suspension", desc: ssDesc(i), link: `/part/${i.pn}/`, kind: "ss" };
   const rel = ssRelated(i);
   const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/steering-suspension", "Steering & suspension"], [`/#/steering/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(lc1(ssDesc(i)))}</p></div></div>
@@ -156,7 +156,7 @@ const mp = t => String(t).replace(/macpherson/gi, "MacPherson");   // keep the b
 const saLabel = m => MKL[m] || String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g, c => c.toUpperCase());
 const samk = SAR.makes.map(m => ({ name: m, label: saLabel(m) }));
 const SAT = {}; SA_TYPES.forEach(t => SAT[t[0]] = { code: t[0], one: t[1], many: t[2], icon: t[3], slug: slug(t[2]) });
-const SA = SAR.parts.map(p => ({ pn: p[0], t: p[1], d: p[2] || "", pos: p[3] || "", fp: p[4] || "", ty: p[5] || "", sy: p[6] || "", um: p[7] || "", lm: p[8] || "", inc: p[9] || "", k: p[10] || "", x: p[11] || "", nw: !!p[12], oe: p[13] || [],
+const SA = SAR.parts.map(p => ({ pn: p[0], t: p[1], d: p[2] || "", pos: p[3] || "", fp: p[4] || "", ty: p[5] || "", sy: p[6] || "", um: p[7] || "", lm: p[8] || "", inc: p[9] || "", x: p[11] || "", nw: !!p[12], oe: p[13] || [],
   apps: (p[14] || []).map(a => ({ mk: a[0], mo: a[1] || "", mc: a[2] || "", yr: a[3] || "", pos: a[4] || "" })) }));
 { const ssPn = new Set(SS.map(i => i.pn)); const clash = SA.filter(i => ssPn.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Shock absorber numbers also used in steering & suspension: " + clash.slice(0, 5).join(", ")); }
 const saBy = {}; SA.forEach(i => saBy[i.pn] = i);
@@ -183,11 +183,11 @@ for (const i of SA) {
   const url = `${SITE}/part/${i.pn}/`, mk = saMakes(i), vh = saVehs(i);
   const last = i.pn.slice(-1), pair = SA_OTHER[last] ? saBy[i.pn.slice(0, 8) + SA_OTHER[last]] : null;
   const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Description", mp(ssCase(i.d))], ["Position", ssCase(i.pos)], ["Side", SA_SIDE[last] || ""], ["Fitting position", i.fp],
-    ["External number", i.k], ["Type", i.ty], ["System", i.sy], ["Upper mount", i.um], ["Lower mount", i.lm], ["Supplied with", i.inc.replace(/^Supplied with /i, "")], ["Availability", i.x + (i.nw ? (i.x ? ", " : "") + "new to the range" : "")]].filter(r => r[1]);
+    ["Type", i.ty], ["System", i.sy], ["Upper mount", i.um], ["Lower mount", i.lm], ["Supplied with", i.inc.replace(/^Supplied with /i, "")], ["Availability", i.x + (i.nw ? (i.x ? ", " : "") + "new to the range" : "")]].filter(r => r[1]);
   const byMk = [...new Set(i.apps.map(a => a.mk))].filter(ix => samk[ix]).map(ix => ({ m: samk[ix], apps: i.apps.filter(a => a.mk === ix) }));
   const nApps = i.apps.length;
   const title = `Stravik ${i.pn} ${saDesc(i)}${mk.length ? " | " + list(mk.slice(0, 2), 2) : ""}`;
-  const desc = `Stravik ${mp(lc1(saDesc(i)))} ${i.pn}.` + (i.k ? ` External no. ${i.k}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
+  const desc = `Stravik ${mp(lc1(saDesc(i)))} ${i.pn}.` + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : "");
   const item = { key: i.pn, no: i.pn, cat: "Shock Absorbers", desc: saDesc(i), link: `/part/${i.pn}/`, kind: "sa" };
   const rel = saRelated(i);
   const body = `<div class="pagehead fhead"><div class="wrap">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["/#/products/shock-absorbers", "Shock absorbers"], [`/#/shock-absorbers/${T.slug}`, T.many], ["", i.pn]])}<h1>${esc(i.pn)}</h1><p>Stravik ${esc(mp(lc1(saDesc(i))))}</p></div></div>
@@ -215,20 +215,17 @@ const { BR_TYPES, BR_MKL, BR_BRANDS } = ctx;
 const brLabel = m => BR_MKL[m] || MKL[m] || String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g, c => c.toUpperCase());
 const brmk = BRR.makes.map(m => ({ name: m, label: brLabel(m), cv: m === "COMMERCIAL VEHICLES", brand: BR_BRANDS.includes(m) }));
 const BRT = {}; BR_TYPES.forEach(t => BRT[t[0]] = { code: t[0], one: t[1], many: t[2], icon: t[3], slug: slug(t[2]) });
-const BR = BRR.parts.map(p => ({ pn: p[0], t: p[1], pos: p[2] || "", sz: p[3] || "", dt: p[4] || "", k: p[5] || "", oe: p[6] || [], wva: p[7] || [],
+const BR = BRR.parts.map(p => ({ pn: p[0], t: p[1], pos: p[2] || "", sz: p[3] || "", dt: p[4] || "", oe: p[6] || [], wva: p[7] || [],
   apps: (p[8] || []).map(a => ({ mk: a[0], mo: a[1] || "", yr: a[2] || "", pos: a[3] || "", ds: a[4] || "" })) }));
 { const used = new Set(SS.map(i => i.pn).concat(SA.map(i => i.pn))); const clash = BR.filter(i => used.has(i.pn)).map(i => i.pn); if (clash.length) throw new Error("Brake numbers also used in another catalogue: " + clash.slice(0, 5).join(", ")); }
 const brDesc = i => (BRT[i.t] ? BRT[i.t].one : "Brake part") + (i.pos ? ", " + i.pos.toLowerCase() : "") + (i.dt ? ", " + i.dt.toLowerCase() : "");
 const brMakes = i => uniq(i.apps.map(a => brmk[a.mk] && !brmk[a.mk].cv && brmk[a.mk].label));
 const brVehs = i => uniq(i.apps.map(a => a.mo));
-// pads sold in more than one version share the external number root (KD2004Y-EC, KD2004Y-ET)
-const brRoot = i => i.k ? i.k.replace(/-[A-Z]{2}$/, "") : i.pn;
-const brVersions = new Map(); BR.forEach(i => { const r = brRoot(i); if (!brVersions.has(r)) brVersions.set(r, []); brVersions.get(r).push(i); });
 const brByVeh = new Map();
 BR.forEach(i => uniq(i.apps.filter(a => !brmk[a.mk].cv).map(a => a.mk + "|" + a.mo)).forEach(k => { if (!brByVeh.has(k)) brByVeh.set(k, []); brByVeh.get(k).push(i); }));
 function brRelated(i) {
   const score = new Map();
-  uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => (brByVeh.get(k) || []).forEach(x => { if (x !== i && brRoot(x) !== brRoot(i)) score.set(x, (score.get(x) || 0) + 1); }));
+  uniq(i.apps.map(a => a.mk + "|" + a.mo)).forEach(k => (brByVeh.get(k) || []).forEach(x => { if (x !== i) score.set(x, (score.get(x) || 0) + 1); }));
   const ranked = [...score.entries()].sort((a, b) => b[1] - a[1] || a[0].pn.localeCompare(b[0].pn)).map(e => e[0]);
   const out = [], seen = new Set();
   for (const x of ranked) { const k = x.t + x.pos; if (!seen.has(k)) { out.push(x); seen.add(k); } if (out.length >= 8) break; }
@@ -240,13 +237,13 @@ const brCard = x => { const T = BRT[x.t] || { one: "Brake part", icon: "pad" }, 
 for (const i of BR) {
   const T = BRT[i.t] || { one: "Brake part", many: "Brake parts", icon: "pad", slug: "" };
   const url = `${SITE}/part/${i.pn}/`, mk = brMakes(i), vh = brVehs(i), cv = i.t === "CVP";
-  const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Position", i.pos], ["Disc type", i.dt], ["Size", i.sz], ["External number", i.k], ["WVA numbers", i.wva.join(", ")]].filter(r => r[1]);
+  const rows = [["Stravik number", i.pn], ["Part type", T.one], ["Position", i.pos], ["Disc type", i.dt], ["Size", i.sz], ["WVA numbers", i.wva.join(", ")]].filter(r => r[1]);
   const byMk = [...new Set(i.apps.map(a => a.mk))].filter(ix => brmk[ix]).map(ix => ({ m: brmk[ix], apps: i.apps.filter(a => a.mk === ix) }));
   const nApps = i.apps.length;
   const title = `Stravik ${i.pn} ${brDesc(i)}${mk.length ? " | " + list(mk.slice(0, 2), 2) : cv && vh.length ? " | " + list(vh.slice(0, 2), 2) : ""}`.slice(0, 120);
-  const desc = `Stravik ${lc1(brDesc(i))} ${i.pn}.` + (i.sz ? ` Size ${i.sz}.` : "") + (i.k ? ` External no. ${i.k}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (i.wva.length ? ` WVA ${list(i.wva, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : cv && vh.length ? ` Fits ${list(vh, 3)}.` : "");
+  const desc = `Stravik ${lc1(brDesc(i))} ${i.pn}.` + (i.sz ? ` Size ${i.sz}.` : "") + (i.oe.length ? ` Replaces OE ${list(i.oe, 3)}.` : "") + (i.wva.length ? ` WVA ${list(i.wva, 3)}.` : "") + (mk.length ? ` Fits ${list(mk, 3)}${vh.length ? ": " + list(vh, 3) : ""}.` : cv && vh.length ? ` Fits ${list(vh, 3)}.` : "");
   const item = { key: i.pn, no: i.pn, cat: "Brakes", desc: brDesc(i), link: `/part/${i.pn}/`, kind: "br" };
-  const rel = brRelated(i), vers = brVersions.get(brRoot(i)).filter(x => x !== i);
+  const rel = brRelated(i);
   const appRows = cv
     ? i.apps.map(a => `<tr><td colspan="3">${esc(a.mo)}</td><td>${esc(a.pos)}</td></tr>`).join("")
     : byMk.map(g => `<tr class="catrow"><td colspan="4">${esc(g.m.label)}</td></tr>` + g.apps.map(a => `<tr><td colspan="2">${esc(a.mo)}</td><td class="yr">${esc(a.yr)}</td><td>${esc(a.ds || a.pos)}</td></tr>`).join("")).join("");
@@ -254,7 +251,6 @@ for (const i of BR) {
 <div class="wrap detail fdetail"><div class="visual"><span class="tag">${esc(T.one)}</span><div class="big">${icon(T.icon)}</div></div>
 <div class="info"><div class="type">Stravik ${esc(T.one.toLowerCase())}</div>
 <dl class="specs">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
-${vers.length ? `<p class="sib">Also available as ${vers.map(x => `<a href="/part/${esc(x.pn)}/">${esc(x.pn)}</a> (external no. ${esc(x.k)})`).join(", ")}</p>` : ""}
 ${i.oe.length ? `<h2 class="nums-h">OE numbers</h2><div class="chips">${i.oe.map(n => `<span>${esc(n)}</span>`).join("")}</div>` : ""}
 <div class="replace"><b>Before you order</b><span>${i.t === "DSC" ? "Check the diameter, thickness and bolt pattern against the old disc" : "Check the size against the old part"}, and the vehicle and years below, or send us the OE number and we'll confirm the fit.</span></div>
 ${buyBox(item)}

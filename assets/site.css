@@ -527,9 +527,6 @@ nav.main a.cart-link{display:inline-flex;align-items:center;gap:7px}
 /* steering & suspension catalogue */
 .ftable .n{white-space:nowrap}
 .fcard .n{white-space:nowrap}
-.ftable.ss td.fctr{white-space:nowrap;font-variant-numeric:tabular-nums}
-.ftable.ss td.fctr b{display:block;font-weight:600}
-.ftable.ss td.fctr span{display:block;color:var(--muted);font-size:13px}
 .ftable td.fveh b.fmk{display:block;color:var(--ink);font-weight:600}
 .mkreg{font-size:18px;margin:20px 0 10px;color:var(--muted);font-family:var(--body);font-weight:600}
 .mkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
@@ -553,9 +550,6 @@ nav.main a.cart-link{display:inline-flex;align-items:center;gap:7px}
 .catcall small{color:#c8cedb;font-size:14px}
 @media (max-width:700px){
   .catcall{grid-template-columns:1fr}
-  .ftable.ss td.fctr{grid-column:1/-1}
-  .ftable.ss td.fctr b,.ftable.ss td.fctr span{display:inline;margin-right:6px}
-  .ftable.ss td.fctr::before{content:"CTR ";font-weight:600;color:var(--ink)}
   .ftable td.fveh b.fmk{display:inline}
   .ctable.apps thead{display:table-header-group}
 }
@@ -911,7 +905,7 @@ nav.main > a,nav.main .dd-btn{font-size:16px}
 @media (max-width:700px){
   .ftable.sa td.fpn{grid-column:1;grid-row:1}
   .ftable.sa td.fext,.ftable.sa td.fpos{grid-column:1/-1}
-  .ftable.sa td.fext::before{content:"External no. ";font-weight:600;color:var(--ink)}
+  .ftable.sa td.fext::before{font-weight:600;color:var(--ink)}
   .ftable.sa td.fpos::before{content:"Position ";font-weight:600;color:var(--ink)}
   .ftable.sa td.fext,.ftable.sa td.fpos{color:var(--muted);font-weight:400}
   .ftable.sa td.fveh{min-width:0}

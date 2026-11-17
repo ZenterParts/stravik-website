@@ -159,10 +159,10 @@ function searchAll(q){
   return Promise.all([loadSS(),loadFilters(),loadSA(),loadBR(),loadBAT(),loadGS(),loadStd()]).then(([ss,fl,sa,br,bt,gs,stdR])=>{
     const c=fclean(q),num=c.length>=3&&/\d/.test(q);let mode="text",S=[],F=[],A=[],B=[],T=[],G=[],std=[];
     if(num){
-      ss.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["CTR number",[i.ctr]],["Old CTR number",i.old],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])S.push({i,score:b[0],on:b[2]+" "+b[1]});});
+      ss.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])S.push({i,score:b[0],on:b[2]+" "+b[1]});});
       fl.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE / cross-reference",i.n||[]]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])F.push({i,score:b[0],on:b[2]+" "+b[1]});});
-      sa.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["External number",[i.k]],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])A.push({i,score:b[0],on:b[2]+" "+b[1]});});
-      br.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["External number",[i.k]],["OE number",i.oe],["WVA number",i.wva]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])B.push({i,score:b[0],on:b[2]+" "+b[1]});});
+      sa.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])A.push({i,score:b[0],on:b[2]+" "+b[1]});});
+      br.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe],["WVA number",i.wva]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])B.push({i,score:b[0],on:b[2]+" "+b[1]});});
       bt.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["SAB number",i.sab]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0]>=2)T.push({i,score:b[0],on:b[2]+" "+b[1]});});
       gs.items.forEach(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe],["Cross-reference",i.xr]];let b=[0,"",""];f.forEach(([lab,v])=>{const r=numScore(c,v);if(r[0]>b[0])b=[r[0],r[1],lab];});if(b[0])G.push({i,score:b[0],on:b[2]+" "+b[1]});});
       std=stdR.map(r=>({id:r.id,c:r.c,d:r.d,list:r.d.items.map(i=>{const f=[["Stravik number",[i.pn]],["OE number",i.oe],["Cross-reference",i.xr]];let b=[0,"",""];f.forEach(([lab,v])=>{const x=numScore(c,v);if(x[0]>b[0])b=[x[0],x[1],lab];});return b[0]?{i,score:b[0],on:b[2]+" "+b[1],hit:b[1]}:null;}).filter(Boolean)}));
@@ -180,7 +180,7 @@ function searchAll(q){
 function ssResults(d,list,q,max){
   if(!list.length)return "";const shown=list.slice(0,max);
   return `<div class="rgroup"><h2>Steering &amp; suspension <span>${list.length.toLocaleString("en-US")} ${list.length===1?"part":"parts"}</span></h2>
-  <div class="ftable-wrap"><table class="ftable ss"><thead><tr><th>Stravik no.</th><th>Part</th><th>CTR no.</th><th>Fits</th><th>OE numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(x=>ssrow(d,x.i,q,-1)).join("")}</tbody></table></div>
+  <div class="ftable-wrap"><table class="ftable ss"><thead><tr><th>Stravik no.</th><th>Part</th><th>Fits</th><th>OE numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${shown.map(x=>ssrow(d,x.i,q,-1)).join("")}</tbody></table></div>
   ${list.length>max?`<p class="rmore"><a class="btn line" href="#/steering?q=${encodeURIComponent(q)}">See all ${list.length.toLocaleString("en-US")} in the steering &amp; suspension catalogue</a></p>`:""}</div>`;
 }
 function flResults(d,list,q,max){
@@ -314,7 +314,7 @@ function findPage(params){
   const q=(params.get("q")||"").trim(),byVeh=params.get("by")==="vehicle"&&params.get("mk");
   document.title="Find a part | Stravik";
   app.innerHTML=`<div class="pagehead findhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><span>Find a part</span></div>
-    <h1>Find a part</h1><p>Search by Stravik number, OE number, competitor, CTR or external number, or by vehicle.</p>
+    <h1>Find a part</h1><p>Search by Stravik number, OE or competitor number, or by vehicle.</p>
     ${searchPanel("f",params)}</div></div>
   <div class="wrap results" id="results">${q||byVeh?`<p class="loading">Searching…</p>`:`<div class="fhelp">
     <div><h3>By number</h3><p>Type the number on the old part, the OE number from the vehicle maker, or a competitor's number. Spaces and dashes don't matter.</p></div>
@@ -365,8 +365,8 @@ function requestPage(params){
 const NEWS=[
   {cat:"Gas Springs",when:"2026",title:"Stravik gas springs",text:"Gas springs for boots, tailgates, bonnets and rear windows, searchable by Stravik, OE or cross-reference number, by vehicle, or by length, stroke and force.",href:"#/gas-springs",cta:"Search the catalogue",img:"/assets/img/gas-springs-hero.svg"},
   {cat:"Batteries",when:"2026",title:"Stravik batteries",text:"SMF, EFB, AGM and heavy duty starter batteries, searchable by Stravik or SAB number, case, capacity or vehicle, with case drawings.",href:"/batteries/catalogue/",cta:"Search the catalogue",img:"/assets/img/batteries/mock_gold.webp"},
-  {cat:"Brakes",when:"2026",title:"Brake catalogue",text:"Brake pads, discs, shoes and commercial vehicle pads, each with its Stravik number, external number, OE numbers, size and the vehicles it fits.",href:"#/brakes",cta:"Search the catalogue",img:"/assets/img/pads-comfort.webp"},
-  {cat:"Steering & Suspension",when:"2026",title:"Steering and suspension catalogue",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE cross-references and the vehicles it fits.",href:"#/steering",cta:"Search the catalogue",img:"/assets/img/ss-box.webp",count:"ss"},
+  {cat:"Brakes",when:"2026",title:"Brake catalogue",text:"Brake pads, discs, shoes and commercial vehicle pads, each with its Stravik number, OE numbers, size and the vehicles it fits.",href:"#/brakes",cta:"Search the catalogue",img:"/assets/img/pads-comfort.webp"},
+  {cat:"Steering & Suspension",when:"2026",title:"Steering and suspension catalogue",text:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its OE cross-references and the vehicles it fits.",href:"#/steering",cta:"Search the catalogue",img:"/assets/img/ss-box.webp",count:"ss"},
   {cat:"Filters",when:"2026",title:"Stravik filters",text:"Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment, searchable by OE or cross-reference number.",href:"#/filters",cta:"Search the catalogue",icon:"f_oil",count:"fl"},
   {cat:"Brakes",when:"2026",title:"Brake pads in three compounds",text:"Ceramic, semi-metallic and low-metallic pads, each in its own colour-coded box, so the counter can match the pad to how the vehicle is driven.",href:"#/product/brake-pads",cta:"Compare compounds",img:"/assets/img/pads-heavy-duty.webp"},
   {cat:"Brakes",when:"2026",title:"Braking system parts",text:"New lines across friction, hydraulics, electronic control and the parking brake, from wear sensors and wheel cylinders to ABS sensors.",href:"#/products/braking-system",cta:"View the range",icon:"disc",count:"brk"}];
@@ -483,7 +483,7 @@ function productsHome(){
     ["Batteries",m=>pc("/assets/img/batteries/card.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",m],`<a class="btn gold" href="/batteries/catalogue/">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`,1)],
     ["Clutch Kits",m=>pc("/assets/img/clutch-kits/card.webp","kit","Clutch Kits","Clutch kits and clutch discs for cars, bakkies and light commercials. The catalogue is coming soon.",["",m],`<a class="btn gold" href="#/contact?part=clutch%20kit">Ask about clutch kits</a>`,1)],
     ["Brakes",m=>pc("/assets/img/braking/card.webp","disc","Braking System",esc(B.intro),["",m],`<a class="btn gold" href="#/brakes">Open the catalogue</a><a class="btn line" href="#/products/braking-system">About the range</a>`,1,"pcat-row2")],
-    ["Steering & Suspension",m=>pc("/assets/img/steering-suspension/card.webp","ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its CTR and OE numbers.",["",m],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`,1)],
+    ["Steering & Suspension",m=>pc("/assets/img/steering-suspension/card.webp","ball","Steering &amp; Suspension","Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts, each with its OE numbers.",["",m],`<a class="btn gold" href="#/steering">Open the catalogue</a><a class="btn line" href="#/products/steering-suspension">About the range</a>`,1)],
     ["Shock Absorbers",m=>pc(S.img,"shock","Shock Absorbers","MacPherson struts, shock absorbers, strut cartridges and dampers, each with its OE numbers and vehicle applications.",["",m],`<a class="btn gold" href="#/shock-absorbers">Open the catalogue</a><a class="btn line" href="#/products/shock-absorbers">About the range</a>`,1)],
     ["Alternators",m=>pc("/assets/img/alternators/card.webp","alternator","Alternators","Alternators and alternator parts (bearings, brushes, pulleys, regulators, rotors, stators), with vehicle fitment and OE numbers.",["",m],`<a class="btn gold" href="#/alternators">Open the catalogue</a>`,1)],
     ["Starters",m=>pc("/assets/img/starters/card.webp","starter","Starter Motors","12 V and 24 V starter motors for cars, pickups and light commercials, with vehicle fitment and OE numbers.",["",m],`<a class="btn gold" href="#/starters">Open the catalogue</a>`,1)],
@@ -553,7 +553,7 @@ function products(catId,typeId,q){
       </div>
       <nav aria-label="Part types">${cats.map(c=>`<h4>${esc(c.name)}</h4>${c.types.map(t=>`<a href="#/products/${c.id}/${t.id}">${esc(t.name)}</a>`).join("")}<div style="height:18px"></div>`).join("")}</nav>
     </aside>
-    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik, external or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik, CTR or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik, external or OE number</small></span></a><a href="/filters/"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="/batteries/catalogue/"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
+    <div>${cat?"":`<div class="catcall"><a href="#/brakes"><span class="ic">${icon("disc")}</span><span><b>Brake catalogue</b><small id="cc-br">Search by Stravik or OE number</small></span></a><a href="#/steering"><span class="ic">${icon("ball")}</span><span><b>Steering &amp; suspension catalogue</b><small id="cc-ss">Search by Stravik or OE number</small></span></a><a href="#/shock-absorbers"><span class="ic">${icon("shock")}</span><span><b>Shock absorber catalogue</b><small id="cc-sa">Search by Stravik or OE number</small></span></a><a href="/filters/"><span class="ic">${icon("f_oil")}</span><span><b>Filter catalogue</b><small id="cc-fl">Search by Stravik, OE or cross-reference number</small></span></a><a href="#/gas-springs"><span class="ic">${icon("sa_gas")}</span><span><b>Gas spring catalogue</b><small id="cc-gs">Search by Stravik, OE or cross-reference number</small></span></a><a href="/batteries/catalogue/"><span class="ic">${icon("battery")}</span><span><b>Battery catalogue</b><small id="cc-bt">Search by Stravik or SAB number, or vehicle</small></span></a></div>`}<div id="groups"></div></div>
   </div>`;
   // priced-only: a catalogue link shows once we know the customer has parts in it
   const ccHide=pfilt();if(ccHide&&!cat)app.querySelectorAll(".catcall a").forEach(a=>{a.hidden=true;});
@@ -561,7 +561,7 @@ function products(catId,typeId,q){
   if(!cat)loadGS().then(d=>{ccShow("cc-gs",d);const e=app.querySelector("#cc-gs");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" gas springs with OE numbers and vehicles";}).catch(()=>{});
   if(!cat)loadBAT().then(d=>{ccShow("cc-bt",d);const e=app.querySelector("#cc-bt");if(e)e.textContent=d.items.length+" batteries with SAB numbers and vehicles";}).catch(()=>{});
   if(!cat)loadBR().then(d=>{ccShow("cc-br",d);const e=app.querySelector("#cc-br");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" pads, discs and shoes with OE numbers";}).catch(()=>{});
-  if(!cat){loadSS().then(d=>{ccShow("cc-ss",d);const e=app.querySelector("#cc-ss");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" parts with CTR and OE numbers";}).catch(()=>{});
+  if(!cat){loadSS().then(d=>{ccShow("cc-ss",d);const e=app.querySelector("#cc-ss");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" parts with OE numbers";}).catch(()=>{});
     loadSA().then(d=>{ccShow("cc-sa",d);const e=app.querySelector("#cc-sa");if(e)e.textContent=d.items.length.toLocaleString("en-US")+" parts with OE numbers and vehicles";}).catch(()=>{});
     loadFilters().then(d=>{ccShow("cc-fl",d);const e=app.querySelector("#cc-fl");if(e)e.textContent=d.items.length+" filters with OE and cross-reference numbers";}).catch(()=>{});}
   if(cat&&cat.id==="braking-system")wireBrBand();
@@ -858,7 +858,7 @@ function thanks(ref,name,email){
 
 // ---------- steering & suspension catalogue ----------
 // Data: steering-suspension.json, published from Supabase (tables stravik_ss_*, function stravik_ss_catalogue()).
-// parts: [sv_pn, type, ctr_no, [old ctr], position, [oe], oe_hidden_count, [[make index, vehicle, model code, years]]]
+// parts: [sv_pn, type, (unused), (unused), position, [oe], oe_hidden_count, [[make index, vehicle, model code, years]]]
 const SSI={};SS_TYPES.forEach(t=>SSI[t[0]]={code:t[0],one:t[1],many:t[2],group:t[3],icon:t[4],slug:slug(t[2])});
 const SS_GROUPS=["Suspension","Steering","Mountings"];
 let SSP=null;
@@ -867,9 +867,9 @@ function loadSS0(){
   return SSP||(SSP=fetch("/steering-suspension.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(raw=>{
     const d={at:raw.at,makes:raw.makes.map(m=>({name:m[0],region:m[1],label:MKL[m[0]]||m[0]}))};
     d.items=raw.parts.map(p=>{
-      const it={pn:p[0],t:p[1],ctr:p[2]||"",old:p[3]||[],pos:p[4]||"",oe:p[5]||[],hid:p[6]||0,apps:(p[7]||[]).map(a=>({mk:a[0],veh:a[1]||"",mc:a[2]||"",yr:a[3]||""}))};
+      const it={pn:p[0],t:p[1],pos:p[4]||"",oe:p[5]||[],hid:p[6]||0,apps:(p[7]||[]).map(a=>({mk:a[0],veh:a[1]||"",mc:a[2]||"",yr:a[3]||""}))};
       it.mks=[...new Set(it.apps.map(a=>a.mk))];
-      it.keys=[fclean(it.pn),fclean(it.ctr)].concat(it.old.map(fclean),it.oe.map(fclean));
+      it.keys=[fclean(it.pn)].concat(it.oe.map(fclean));
       const T=SSI[it.t]||{one:"",many:""};
       it.text=[T.one,T.many,it.pos].concat(it.mks.map(i=>d.makes[i].name+" "+d.makes[i].label),it.apps.map(a=>a.veh+" "+a.mc+" "+a.yr)).join(" ").toLowerCase();
       return it;});
@@ -901,15 +901,12 @@ function ssFits(d,i,mkIx){
   const makes=(mkIx>=0?[mkIx]:i.mks).map(x=>d.makes[x].label);
   return {makes:makes.slice(0,3).join(", ")+(makes.length>3?` +${makes.length-3} more`:""),vehs:vehs.slice(0,3).join(", ")+(vehs.length>3?` +${vehs.length-3} more`:"")};
 }
-function ssCtr(i,q){const c=fclean(q),hitOld=c.length>=3?i.old.filter(n=>fclean(n).includes(c)):[];const cur=c.length>=3&&fclean(i.ctr).includes(c)?`<mark>${esc(i.ctr)}</mark>`:esc(i.ctr);
-  return `<b>${cur}</b>`+(hitOld.length?`<span>${hitOld.map(n=>`<mark>${esc(n)}</mark>`).join(", ")}</span>`:(i.old.length?`<span>${esc(i.old.slice(0,2).join(", "))}${i.old.length>2?" …":""}</span>`:""));}
 function ssCartBtn(i,cls){const on=Cart.has(i.pn);
   return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(ssItem(i)))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button>`;}
 function ssrow(d,i,q,mkIx){
   const f=ssFits(d,i,mkIx),T=SSI[i.t]||{one:""};
   return `<tr data-href="/part/${esc(i.pn)}/"><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td>`+
     `<td class="fty"><b>${esc(T.one)}</b>${i.pos?` <span>${esc(ssPos(i))}</span>`:""}</td>`+
-    `<td class="fctr">${ssCtr(i,q)}</td>`+
     `<td class="fveh">${f.makes?`<b class="fmk">${esc(f.makes)}</b>`:""}${f.vehs?` ${esc(f.vehs)}`:""}</td>`+
     `<td class="fnum">${ssNums(i,q,3)}</td>`+
     `<td class="fact">${ssCartBtn(i,"inline")}</td></tr>`;
@@ -917,25 +914,24 @@ function ssrow(d,i,q,mkIx){
 function sscard(d,i,q,mkIx){
   const f=ssFits(d,i,mkIx),T=SSI[i.t]||{one:"",icon:"kit"},nums=ssNums(i,q,4);
   return `<div class="fcell"><a class="fcard" href="/part/${esc(i.pn)}/"><span class="ic">${icon(T.icon)}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(ssDesc(i))}</span>`+
-    `<span class="veh"><b>CTR</b> ${esc(i.ctr)}${i.old.length?" ("+esc(i.old.slice(0,2).join(", "))+")":""}</span>`+
     (f.makes?`<span class="veh"><b>Fits</b> ${esc(f.makes)}${f.vehs?": "+esc(f.vehs):""}</span>`:"")+
     (nums?`<span class="nums"><b>OE</b> ${nums}</span>`:"")+`</a>${ssCartBtn(i)}</div>`;
 }
 function ssOverview(){
   app.innerHTML=`<div class="pagehead phero"><img class="phero-img" src="/assets/img/steering-suspension/hero.webp" alt="" width="1584" height="672"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products">Our products</a><span>/</span><span>Steering &amp; Suspension</span></div>
-    <h1>Steering &amp; Suspension</h1><p>Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts with extensive vehicle coverage, each with its CTR and OE cross-references.</p>
+    <h1>Steering &amp; Suspension</h1><p>Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts with extensive vehicle coverage, each with its OE cross-references.</p>
     <div class="tabs" role="list">${prodTabs("steering-suspension")}</div></div></div>
   <section class="fband"><div class="wrap">
-    <div><div class="kicker">Catalogue</div><h2>Steering &amp; suspension catalogue</h2><p id="sov-lede">Every part with its Stravik number, CTR number, OE numbers and the vehicles it fits.</p>
+    <div><div class="kicker">Catalogue</div><h2>Steering &amp; suspension catalogue</h2><p id="sov-lede">Every part with its Stravik number, OE numbers and the vehicles it fits.</p>
       <div style="margin-top:22px"><a class="btn gold" href="#/steering">Open the catalogue</a></div></div>
-    <form id="sovq" role="search"><label for="sovi">Search the catalogue</label><div class="field"><input id="sovi" type="search" autocomplete="off" placeholder="Stravik, CTR or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SVBJ0087, CB0378, 43330-29115 or Hilux</small></form>
+    <form id="sovq" role="search"><label for="sovi">Search the catalogue</label><div class="field"><input id="sovi" type="search" autocomplete="off" placeholder="Stravik or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SVBJ0087, 43330-29115 or Hilux</small></form>
   </div></section>
   <section class="block"><div class="wrap" id="sov-body"><p class="loading">Loading the catalogue…</p></div></section>`;
   app.querySelector("#sovq").addEventListener("submit",e=>{e.preventDefault();const q=app.querySelector("#sovi").value.trim();location.hash="#/steering"+(q?"?q="+encodeURIComponent(q):"");});
   loadSS().then(d=>{
     if(pfilt()&&!d.items.length){app.querySelector("#sov-body").innerHTML=notMine("Steering and suspension parts");return;}
-    app.querySelector("#sov-lede").textContent=`All ${d.items.length.toLocaleString("en-US")} parts with their Stravik number, CTR number, OE numbers and the vehicles they fit.`;
+    app.querySelector("#sov-lede").textContent=`All ${d.items.length.toLocaleString("en-US")} parts with their Stravik number, OE numbers and the vehicles they fit.`;
     const typeCards=g=>SS_TYPES.filter(t=>t[3]===g&&d.count[t[0]]).map(t=>{const T=SSI[t[0]],n=d.count[t[0]];return `<a class="card" href="#/steering/${T.slug}"><span class="ic">${icon(T.icon)}</span><h3>${esc(T.many)}</h3><p>View in the catalogue</p></a>`;}).join("");
     const regions=[...new Set(d.makes.map(m=>m.region))];
     app.querySelector("#sov-body").innerHTML=SS_GROUPS.map(g=>`<div class="group"><h2>${g}<span>${SS_TYPES.filter(t=>t[3]===g).reduce((s,t)=>s+(d.count[t[0]]||0),0).toLocaleString("en-US")} parts</span></h2><div class="grid">${typeCards(g)}</div></div>`).join("")+
@@ -949,13 +945,13 @@ function ssPage(slugT,params){
   const STEP=()=>view==="list"?100:48;let shown=STEP();
   const T0=SS_TYPES.find(t=>slug(t[2])===slugT);let code=T0?T0[0]:"";
   app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/steering-suspension">Steering &amp; Suspension</a><span>/</span><span>Catalogue</span></div><h1>Steering &amp; suspension catalogue</h1>
-    <p>Search by Stravik, CTR or OE number, vehicle or model code, or pick a make and part type.</p></div></div>
+    <p>Search by Stravik or OE number, vehicle or model code, or pick a make and part type.</p></div></div>
     <div class="wrap catalog"><aside class="side fside"><nav aria-label="Part types" class="ftypes-nav" id="snav"></nav></aside>
     <div><div class="fsearch" role="search">
       <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the steering and suspension catalogue</span>
-        <input id="sq" type="search" autocomplete="off" spellcheck="false" placeholder="${matchMedia("(max-width:600px)").matches?"Part, CTR or OE no., or vehicle":"Search Stravik, CTR or OE no., vehicle or model code"}" value="${esc(q)}">
+        <input id="sq" type="search" autocomplete="off" spellcheck="false" placeholder="${matchMedia("(max-width:600px)").matches?"Part or OE no., or vehicle":"Search Stravik or OE no., vehicle or model code"}" value="${esc(q)}">
         <button type="button" class="fs-x" id="sqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
-      <span class="fs-hint">For example SVBJ0087, CB0378, 43330-29115, Hilux or KF40</span></div>
+      <span class="fs-hint">For example SVBJ0087, 43330-29115, Hilux or KF40</span></div>
     <div class="fbar"><div class="fbar-l"><label class="sr" for="smk">Vehicle make</label><select id="smk"><option value="">All makes</option></select>
       <label class="sr" for="sty">Part type</label><select id="sty"><option value="">All part types</option></select><p class="fcount" id="scount" aria-live="polite"></p></div>
       <div class="vtoggle" role="group" aria-label="Show parts as"><button type="button" data-v="list" aria-pressed="${view==="list"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M2 3.5h12M2 8h12M2 12.5h12"/></svg>List</button><button type="button" data-v="cards" aria-pressed="${view==="cards"}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Cards</button></div></div>
@@ -978,10 +974,10 @@ function ssPage(slugT,params){
       app.querySelector("#scount").textContent=`${res.length.toLocaleString("en-US")} ${res.length===1?"part":"parts"}`;
       const page=res.slice(0,shown);
       list.innerHTML=res.length?(view==="list"
-        ?`<div class="ftable-wrap"><table class="ftable ss"><thead><tr><th>Stravik no.</th><th>Part</th><th>CTR no.</th><th>Fits</th><th>OE numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${page.map(i=>ssrow(d,i,q,mkIx)).join("")}</tbody></table></div>`
+        ?`<div class="ftable-wrap"><table class="ftable ss"><thead><tr><th>Stravik no.</th><th>Part</th><th>Fits</th><th>OE numbers</th><th><span class="sr">Cart</span></th></tr></thead><tbody>${page.map(i=>ssrow(d,i,q,mkIx)).join("")}</tbody></table></div>`
         :`<div class="fgrid">${page.map(i=>sscard(d,i,q,mkIx)).join("")}</div>`)+
         (res.length>shown?`<div class="more"><button type="button" class="btn line" id="smore">Show more (${(res.length-shown).toLocaleString("en-US")} left)</button></div>`:""):
-        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}`:""}${code?` in ${esc(SSI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Send us the OE or CTR number, or the vehicle, and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="sclear">Clear search</button><a class="btn gold" href="#/contact?part=${encodeURIComponent(code?SSI[code].one:"")}">Ask us</a></p></div>`;
+        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}`:""}${code?` in ${esc(SSI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Send us the OE number, or the vehicle, and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="sclear">Clear search</button><a class="btn gold" href="#/contact?part=${encodeURIComponent(code?SSI[code].one:"")}">Ask us</a></p></div>`;
       const more=list.querySelector("#smore");if(more)more.onclick=()=>{shown+=STEP();draw();};
       const clr=list.querySelector("#sclear");if(clr)clr.onclick=()=>{q="";mkIx=-1;code="";inp.value="";smk.value="";sty.value="";showX();nav();head();sync();draw();inp.focus();};
     };
@@ -1003,7 +999,7 @@ function ssPage(slugT,params){
 // ---------- shock absorber catalogue ----------
 // Data: shock-absorbers.json, published from Supabase (tables stravik_sa_*, function stravik_sa_catalogue()).
 // parts: [sv_pn, type, description, position, fitting position, damper type, system, upper mount, lower mount,
-//         supplied with, external no, availability, new (0/1), [oe], [[make index, model, model code, years, position]]]
+//         supplied with, (unused), availability, new (0/1), [oe], [[make index, model, model code, years, position]]]
 const SAI={};SA_TYPES.forEach(t=>SAI[t[0]]={code:t[0],one:t[1],many:t[2],icon:t[3],slug:slug(t[2])});
 const saMkLabel=m=>MKL[m]||String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g,c=>c.toUpperCase());
 let SAP=null;
@@ -1012,10 +1008,10 @@ function loadSA0(){
   return SAP||(SAP=fetch("/shock-absorbers.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(raw=>{
     const d={at:raw.at,makes:raw.makes.map(m=>({name:m,label:saMkLabel(m)}))};
     d.items=raw.parts.map((p,ord)=>{
-      const it={pn:p[0],t:p[1],d:p[2]||"",pos:p[3]||"",fp:p[4]||"",ty:p[5]||"",sy:p[6]||"",um:p[7]||"",lm:p[8]||"",inc:p[9]||"",k:p[10]||"",x:p[11]||"",nw:!!p[12],oe:p[13]||[],ord,
+      const it={pn:p[0],t:p[1],d:p[2]||"",pos:p[3]||"",fp:p[4]||"",ty:p[5]||"",sy:p[6]||"",um:p[7]||"",lm:p[8]||"",inc:p[9]||"",x:p[11]||"",nw:!!p[12],oe:p[13]||[],ord,
         apps:(p[14]||[]).map(a=>({mk:a[0],mo:a[1]||"",mc:a[2]||"",yr:a[3]||"",pos:a[4]||""}))};
       it.mks=[...new Set(it.apps.map(a=>a.mk))];
-      it.keys=[fclean(it.pn),fclean(it.k)].concat(it.oe.map(fclean));
+      it.keys=[fclean(it.pn)].concat(it.oe.map(fclean));
       const T=SAI[it.t]||{one:"",many:""};
       it.text=[T.one,T.many,it.pos,it.ty,it.sy].concat(it.mks.map(i=>d.makes[i].name+" "+d.makes[i].label),it.apps.map(a=>a.mo+" "+a.mc+" "+a.yr)).join(" ").toLowerCase();
       return it;});
@@ -1051,9 +1047,8 @@ function saCartBtn(i,cls){const on=Cart.has(i.pn);
   return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(saItem(i)))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button>`;}
 const saTags=i=>(i.nw?`<span class="satag new">New</span>`:"")+(i.x?`<span class="satag">${esc(i.x)}</span>`:"");
 function sarow(d,i,q,v){
-  const T=SAI[i.t]||{one:""},c=fclean(q),k=c.length>=3&&fclean(i.k).includes(c)?`<mark>${esc(i.k)}</mark>`:esc(i.k);
+  const T=SAI[i.t]||{one:""};
   return `<tr data-href="/part/${esc(i.pn)}/"><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a>${saTags(i)}${saCartBtn(i,"inline")}</td>`+
-    `<td class="fext">${k||"–"}</td>`+
     `<td class="fty"><b>${esc(T.one)}</b>${i.ty||i.sy?`<span>${esc([i.ty,i.sy].filter(Boolean).join(", "))}</span>`:""}</td>`+
     `<td class="fpos">${esc(saPos(i))}</td>`+
     `<td class="fnum">${saNums(i,q,4)||"–"}</td>`+
@@ -1062,7 +1057,6 @@ function sarow(d,i,q,v){
 function sacard(d,i,q,v){
   const T=SAI[i.t]||{one:"",icon:"shock"},nums=saNums(i,q,4);
   return `<div class="fcell"><a class="fcard" href="/part/${esc(i.pn)}/"><span class="ic">${icon(T.icon)}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(saDesc(i))}</span>`+
-    (i.k?`<span class="veh"><b>External no.</b> ${esc(i.k)}</span>`:"")+
     `<span class="veh sa-fits"><b>Fits</b> ${saFits(d,i,v,2)}</span>`+
     (nums?`<span class="nums"><b>OE</b> ${nums}</span>`:"")+`</a>${saCartBtn(i)}</div>`;
 }
@@ -1072,15 +1066,15 @@ function saOverview(){
     <h1>Shock Absorbers</h1><p>MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit, each with its OE numbers and vehicle applications.</p>
     <div class="tabs" role="list">${prodTabs("shock-absorbers")}</div></div></div>
   <section class="fband"><div class="wrap">
-    <div><div class="kicker">Catalogue</div><h2>Shock absorber catalogue</h2><p id="saov-lede">Every part with its Stravik number, external number, OE numbers, position and the vehicles it fits.</p>
+    <div><div class="kicker">Catalogue</div><h2>Shock absorber catalogue</h2><p id="saov-lede">Every part with its Stravik number, OE numbers, position and the vehicles it fits.</p>
       <div style="margin-top:22px"><a class="btn gold" href="#/shock-absorbers">Open the catalogue</a></div></div>
-    <form id="saovq" role="search"><label for="saovi">Search the catalogue</label><div class="field"><input id="saovi" type="search" autocomplete="off" placeholder="Stravik, external or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SV3300041, 334945, 48510-09550 or Corolla</small></form>
+    <form id="saovq" role="search"><label for="saovi">Search the catalogue</label><div class="field"><input id="saovi" type="search" autocomplete="off" placeholder="Stravik or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SV3300041, 48510-09550 or Corolla</small></form>
   </div></section>
   <section class="block"><div class="wrap" id="saov-body"><p class="loading">Loading the catalogue…</p></div></section>`;
   app.querySelector("#saovq").addEventListener("submit",e=>{e.preventDefault();const q=app.querySelector("#saovi").value.trim();location.hash="#/shock-absorbers"+(q?"?q="+encodeURIComponent(q):"");});
   loadSA().then(d=>{
     if(pfilt()&&!d.items.length){app.querySelector("#saov-body").innerHTML=notMine("Shock absorbers");return;}
-    app.querySelector("#saov-lede").textContent=`All ${d.items.length.toLocaleString("en-US")} parts with their Stravik number, external number, OE numbers, position and the vehicles they fit.`;
+    app.querySelector("#saov-lede").textContent=`All ${d.items.length.toLocaleString("en-US")} parts with their Stravik number, OE numbers, position and the vehicles they fit.`;
     app.querySelector("#saov-body").innerHTML=`<div class="group"><h2>Part types<span>${d.items.length.toLocaleString("en-US")} parts</span></h2><div class="grid">${SA_TYPES.filter(t=>d.count[t[0]]).map(t=>{const T=SAI[t[0]];return `<a class="card" href="#/shock-absorbers/${T.slug}"><span class="ic">${icon(T.icon)}</span><h3>${esc(T.many)}</h3><p>View in the catalogue</p></a>`;}).join("")}</div></div>`+
       `<div class="group" style="margin-bottom:0"><h2>Search by vehicle make<span>${mkN(d)} makes</span></h2><div class="mkgrid">${d.makes.map((m,ix)=>({m,ix})).filter(x=>mkOn(d,x.ix)).sort((a,b)=>a.m.label.localeCompare(b.m.label)).map(({m,ix})=>`<a class="mk" href="#/shock-absorbers?make=${encodeURIComponent(m.name)}">${esc(m.label)}<span>${d.mkCount[ix].toLocaleString("en-US")}</span></a>`).join("")}</div></div>`;
   }).catch(err=>{app.querySelector("#saov-body").innerHTML=`<div class="noresults"><p>The catalogue didn't load (${esc(err.message)}). Refresh the page to try again.</p></div>`;});
@@ -1092,13 +1086,13 @@ function saPage(slugT,params){
   const T0=SA_TYPES.find(t=>slug(t[2])===slugT);let code=T0?T0[0]:"";
   const small=matchMedia("(max-width:600px)").matches;
   app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/shock-absorbers">Shock Absorbers</a><span>/</span><span>Catalogue</span></div><h1>Shock absorber catalogue</h1>
-    <p>Search by Stravik, external or OE number, or pick the vehicle make, model and year. Matched to OE fit.</p></div></div>
+    <p>Search by Stravik or OE number, or pick the vehicle make, model and year. Matched to OE fit.</p></div></div>
     <div class="wrap catalog"><aside class="side fside"><nav aria-label="Part types" class="ftypes-nav" id="anav"></nav></aside>
     <div><div class="fsearch" role="search">
       <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the shock absorber catalogue</span>
-        <input id="aq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik, external or OE no., or model":"Search Stravik, external or OE no., vehicle or model code"}" value="${esc(q)}">
+        <input id="aq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik or OE no., or model":"Search Stravik or OE no., vehicle or model code"}" value="${esc(q)}">
         <button type="button" class="fs-x" id="aqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
-      <span class="fs-hint">For example SV3300041, 334945, 48510-09550, Corolla or ZZE121</span></div>
+      <span class="fs-hint">For example SV3300041, 48510-09550, Corolla or ZZE121</span></div>
     <div class="fbar sabar"><div class="fbar-l"><label class="sr" for="amk">Vehicle make</label><select id="amk"><option value="">All makes</option></select>
       <label class="sr" for="amo">Model</label><select id="amo" disabled><option value="">All models</option></select>
       <label class="sr" for="ayr">Year</label><select id="ayr"><option value="">Any year</option>${YEARS.map(y=>`<option${y===yr?" selected":""}>${y}</option>`).join("")}</select>
@@ -1122,7 +1116,7 @@ function saPage(slugT,params){
       document.title=(T?T.many:"Shock absorber catalogue")+" | Stravik";};
     const showX=()=>{qx.hidden=!inp.value;};
     const sync=()=>{const p=new URLSearchParams();if(q)p.set("q",q);if(mkIx>=0)p.set("make",d.makes[mkIx].name);if(mo)p.set("model",mo);if(yr)p.set("year",yr);history.replaceState(null,"","#/shock-absorbers"+(code?"/"+SAI[code].slug:"")+(p.toString()?"?"+p:""));};
-    const SORT={s:i=>i.pn,k:i=>i.k,t:i=>(SAI[i.t]?SA_TYPES.findIndex(t=>t[0]===i.t):9)+" "+i.ty+" "+i.sy,o:i=>i.pos,f:i=>-i.apps.length};
+    const SORT={s:i=>i.pn,t:i=>(SAI[i.t]?SA_TYPES.findIndex(t=>t[0]===i.t):9)+" "+i.ty+" "+i.sy,o:i=>i.pos,f:i=>-i.apps.length};
     const th=(k,l)=>`<th><button type="button" class="sort" data-sort="${k}" data-dir="${sk===k?(sd>0?"asc":"desc"):""}">${l}</button></th>`;
     const draw=()=>{
       const v=veh(),c=fclean(q);
@@ -1132,10 +1126,10 @@ function saPage(slugT,params){
       app.querySelector("#acount").textContent=`${res.length.toLocaleString("en-US")} ${res.length===1?"part":"parts"}`;
       const page=res.slice(0,shown);
       list.innerHTML=res.length?(view==="list"
-        ?`<div class="ftable-wrap"><table class="ftable sa"><thead><tr>${th("s","Stravik no.")}${th("k","External no.")}${th("t","Type")}${th("o","Position")}<th>OE numbers</th>${th("f","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>sarow(d,i,q,v)).join("")}</tbody></table></div>`
+        ?`<div class="ftable-wrap"><table class="ftable sa"><thead><tr>${th("s","Stravik no.")}${th("t","Type")}${th("o","Position")}<th>OE numbers</th>${th("f","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>sarow(d,i,q,v)).join("")}</tbody></table></div>`
         :`<div class="fgrid">${page.map(i=>sacard(d,i,q,v)).join("")}</div>`)+
         (res.length>shown?`<div class="more"><button type="button" class="btn line" id="amore">Show more (${(res.length-shown).toLocaleString("en-US")} left)</button></div>`:""):
-        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}${mo?" "+esc(mo):""}${yr?" "+yr:""}`:(yr?` for ${yr}`:"")}${code?` in ${esc(SAI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Check the Stravik, external or OE number, or send us the vehicle and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="aclear">Clear all filters</button><a class="btn gold" href="#/request${q?"?q="+encodeURIComponent(q):""}">Ask us</a></p></div>`;
+        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}${mo?" "+esc(mo):""}${yr?" "+yr:""}`:(yr?` for ${yr}`:"")}${code?` in ${esc(SAI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Check the Stravik or OE number, or send us the vehicle and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="aclear">Clear all filters</button><a class="btn gold" href="#/request${q?"?q="+encodeURIComponent(q):""}">Ask us</a></p></div>`;
       const more=list.querySelector("#amore");if(more)more.onclick=()=>{shown+=STEP();draw();};
       const clr=list.querySelector("#aclear");if(clr)clr.onclick=()=>{q="";mkIx=-1;mo="";yr=0;code="";inp.value="";amk.value="";ayr.value="";aty.value="";models();showX();nav();head();sync();draw();inp.focus();};
     };
@@ -1161,13 +1155,13 @@ function saPage(slugT,params){
 function saResults(d,list,q,max,v){
   if(!list.length)return "";const shown=list.slice(0,max);v=v||{mk:-1,mo:"",yr:0};
   return `<div class="rgroup"><h2>Shock absorbers <span>${list.length.toLocaleString("en-US")} ${list.length===1?"part":"parts"}</span></h2>
-  <div class="ftable-wrap"><table class="ftable sa"><thead><tr><th>Stravik no.</th><th>External no.</th><th>Type</th><th>Position</th><th>OE numbers</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>sarow(d,x.i,q,v)).join("")}</tbody></table></div>
+  <div class="ftable-wrap"><table class="ftable sa"><thead><tr><th>Stravik no.</th><th>Type</th><th>Position</th><th>OE numbers</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>sarow(d,x.i,q,v)).join("")}</tbody></table></div>
   ${list.length>max?`<p class="rmore"><a class="btn line" href="#/shock-absorbers?q=${encodeURIComponent(q)}">See all ${list.length.toLocaleString("en-US")} in the shock absorber catalogue</a></p>`:""}</div>`;
 }
 
 // ---------- brake catalogue ----------
 // Data: brakes.json, published from Supabase (tables stravik_*, function stravik_brake_catalogue()).
-// parts: [sv_pn, type, position, size, disc type, external no, [oe], [wva], [[make index, model, years, position, description]]]
+// parts: [sv_pn, type, position, size, disc type, (unused), [oe], [wva], [[make index, model, years, position, description]]]
 const BRI={};BR_TYPES.forEach(t=>BRI[t[0]]={code:t[0],one:t[1],many:t[2],icon:t[3],slug:slug(t[2])});
 const brMkLabel=m=>BR_MKL[m]||MKL[m]||String(m).toLowerCase().replace(/(^|[\s/-])[a-z]/g,c=>c.toUpperCase());
 const BR_NOTVEH=new Set(BR_BRANDS.concat(["COMMERCIAL VEHICLES","IMPORT"]));
@@ -1177,11 +1171,11 @@ function loadBR0(){
   return BRP||(BRP=fetch("/brakes.json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error("Status "+r.status);return r.json();}).then(raw=>{
     const d={at:raw.at,makes:raw.makes.map(m=>({name:m,label:brMkLabel(m),brand:BR_BRANDS.includes(m),cv:m==="COMMERCIAL VEHICLES",veh:!BR_NOTVEH.has(m)}))};
     d.items=raw.parts.map((p,ord)=>{
-      const it={pn:p[0],t:p[1],pos:p[2]||"",sz:p[3]||"",dt:p[4]||"",k:p[5]||"",oe:p[6]||[],wva:p[7]||[],ord,
+      const it={pn:p[0],t:p[1],pos:p[2]||"",sz:p[3]||"",dt:p[4]||"",oe:p[6]||[],wva:p[7]||[],ord,
         apps:(p[8]||[]).map(a=>({mk:a[0],mo:a[1]||"",yr:a[2]||"",pos:a[3]||"",ds:a[4]||""}))};
       it.mks=[...new Set(it.apps.map(a=>a.mk))];
       it.nums=it.oe.concat(it.wva.map(w=>"WVA "+w));
-      it.keys=[fclean(it.pn),fclean(it.k)].concat(it.oe.map(fclean),it.wva.map(fclean));
+      it.keys=[fclean(it.pn)].concat(it.oe.map(fclean),it.wva.map(fclean));
       const T=BRI[it.t]||{one:"",many:""};
       it.text=[T.one,T.many,it.pos,it.dt,it.sz].concat(it.mks.map(i=>d.makes[i].name+" "+d.makes[i].label),it.apps.map(a=>a.mo+" "+a.yr)).join(" ").toLowerCase();
       return it;});
@@ -1210,9 +1204,8 @@ function brCartBtn(i,cls){const on=Cart.has(i.pn);
   return `<button type="button" class="fadd${cls?" "+cls:""}" data-cart-key="${esc(i.pn)}" data-item="${esc(JSON.stringify(brItem(i)))}" data-on="${on}" aria-label="${on?"Remove":"Add"} ${esc(i.pn)} ${on?"from":"to"} cart">${on?"✓ In cart":"Add to cart"}</button>`;}
 const brSub=i=>[i.dt,i.sz].filter(Boolean).join(" · ");
 function brrow(d,i,q,v){
-  const T=BRI[i.t]||{one:""},c=fclean(q),k=c.length>=3&&fclean(i.k).includes(c)?`<mark>${esc(i.k)}</mark>`:esc(i.k);
+  const T=BRI[i.t]||{one:""};
   return `<tr data-href="/part/${esc(i.pn)}/"><td class="fpn"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a>${brCartBtn(i,"inline")}</td>`+
-    `<td class="fext">${k||"–"}</td>`+
     `<td class="fty"><b>${esc(T.one)}</b>${brSub(i)?`<span>${esc(brSub(i))}</span>`:""}</td>`+
     `<td class="fpos">${esc(i.pos||"Axle")}</td>`+
     `<td class="fnum">${brNums(i,q,4)||"–"}</td>`+
@@ -1222,7 +1215,6 @@ function brcard(d,i,q,v){
   const T=BRI[i.t]||{one:"",icon:"pad"},nums=brNums(i,q,4);
   return `<div class="fcell"><a class="fcard" href="/part/${esc(i.pn)}/"><span class="ic">${icon(T.icon)}</span><span class="pn">${esc(i.pn)}</span><span class="ty">${esc(brDesc(i))}</span>`+
     (i.sz?`<span class="veh"><b>Size</b> ${esc(i.sz)}</span>`:"")+
-    (i.k?`<span class="veh"><b>External no.</b> ${esc(i.k)}</span>`:"")+
     `<span class="veh sa-fits"><b>Fits</b> ${brFits(d,i,v,2)}</span>`+
     (nums?`<span class="nums"><b>OE</b> ${nums}</span>`:"")+`</a>${brCartBtn(i)}</div>`;
 }
@@ -1234,15 +1226,15 @@ function brMakeOpts(d,sel){
 // the search band on the Braking System product page
 function brBand(){
   return `<section class="fband"><div class="wrap">
-    <div><div class="kicker">Catalogue</div><h2>Brake catalogue</h2><p id="brov-lede">Brake pads, discs and shoes with their Stravik number, external number, OE numbers, size and the vehicles they fit.</p>
+    <div><div class="kicker">Catalogue</div><h2>Brake catalogue</h2><p id="brov-lede">Brake pads, discs and shoes with their Stravik number, OE numbers, size and the vehicles they fit.</p>
       <div style="margin-top:22px"><a class="btn gold" href="#/brakes">Open the catalogue</a></div></div>
-    <form id="brovq" role="search"><label for="brovi">Search the brake catalogue</label><div class="field"><input id="brovi" type="search" autocomplete="off" placeholder="Stravik, external or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SV2300013, KD0004Y, 04465-0K290 or Corolla</small></form>
+    <form id="brovq" role="search"><label for="brovi">Search the brake catalogue</label><div class="field"><input id="brovi" type="search" autocomplete="off" placeholder="Stravik or OE number, or vehicle"><button type="submit">Search</button></div><small>For example SV2300013, 04465-0K290 or Corolla</small></form>
   </div></section>`;
 }
 function wireBrBand(){
   const f=app.querySelector("#brovq");if(!f)return;
   f.addEventListener("submit",e=>{e.preventDefault();const q=app.querySelector("#brovi").value.trim();location.hash="#/brakes"+(q?"?q="+encodeURIComponent(q):"");});
-  loadBR().then(d=>{const e=app.querySelector("#brov-lede");if(e)e.textContent=`All ${d.items.length.toLocaleString("en-US")} brake pads, discs and shoes with their Stravik number, external number, OE numbers, size and the vehicles they fit.`;}).catch(()=>{});
+  loadBR().then(d=>{const e=app.querySelector("#brov-lede");if(e)e.textContent=`All ${d.items.length.toLocaleString("en-US")} brake pads, discs and shoes with their Stravik number, OE numbers, size and the vehicles they fit.`;}).catch(()=>{});
 }
 function brPage(slugT,params){
   let q=params.get("q")||"",mkName=params.get("make")||"",mo=params.get("model")||"",yr=parseInt(params.get("year"),10)||0,pos=params.get("pos")||"",view="list",sk="",sd=1;
@@ -1252,13 +1244,13 @@ function brPage(slugT,params){
   const small=matchMedia("(max-width:600px)").matches;
   const POS=[["front","Front"],["rear","Rear"]];
   app.innerHTML=`<div class="pagehead fhead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span><a href="#/products/braking-system">Braking System</a><span>/</span><span>Catalogue</span></div><h1>Brake catalogue</h1>
-    <p>Brake pads, discs and shoes. Search by Stravik, external, OE or WVA number, or pick the vehicle make, model and year.</p></div></div>
+    <p>Brake pads, discs and shoes. Search by Stravik, OE or WVA number, or pick the vehicle make, model and year.</p></div></div>
     <div class="wrap catalog"><aside class="side fside"><nav aria-label="Part types" class="ftypes-nav" id="bnav"></nav></aside>
     <div><div class="fsearch" role="search">
       <label class="fs-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr">Search the brake catalogue</span>
-        <input id="bq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik, external or OE no., or model":"Search Stravik, external, OE or WVA no., vehicle or size"}" value="${esc(q)}">
+        <input id="bq" type="search" autocomplete="off" spellcheck="false" placeholder="${small?"Stravik or OE no., or model":"Search Stravik, OE or WVA no., vehicle or size"}" value="${esc(q)}">
         <button type="button" class="fs-x" id="bqx" aria-label="Clear search"${q?"":" hidden"}>×</button></label>
-      <span class="fs-hint">For example SV2300013, KD0004Y, 04465-0K290, 29256 or Corolla</span></div>
+      <span class="fs-hint">For example SV2300013, 04465-0K290, 29256 or Corolla</span></div>
     <div class="fbar sabar"><div class="fbar-l"><label class="sr" for="bmk">Vehicle make</label><select id="bmk"><option value="">All makes</option></select>
       <label class="sr" for="bmo">Model</label><select id="bmo" disabled><option value="">All models</option></select>
       <label class="sr" for="byr">Year</label><select id="byr"><option value="">Any year</option>${YEARS.map(y=>`<option${y===yr?" selected":""}>${y}</option>`).join("")}</select>
@@ -1285,7 +1277,7 @@ function brPage(slugT,params){
     const sync=()=>{const p=new URLSearchParams();if(q)p.set("q",q);if(mkIx>=0)p.set("make",d.makes[mkIx].name);if(mo)p.set("model",mo);if(yr)p.set("year",yr);if(pos)p.set("pos",pos);history.replaceState(null,"","#/brakes"+(code?"/"+BRI[code].slug:"")+(p.toString()?"?"+p:""));};
     // a part counts as front (or rear) if its own position says so, or one of the fitments does
     const posOk=i=>!pos||lc(i.pos).includes(pos)||i.apps.some(a=>lc(a.pos).includes(pos)||lc(a.ds).includes(pos));
-    const SORT={s:i=>i.pn,k:i=>i.k,t:i=>BR_TYPES.findIndex(t=>t[0]===i.t)+" "+i.dt+" "+i.sz,o:i=>i.pos,f:i=>-i.apps.length};
+    const SORT={s:i=>i.pn,t:i=>BR_TYPES.findIndex(t=>t[0]===i.t)+" "+i.dt+" "+i.sz,o:i=>i.pos,f:i=>-i.apps.length};
     const th=(k,l)=>`<th><button type="button" class="sort" data-sort="${k}" data-dir="${sk===k?(sd>0?"asc":"desc"):""}">${l}</button></th>`;
     const draw=()=>{
       const v=veh(),c=fclean(q);
@@ -1295,10 +1287,10 @@ function brPage(slugT,params){
       app.querySelector("#bcount").textContent=`${res.length.toLocaleString("en-US")} ${res.length===1?"part":"parts"}`;
       const page=res.slice(0,shown);
       list.innerHTML=res.length?(view==="list"
-        ?`<div class="ftable-wrap"><table class="ftable sa br"><thead><tr>${th("s","Stravik no.")}${th("k","External no.")}${th("t","Type and size")}${th("o","Position")}<th>OE numbers</th>${th("f","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>brrow(d,i,q,v)).join("")}</tbody></table></div>`
+        ?`<div class="ftable-wrap"><table class="ftable sa br"><thead><tr>${th("s","Stravik no.")}${th("t","Type and size")}${th("o","Position")}<th>OE numbers</th>${th("f","Vehicle fitment")}</tr></thead><tbody>${page.map(i=>brrow(d,i,q,v)).join("")}</tbody></table></div>`
         :`<div class="fgrid">${page.map(i=>brcard(d,i,q,v)).join("")}</div>`)+
         (res.length>shown?`<div class="more"><button type="button" class="btn line" id="bmore">Show more (${(res.length-shown).toLocaleString("en-US")} left)</button></div>`:""):
-        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}${mo?" "+esc(mo):""}${yr?" "+yr:""}`:(yr?` for ${yr}`:"")}${pos?` at the ${pos}`:""}${code?` in ${esc(BRI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Check the Stravik, external or OE number, or send us the vehicle and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="bclear">Clear all filters</button><a class="btn gold" href="#/request${q?"?q="+encodeURIComponent(q):""}">Ask us</a></p></div>`;
+        `<div class="noresults"><p>No parts match${q?` “${esc(q)}”`:""}${mkIx>=0?` for ${esc(d.makes[mkIx].label)}${mo?" "+esc(mo):""}${yr?" "+yr:""}`:(yr?` for ${yr}`:"")}${pos?` at the ${pos}`:""}${code?` in ${esc(BRI[code].many.toLowerCase())}`:""}.</p><p style="margin-top:8px">Check the Stravik or OE number, or send us the vehicle and we'll check for you.</p><p style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn line" id="bclear">Clear all filters</button><a class="btn gold" href="#/request${q?"?q="+encodeURIComponent(q):""}">Ask us</a></p></div>`;
       const more=list.querySelector("#bmore");if(more)more.onclick=()=>{shown+=STEP();draw();};
       const clr=list.querySelector("#bclear");if(clr)clr.onclick=()=>{q="";mkIx=-1;mo="";yr=0;pos="";code="";inp.value="";bmk.value="";byr.value="";bpo.value="";bty.value="";models();showX();nav();head();sync();draw();inp.focus();};
     };
@@ -1325,7 +1317,7 @@ function brPage(slugT,params){
 function brResults(d,list,q,max,v){
   if(!list.length)return "";const shown=list.slice(0,max);v=v||{mk:-1,mo:"",yr:0};
   return `<div class="rgroup"><h2>Brakes <span>${list.length.toLocaleString("en-US")} ${list.length===1?"part":"parts"}</span></h2>
-  <div class="ftable-wrap"><table class="ftable sa br"><thead><tr><th>Stravik no.</th><th>External no.</th><th>Type and size</th><th>Position</th><th>OE numbers</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>brrow(d,x.i,q,v)).join("")}</tbody></table></div>
+  <div class="ftable-wrap"><table class="ftable sa br"><thead><tr><th>Stravik no.</th><th>Type and size</th><th>Position</th><th>OE numbers</th><th>Vehicle fitment</th></tr></thead><tbody>${shown.map(x=>brrow(d,x.i,q,v)).join("")}</tbody></table></div>
   ${list.length>max?`<p class="rmore"><a class="btn line" href="#/brakes?q=${encodeURIComponent(q)}">See all ${list.length.toLocaleString("en-US")} in the brake catalogue</a></p>`:""}</div>`;
 }
 
