@@ -71,6 +71,8 @@
     var up = 0; for (var i = 1; i < vals.length; i++) if (+vals[i] > +vals[i - 1]) up++;
     return up >= (vals.length - 1) * 0.8;
   };
+  // keeps an Arabic heading from scrambling the order of the English sentence around it
+  var iso = function (t) { return '\u2068' + t + '\u2069'; };
   var looksLikePN = function (v) { v = String(v == null ? '' : v).trim(); return !!v && (/[A-Za-z]/.test(v) && /\d/.test(v) || /-/.test(v) && /\d/.test(v) || /^\d{5,}$/.test(L.clean(v))); };
   // uploaded list: every column that holds part numbers is used (OE, Reference, Article no., ...);
   // quantity and description columns are recognised by their headings (English, Arabic or French).
@@ -128,9 +130,9 @@
       });
     });
     var info = items.length.toLocaleString() + ' rows read' + (hr > 0 ? ' (headings in row ' + (hr + 1) + ')' : '') + '. Numbers taken from ' +
-      (hasHead && names.some(Boolean) ? 'column' + (names.length > 1 ? 's ' : ' ') + names.map(function (n) { return '"' + n + '"'; }).join(', ') : 'column ' + (cols[0] + 1)) +
+      (hasHead && names.some(Boolean) ? 'column' + (names.length > 1 ? 's ' : ' ') + names.map(function (n) { return '"' + iso(n) + '"'; }).join(', ') : 'column ' + (cols[0] + 1)) +
       (names.length > 1 ? ' (a row is found if any of them matches)' : '') + '; ' +
-      (qi >= 0 ? 'quantities from ' + (hasHead && String(rows[hr][qi] || '').trim() ? '"' + String(rows[hr][qi]).trim() + '"' : 'column ' + (qi + 1)) + '.' : 'quantity 1 each (no quantity column found).') +
+      (qi >= 0 ? 'quantities from ' + (hasHead && String(rows[hr][qi] || '').trim() ? '"' + iso(String(rows[hr][qi]).trim()) + '"' : 'column ' + (qi + 1)) + '.' : 'quantity 1 each (no quantity column found).') +
       (split ? ' ' + split + ' row' + (split > 1 ? 's' : '') + ' with several numbers in one cell ("/" or "+") split.' : '');
     // the customer's own columns are kept so downloads can return their file with the results added
     var headers = []; for (var h = 0; h < width; h++) headers.push(hasHead ? String(rows[hr][h] == null ? '' : rows[hr][h]).trim() || 'Column ' + (h + 1) : 'Column ' + (h + 1));
