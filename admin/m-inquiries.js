@@ -175,37 +175,57 @@
           '<td class="num">' + L.qty(l.available) + '</td><td>' + (l.flag ? '<span class="flag">' + esc(l.flag) + '</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>' + (shown.length > MAX ? '<p class="muted small">Showing the first ' + MAX + ' of ' + shown.length + ' lines. The Excel download has all of them.</p>' : '');
   }
-  function excel(h, lines, total, pcs, sales) {
+  // vehicle makes the Stravik catalogue lists for each part (same as the Number Lookup download)
+  async function makesFor(lines) {
+    var pns = Array.from(new Set(lines.map(function (l) { return l.sv_pn; }).filter(Boolean))), out = {};
+    for (var ch of L.chunks(pns, 200)) L.must(await sb.from('stravik_part_summary').select('sv_pn,vehicle_makes').in('sv_pn', ch)).forEach(function (x) { out[x.sv_pn] = x.vehicle_makes || ''; });
+    return out;
+  }
+  // the download: when the inquiry was made from a customer's file, their own columns come first (row for row, as sent),
+  // then the same result columns as Number Lookup, then the inquiry's prices
+  async function excel(h, lines, total, pcs, sales) {
+    L.toast('Preparing the download…');
+    var makes = await makesFor(lines);
     var costs = P && P.costs, priced = P && P.region && P.access, cur = priced ? P.region.currency : '';
     var n = function (v) { return v == null ? '' : Number(v); };
-    var head = ['#', 'Requested', 'Matched as', 'Stravik PN', 'Description', 'Range', 'Type', 'Qty'], w = [6, 18, 30, 16, 50, 18, 18, 8];
+    var cc = Array.isArray(h.customer_columns) && h.customer_columns.length ? h.customer_columns.map(String) : null, W = cc ? cc.length : 0;
+    var pad = function (o) { var a = []; for (var i = 0; i < W; i++) a.push(o && o[i] != null ? String(o[i]) : ''); return a; };
+    var result = function (l) { return l.sv_pn ? 'Found' : (l.candidates && l.candidates.length ? l.candidates.length + ' possible parts' : 'Not found'); };
+    var head = (cc || []).concat(['#', 'Requested', 'Result', 'Matched as', 'Stravik PN', 'Description', 'Range', 'Type', 'Status', 'Qty']);
+    var w = (cc || []).map(function (x) { return Math.min(30, Math.max(12, x.length + 2)); }).concat([6, 18, 16, 30, 16, 50, 18, 18, 8, 8]);
     if (costs) { head.push('FOB USD', 'Line FOB USD', 'Sales price USD', 'Line sales USD'); w.push(10, 12, 12, 12); }
     var band = bandOn();
     if (priced) { head.push((band ? 'Recommended ' : 'Tier price ') + cur); w.push(14); if (band) { head.push('Move'); w.push(8); } head.push('Quoted ' + cur, 'Line quoted ' + cur); w.push(12, 14); if (costs) { head.push('GP margin'); w.push(10); } }
-    head.push('Available', 'Note', 'Other possible parts'); w.push(10, 24, 30);
+    head.push('Available', 'Vehicle makes (Stravik catalogue)', 'Note', 'Other possible parts'); w.push(10, 36, 24, 30);
     var qt = 0;
     var row = function (l) {
-      var o = [l.line, l.requested_no, l.matched_via || '', l.sv_pn || '', l.description || '', l.subcategory || '', l.part_type || '', l.qty];
+      var o = (cc ? pad(l.customer_row) : []).concat([l.line, l.requested_no, result(l), l.matched_via || '', l.sv_pn || '', l.description || '', l.subcategory || '', l.part_type || '', l.part_status || '', l.qty]);
       if (costs) o.push(n(l.fob_usd), n(l.line_fob_usd), n(l.sales_price), n(l.line_sales_usd));
       if (priced) { var k = lineCalc(l); o.push(n(k.base)); if (band) o.push(k.base == null ? '' : L.bandPct(k.move)); o.push(n(k.quoted), n(k.line)); if (costs) o.push(k.gp == null ? '' : Math.round(k.gp * 1000) / 1000); }
-      o.push(n(l.available), l.flag || '', (l.candidates || []).join(', ')); return o;
+      o.push(n(l.available), (l.sv_pn && makes[l.sv_pn]) || '', l.flag || '', (l.candidates || []).join(', ')); return o;
     };
     lines.forEach(function (l) { var k = priced ? lineCalc(l) : null; if (k && k.line != null) qt += k.line; });
-    var foot = ['', '', '', '', 'Total (priced lines)', '', '', pcs];
+    var foot = pad(null).concat(['', '', '', '', '', 'Total (priced lines)', '', '', '', pcs]);
     if (costs) foot.push('', Math.round(total * 100) / 100, '', Math.round((sales || 0) * 100) / 100);
     if (priced) { foot.push(''); if (band) foot.push(''); foot.push('', Math.round(qt * 100) / 100); }
-    var top = [['Inquiry ' + h.ref], ['Source', h.source || ''], ['Received', L.dt(h.created_at)], ['Company', h.company || ''], ['Name', h.name || ''], ['Email', h.email || ''], ['Phone', h.phone || ''], ['Country', h.country || '']];
+    var top = [['Inquiry ' + h.ref], ['Source', h.source || ''], ['Received', L.dt(h.created_at)]].concat(h.customer_file ? [['Customer file', h.customer_file]] : []).concat([ ['Company', h.company || ''], ['Name', h.name || ''], ['Email', h.email || ''], ['Phone', h.phone || ''], ['Country', h.country || '']]);
     if (P && P.region) top.push(['Price region', P.region.name + (P.tier ? ' · ' + tierName(P.tier) : '') + (priced ? ' · ' + cur + (P.region.pricing !== 'single' ? ' excl. VAT' : '') : '')]);
     top.push([]);
     var sheets = [{ name: 'Inquiry', widths: w, top: top, head: head, rows: lines.map(row), foot: [foot] }];
     var att = lines.filter(function (l) { return l.flag; });
     if (att.length) sheets.push({ name: 'Needs attention', widths: w, head: head, rows: att.map(row) });
-    return L.saveXlsx(sheets, h.ref + '_Stravik_prices.xlsx');
+    if (cc) {   // the customer's rows that matched nothing, as they sent them
+      var seenNf = {}, nf = lines.filter(function (l) { return !l.sv_pn && !(l.candidates && l.candidates.length); }).filter(function (l) { var k = JSON.stringify(l.customer_row || [l.requested_no]); if (seenNf[k]) return false; seenNf[k] = 1; return true; });
+      if (nf.length) sheets.push({ name: 'Not found', widths: w.slice(0, W), head: cc, rows: nf.map(function (l) { return pad(l.customer_row); }) });
+    }
+    return L.saveXlsx(sheets, (h.customer_file ? h.customer_file.replace(/\.(xlsx|csv|txt)$/i, '') + '_' : '') + h.ref + '_Stravik_prices.xlsx');
   }
 
   // ---------- wizard: new inquiry from a customer's list ----------
   function wizard(prefill, prefillBest) {
     var items = prefill || null, best = prefillBest || null;
+    // the customer's own columns, when the list came from a file (Number lookup or the upload below)
+    var lk = prefill ? (L.state.lookup || {}) : {}, cust = { headers: prefill && lk.headers ? lk.headers : null, file: prefill && lk.headers ? lk.fileName || '' : '' }, fileItems = null, fileText = null;
     L.modal('New inquiry from a list',
       '<p class="muted">For customers who send a list of OE, CTR, cross-reference or Stravik numbers. Every number is matched to a Stravik part, priced at FOB and sales price, and flagged if it isn\'t found.</p>' +
       '<div class="o-groups">' + L.group('Customer', [['Company', '<input id="nCompany">'], ['Contact', '<input id="nName">'], ['Email', '<input id="nEmail" type="email">'], ['Phone', '<input id="nPhone">'], ['Country', '<input id="nCountry">']]) +
@@ -215,11 +235,11 @@
         '<div class="cols2"><label>Paste numbers (one row per line; several numbers for a row separated by |, quantity after ;)<textarea id="nPaste" class="mono" rows="7" placeholder="04C121004E ; 10&#10;90915-YZZJ3 | WE01-13-Z40 ; 2"></textarea></label>' +
         '<div><label>Or upload Excel / CSV<input type="file" id="nFile" accept=".xlsx,.csv"></label><p class="muted small" id="nInfo"></p></div></div>') +
       '<div id="nPreview"></div><div class="o-footer"><button class="btn" id="nCreate" disabled>Create inquiry</button><button class="btn ghost" id="nCheck">Check list</button><button class="btn ghost" id="nCancel">Cancel</button></div>', true);
-    var current = function () { return items || L.parseListText($('nPaste').value); };
+    var current = function () { if (items) return items; if (fileItems && $('nPaste').value === fileText) return fileItems; return L.parseListText($('nPaste').value); };
     $('nCancel').onclick = L.closeModal;
     if (!items) {
-      $('nFile').onchange = async function () { var f = this.files[0]; if (!f) return; try { var r = await L.parseListFile(f); $('nPaste').value = L.listToText(r.items); $('nInfo').textContent = r.info; best = null; $('nCreate').disabled = true; } catch (e) { L.fail(e); } };
-      $('nPaste').oninput = function () { best = null; $('nCreate').disabled = true; };
+      $('nFile').onchange = async function () { var f = this.files[0]; if (!f) return; try { var r = await L.parseListFile(f); fileItems = r.items; fileText = L.listToText(r.items); cust = { headers: r.headers || null, file: r.fileName || '' }; $('nPaste').value = fileText; $('nInfo').textContent = r.info; best = null; $('nCreate').disabled = true; } catch (e) { L.fail(e); } };
+      $('nPaste').oninput = function () { best = null; $('nCreate').disabled = true; if ($('nPaste').value !== fileText) { fileItems = null; cust = { headers: null, file: '' }; } };
     }
     $('nCheck').onclick = async function () {
       var list = current(); if (!list.length) return L.toast('The list is empty');
@@ -238,11 +258,13 @@
     $('nCreate').onclick = async function () {
       var list = current(); if (!list.length) return;
       var btn = this; btn.disabled = true; btn.textContent = 'Creating…';
+      var withCols = !!(cust.headers && cust.headers.length && list.some(function (i) { return i.orig; }));
       try {
         var ref = L.must(await sb.rpc('stravik_create_inquiry', {
-          header: { company: $('nCompany').value, name: $('nName').value, email: $('nEmail').value, phone: $('nPhone').value, country: $('nCountry').value, type: $('nType').value, message: $('nMsg').value, source: $('nSource').value },
+          header: { company: $('nCompany').value, name: $('nName').value, email: $('nEmail').value, phone: $('nPhone').value, country: $('nCountry').value, type: $('nType').value, message: $('nMsg').value, source: $('nSource').value,
+            columns: withCols ? cust.headers : null, file: withCols ? cust.file : '' },
           // the number that matched is sent (OE or reference); all of the customer's numbers are kept in the line's description
-          lines: list.map(function (i, k) { var alts = i.alts || [i.no]; return { no: (best && best[k]) || i.no, qty: i.qty || 1, desc: [i.desc || ''].concat(alts.length > 1 ? [alts.join(' / ')] : []).filter(Boolean).join(' · ') }; })
+          lines: list.map(function (i, k) { var alts = i.alts || [i.no]; return { no: (best && best[k]) || i.no, qty: i.qty || 1, desc: [i.desc || ''].concat(alts.length > 1 ? [alts.join(' / ')] : []).filter(Boolean).join(' · '), orig: withCols && i.orig ? i.orig.map(function (x) { return x == null ? '' : String(x); }) : null }; })
         }));
         L.closeModal(); L.toast('Inquiry ' + ref + ' created'); L.go(L.href('inquiries', [ref]));
       } catch (e) { L.fail(e); btn.disabled = false; btn.textContent = 'Create inquiry'; }
