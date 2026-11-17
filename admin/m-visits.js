@@ -1,7 +1,8 @@
-/* App: Site visits. Proof of customer site visits logged by field sales from the phone app (/visits/):
-   check-in and check-out time and GPS position, plus photos taken with the live camera.
+/* App: Site visits. Customer site visits logged by field sales from the phone app (/visits/):
+   start and end time and GPS position, photos taken with the live camera, and the visit report the salesperson writes
+   afterwards (outcome, follow-up with an optional date, summary).
    Tables public.stravik_visit_sites, stravik_visits, stravik_visit_photos; photos in the private bucket stravik-visit-photos.
-   The database works out the distance from the site and the flags (far from the site, weak GPS, wrong phone clock).
+   The database works out the distance from the site and the flags (outside the country, far from the site, weak GPS, wrong phone clock).
    Who sees this app: only staff with staff.sees_visits (public.my_visit_access() = 'manager' or 'viewer'); the tile is not
    registered for anyone else, and row level security returns nothing but a person's own visits to them.
    'manager' (sees_visits + editor) can also correct, reset and merge sites. */
@@ -13,8 +14,11 @@
   var BUCKET = 'stravik-visit-photos';
   var ACCESS = null, STAFF = null;
   var FLAGS = { outside_country: "Checked in outside the site's country", far_from_site: 'Checked in far from the site', checkout_far_from_site: 'Checked out far from the site', low_gps_accuracy: 'Weak GPS signal', clock_mismatch: 'Phone clock was wrong' };
+  var OUT = { proceed: ['Moving forward', 'Won'], in_progress: ['In discussion', 'Quoted'], no_business: ['No business for now', 'Lost'] };   // label, pill colour
   var FILTERS = [
     { key: 'flag', label: 'Needs a check', group: 'Status' }, { key: 'open', label: 'Still on site', group: 'Status' },
+    { key: 'o_proceed', label: 'Moving forward', group: 'Outcome' }, { key: 'o_in_progress', label: 'In discussion', group: 'Outcome' }, { key: 'o_no_business', label: 'No business for now', group: 'Outcome' },
+    { key: 'norep', label: 'No report yet', group: 'Report' }, { key: 'fu', label: 'Follow-up open', group: 'Report' },
     { key: 'd1', label: 'Today', group: 'Date', single: true }, { key: 'd7', label: 'Last 7 days', group: 'Date', single: true }, { key: 'd30', label: 'Last 30 days', group: 'Date', single: true }
   ];
   var isManager = function () { return ACCESS === 'manager'; };
@@ -38,6 +42,14 @@
   function mapLink(lat, lng, text) { return lat == null ? '' : '<a href="https://www.google.com/maps?q=' + lat + ',' + lng + '" target="_blank" rel="noopener">' + esc(text || (Number(lat).toFixed(5) + ', ' + Number(lng).toFixed(5))) + '</a>'; }
   function flagPills(v) { return (v.flag_reasons || []).map(function (f) { return L.pill(FLAGS[f] || f, 'warn'); }).join(' '); }
   function since(days) { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (days - 1)); return d.toISOString(); }
+  function fuDate(d) { return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''; }
+  function outcome(v) { return v.outcome && OUT[v.outcome] ? L.pill(OUT[v.outcome][0], OUT[v.outcome][1]) : v.check_out_at ? '<span class="muted">No report yet</span>' : ''; }
+  function followUp(v) {
+    if (!v.follow_up) return '';
+    if (v.follow_up_done_at) return '<span class="muted">Done</span>';
+    if (!v.follow_up_on) return 'Needed, no date';
+    return v.follow_up_on < L.today() ? L.pill('Was due ' + fuDate(v.follow_up_on), 'warn') : esc(fuDate(v.follow_up_on));
+  }
 
   // ------------------------------------------------------------ visits list
   async function match(text) {   // search by salesperson (name or email) or by site (name, town, country)
@@ -53,6 +65,9 @@
     var q = sb.from('stravik_visits').select('*, site:stravik_visit_sites(name,country,city)', opts).order('check_in_at', { ascending: false });
     if (S.active.flag) q = q.eq('flagged', true);
     if (S.active.open) q = q.is('check_out_at', null);
+    var outs = ['proceed', 'in_progress', 'no_business'].filter(function (o) { return S.active['o_' + o]; }); if (outs.length) q = q.in('outcome', outs);
+    if (S.active.norep) q = q.is('reported_at', null).not('check_out_at', 'is', null);
+    if (S.active.fu) q = q.eq('follow_up', true).is('follow_up_done_at', null);
     var d = S.active.d1 ? 1 : S.active.d7 ? 7 : S.active.d30 ? 30 : 0; if (d) q = q.gte('check_in_at', since(d));
     if (or) q = q.or(or);
     return q;
@@ -67,6 +82,8 @@
     { label: 'Salesperson', render: function (v) { return esc(who(v.staff_email)); } },
     { label: 'Site', render: function (v) { return '<b>' + esc(v.site ? v.site.name : '') + '</b>'; } },
     { label: 'Country', render: function (v) { return esc(v.site ? [v.site.city, v.site.country].filter(Boolean).join(', ') : ''); } },
+    { label: 'Outcome', render: outcome },
+    { label: 'Follow-up', render: followUp },
     { label: 'Checked out', render: function (v) { return v.check_out_at ? esc(L.dt(v.check_out_at)) : L.pill('Still on site', 'New'); } },
     { label: 'Time on site', num: true, render: function (v) { return esc(durText(mins(v))); } },
     { label: 'From the site', num: true, render: function (v) { return v.check_in_distance_m == null ? '<span class="muted">first visit</span>' : esc(metres(v.check_in_distance_m)); } },
@@ -91,7 +108,7 @@
       rows.forEach(function (r) { r._photos = n[r.id] || 0; });
       L.pager(S.offset, res.count || 0, function (o) { S.offset = o; load(); });
       L.content(rows.length ? L.listView(COLS, rows, function (v) { return L.href('visits', ['v', v.id]); })
-        : L.empty('No visits found', S.text || Object.keys(S.active).length ? 'Try a different search or remove a filter.' : 'Visits appear here as soon as a salesperson checks in with the phone app at <b>' + esc(location.host) + '/visits/</b>.'));
+        : L.empty('No visits found', S.text || Object.keys(S.active).length ? 'Try a different search or remove a filter.' : 'Visits appear here as soon as a salesperson starts one with the phone app at <b>' + esc(location.host) + '/visits/</b>.'));
     } catch (e) { L.fail(e); }
   }
   async function download() {
@@ -101,20 +118,22 @@
       var or = await match(S.text), rows = await L.fetchAll(function () { return query(or); });
       var n = rows.length ? await photoCounts(rows.map(function (r) { return r.id; })) : {};
       await L.saveXlsx([{ name: 'Site visits',
-        widths: [18, 22, 30, 30, 16, 16, 18, 12, 12, 12, 12, 14, 12, 12, 12, 14, 8, 36, 40, 18],
-        head: ['Checked in', 'Salesperson', 'Email', 'Site', 'Country', 'Town', 'Checked out', 'Minutes on site', 'Check-in latitude', 'Check-in longitude', 'Check-in GPS accuracy (m)', 'Check-in distance from site (m)',
-          'Check-out latitude', 'Check-out longitude', 'Check-out GPS accuracy (m)', 'Check-out distance from site (m)', 'Photos', 'Needs a check', 'Notes', 'Received'],
+        widths: [18, 22, 30, 30, 16, 16, 18, 12, 20, 12, 14, 14, 40, 12, 12, 12, 14, 12, 12, 12, 14, 8, 36, 18],
+        head: ['Checked in', 'Salesperson', 'Email', 'Site', 'Country', 'Town', 'Checked out', 'Minutes on site', 'Outcome', 'Follow-up needed', 'Follow-up date', 'Follow-up done', 'Summary and comments',
+          'Check-in latitude', 'Check-in longitude', 'Check-in GPS accuracy (m)', 'Check-in distance from site (m)', 'Check-out latitude', 'Check-out longitude', 'Check-out GPS accuracy (m)', 'Check-out distance from site (m)',
+          'Photos', 'Needs a check', 'Received'],
         rows: rows.map(function (v) {
           var r = function (x) { return x == null ? '' : Math.round(x); };
           return [L.dt(v.check_in_at), who(v.staff_email), v.staff_email || '', v.site ? v.site.name : '', v.site ? v.site.country || '' : '', v.site ? v.site.city || '' : '', v.check_out_at ? L.dt(v.check_out_at) : '', mins(v) == null ? '' : mins(v),
+            v.outcome && OUT[v.outcome] ? OUT[v.outcome][0] : '', !v.reported_at || v.outcome === 'no_business' ? '' : v.follow_up ? 'Yes' : 'No', fuDate(v.follow_up_on), v.follow_up_done_at ? L.dt(v.follow_up_done_at) : '', v.notes || '',
             v.check_in_lat, v.check_in_lng, r(v.check_in_accuracy_m), r(v.check_in_distance_m), v.check_out_lat == null ? '' : v.check_out_lat, v.check_out_lng == null ? '' : v.check_out_lng, r(v.check_out_accuracy_m), r(v.check_out_distance_m),
-            n[v.id] || 0, (v.flag_reasons || []).map(function (f) { return FLAGS[f] || f; }).join('; '), v.notes || '', L.dt(v.received_at)];
+            n[v.id] || 0, (v.flag_reasons || []).map(function (f) { return FLAGS[f] || f; }).join('; '), L.dt(v.received_at)];
         }) }], 'Stravik_site_visits_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
 
   // ------------------------------------------------------------ one visit
-  var KIND = { check_in: 'Check-in photo', check_out: 'Check-out photo', other: 'Photo during the visit' };
+  var KIND = { check_in: 'Arrival photo', check_out: 'Departure photo', other: 'Visit photo' };
   async function visit(id) {
     try {
       await staff();
@@ -128,7 +147,10 @@
       }).join('') + '</ul></div>' : '';
       var sheet = why + '<h1>' + esc(site.name || 'Site') + '</h1><p class="muted">' + esc(who(v.staff_email)) + ', ' + esc(L.dt(v.check_in_at)) + '</p><div class="o-groups">' +
         L.group('Visit', [['Salesperson', esc(who(v.staff_email))], ['Email', esc(v.staff_email || '')], ['Site', '<a href="' + L.href('visits', ['sites', v.site_id]) + '">' + esc(site.name || '') + '</a>'],
-          ['Town, country', esc([site.city, site.country].filter(Boolean).join(', '))], ['Time on site', v.check_out_at ? esc(durText(m)) : L.pill('Still on site', 'New')], ['Notes', esc(v.notes || '')]]) +
+          ['Town, country', esc([site.city, site.country].filter(Boolean).join(', '))], ['Time on site', v.check_out_at ? esc(durText(m)) : L.pill('Still on site', 'New')]]) +
+        L.group('Visit report', v.reported_at ? [['Outcome', outcome(v)], ['Follow-up needed', v.outcome === 'no_business' ? '' : v.follow_up ? 'Yes' : 'No'], ['Follow-up date', esc(fuDate(v.follow_up_on))],
+          ['Follow-up done', v.follow_up_done_at ? esc(L.dt(v.follow_up_done_at)) : ''], ['Report written', esc(L.dt(v.reported_at))], ['Summary and comments', esc(v.notes || '')]]
+          : [['Outcome', '<span class="muted">No report yet</span>'], ['Notes', esc(v.notes || '')]]) +
         L.group('Check-in', [['Time', esc(L.dt(v.check_in_at))], ['Position', mapLink(v.check_in_lat, v.check_in_lng)], ['GPS accuracy', esc(metres(v.check_in_accuracy_m))],
           ['Distance from site', v.check_in_distance_m == null ? '<span class="muted">First visit: this check-in set the site\'s position</span>' : esc(metres(v.check_in_distance_m))],
           ['Received', esc(L.dt(v.received_at)) + (late > 30 ? ' <span class="muted">(sent ' + esc(durText(Math.round(late))) + ' after check-in: the phone was offline)</span>' : '')]]) +
@@ -170,7 +192,7 @@
       var q = sb.from('stravik_visit_sites').select('*', { count: 'exact' }).order('name'), or = L.orSearch(['name', 'city', 'country'], S.stext); if (or) q = q.or(or);
       var res = await q.range(S.soffset, S.soffset + L.PAGE - 1), rows = L.must(res); if (run !== sRun) return;
       L.pager(S.soffset, res.count || 0, function (o) { S.soffset = o; sLoad(); });
-      L.content(rows.length ? L.listView(SCOLS, rows, function (s) { return L.href('visits', ['sites', s.id]); }) : L.empty('No sites found', 'Salespeople add sites from the phone app before they check in.'));
+      L.content(rows.length ? L.listView(SCOLS, rows, function (s) { return L.href('visits', ['sites', s.id]); }) : L.empty('No sites found', 'Salespeople add sites from the phone app before they start a visit.'));
     } catch (e) { L.fail(e); }
   }
   async function site(id) {

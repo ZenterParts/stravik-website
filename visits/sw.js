@@ -1,6 +1,6 @@
 /* Stravik Site Visits: offline shell. Files are served from the phone first (works with no signal),
    and refreshed in the background whenever there is a connection, so the next launch has the new version. */
-var CACHE = 'stravik-visits-v1';
+var CACHE = 'stravik-visits-v2';
 var SHELL = [
   '/visits/', '/visits/app.js', '/visits/manifest.webmanifest',
   '/admin/vendor/supabase-2.57.4.min.js',

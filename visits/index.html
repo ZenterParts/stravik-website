@@ -38,14 +38,14 @@ button{cursor:pointer; -webkit-tap-highlight-color:transparent;}
 /* buttons: tall enough for a thumb, readable in sunlight */
 .btn{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px; padding:12px 18px; border:0; border-radius:8px; background:var(--navy); color:#fff; font-weight:600; font-size:1.08rem;}
 .btn:active{background:var(--navy-deep);}
-.btn[disabled]{background:#c9cdd3; color:#fff; cursor:default;}
 .btn.gold{background:var(--gold); color:#fff;} .btn.gold:active{background:var(--gold-dark);}
 .btn.ghost{background:#fff; color:var(--navy); border:1.5px solid var(--navy);}
 .btn.quiet{background:transparent; color:var(--grey); min-height:48px; font-weight:500;}
+.btn[disabled],.btn.gold[disabled],.btn.ghost[disabled]{background:#c9cdd3; color:#fff; border-color:#c9cdd3; cursor:default;}
 .link{background:none; border:0; padding:10px 0; color:var(--gold-dark); text-decoration:underline; font-size:.95rem;}
 
 label{display:block; font-weight:600; font-size:.92rem; margin:14px 0 0;}
-input[type=text],input[type=email],input[type=password],input[type=search],input[type=tel],select,textarea{display:block; width:100%; min-height:52px; margin-top:6px; padding:12px 14px; border:1.5px solid #c4c9c4; border-radius:8px; background:#fff; font-weight:400;}
+input[type=text],input[type=email],input[type=password],input[type=search],input[type=tel],input[type=date],select,textarea{display:block; width:100%; min-height:52px; margin-top:6px; padding:12px 14px; border:1.5px solid #c4c9c4; border-radius:8px; background:#fff; font-weight:400;}
 textarea{min-height:92px; resize:vertical;}
 input:focus,select:focus,textarea:focus{border-color:var(--gold); outline:3px solid rgba(169,124,66,.25);}
 .msg{min-height:1.4em; margin:10px 0 0; font-size:.95rem;} .msg.err{color:var(--bad);} .msg.ok{color:var(--ok);}
@@ -55,8 +55,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold); outline:3px so
 .auth img{width:190px; height:auto; filter:brightness(0) invert(1); margin-bottom:26px;}
 .auth h1{font-size:2rem; margin-bottom:6px;}
 .auth .muted{color:#b9c3d2;}
-.auth input{border-color:transparent;}
-.auth input{color:var(--ink);}
+.auth input{border-color:transparent; color:var(--ink);}
 .auth .btn{background:var(--gold); margin-top:22px;}
 .auth .link{color:#e3c79b;}
 .auth .msg.err{color:#ffb4a8;}
@@ -80,11 +79,16 @@ main{padding:20px 16px calc(var(--bottom) + 32px); max-width:560px; margin:0 aut
 .rows .row{padding:11px 14px;}
 .rows .state{float:right; margin-left:10px; font-size:.8rem; font-weight:600; color:var(--ok);}
 .rows .state.wait{color:var(--wait);}
+.rows .due{color:var(--bad); font-weight:600;}
+.rows .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
+.rows .acts button{display:inline-block; width:auto; min-height:40px; padding:6px 12px; border:1.5px solid var(--navy); border-radius:8px; background:#fff; color:var(--navy); font-weight:600; font-size:.88rem; text-align:center;}
 .empty{padding:16px 14px; color:var(--grey); background:#fff; border:1px dashed #c4c9c4; border-radius:8px; margin:10px 0 14px;}
 .dupes{margin:8px 0 0; padding:10px 12px; background:#fff6e3; border:1px solid #ecd9ab; border-radius:8px; font-size:.92rem;}
 .dupes button{display:block; width:100%; text-align:left; background:none; border:0; padding:8px 0; color:var(--navy); font-weight:600; text-decoration:underline;}
+#todo h2:first-child{margin-top:0;}
+#todo:not(:empty) + h1{margin-top:28px;}
 
-/* check-in steps */
+/* start of a visit */
 .back{display:inline-flex; align-items:center; min-height:44px; padding:0; margin:-8px 0 6px; background:none; border:0; color:var(--grey); font-weight:600;}
 .site-line{margin:4px 0 18px; color:var(--grey);}
 .step{display:flex; gap:14px; align-items:flex-start; padding:16px; margin-bottom:12px; background:#fff; border:1px solid var(--line); border-radius:8px;}
@@ -97,7 +101,20 @@ main{padding:20px 16px calc(var(--bottom) + 32px); max-width:560px; margin:0 aut
 .step .btn{margin-top:12px; min-height:50px;}
 .step img{display:block; width:100%; max-height:220px; object-fit:cover; border-radius:6px; margin-top:12px;}
 
-/* on site: the one loud screen */
+/* visit report */
+fieldset{border:0; padding:0; margin:20px 0 0; min-width:0;}
+legend{padding:0; font-weight:600; font-size:.92rem;}
+.opts label{display:flex; align-items:flex-start; gap:12px; margin:8px 0 0; padding:14px; border:1.5px solid #c4c9c4; border-radius:8px; background:#fff; font-weight:400; font-size:1rem;}
+.opts label.on{border-color:var(--navy); box-shadow:inset 0 0 0 1px var(--navy);}
+.opts input{flex:none; width:22px; height:22px; margin:1px 0 0; accent-color:var(--navy);}
+.opts b{display:block; font-weight:600;}
+.opts small{display:block; color:var(--grey); font-size:.88rem;}
+.opts .pair{display:grid; grid-template-columns:1fr 1fr; gap:0 10px;}
+.thumbs{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 0;}
+.thumbs img{width:64px; height:64px; object-fit:cover; border-radius:6px; border:1px solid var(--line);}
+#sReport .btn{margin-top:12px;}
+
+/* visit in progress: the one loud screen */
 .onsite{position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; background:var(--navy); color:#fff; padding:calc(var(--top) + 22px) 20px calc(var(--bottom) + 20px); overflow-y:auto;}
 .onsite .tag{display:inline-flex; align-items:center; gap:8px; font-weight:600; color:#e3c79b;}
 .onsite .tag i{width:10px; height:10px; border-radius:50%; background:#5fd39a; animation:pulse 2s ease-in-out infinite;}
@@ -106,8 +123,8 @@ main{padding:20px 16px calc(var(--bottom) + 32px); max-width:560px; margin:0 aut
 .onsite h1{font-size:2.1rem; margin:10px 0 2px; overflow-wrap:anywhere;}
 .onsite .since{color:#b9c3d2;}
 .timer{font-family:var(--display); font-weight:700; font-size:clamp(4rem,22vw,6.4rem); line-height:1; letter-spacing:.01em; margin:26px 0 6px; font-variant-numeric:tabular-nums;}
-.onsite .thumbs{display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 4px;}
-.onsite .thumbs img{width:64px; height:64px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,.3);}
+.onsite .thumbs{margin:18px 0 4px;}
+.onsite .thumbs img{border-color:rgba(255,255,255,.3);}
 .onsite label{color:#b9c3d2;}
 .onsite textarea{color:var(--ink); border-color:transparent;}
 .onsite .actions{margin-top:auto; padding-top:22px; display:grid; gap:12px;}
@@ -157,8 +174,9 @@ main{padding:20px 16px calc(var(--bottom) + 32px); max-width:560px; margin:0 aut
     <button type="button" class="icon-btn" id="menuBtn" aria-label="Menu">⋮</button>
   </header>
   <main>
-    <!-- home: choose a site -->
+    <!-- home: reports to complete, follow-ups, choose a site -->
     <section id="sHome" hidden>
+      <div id="todo"></div>
       <h1>Where are you visiting?</h1>
       <label for="siteSearch">Site or company</label>
       <input type="search" id="siteSearch" placeholder="Type a name to search" autocomplete="off">
@@ -189,40 +207,76 @@ main{padding:20px 16px calc(var(--bottom) + 32px); max-width:560px; margin:0 aut
       </form>
     </section>
 
-    <!-- check in -->
+    <!-- start a visit -->
     <section id="sCheckin" hidden>
       <button type="button" class="back" data-home>‹ Back</button>
       <h1 id="ciSite"></h1>
       <p class="site-line" id="ciPlace"></p>
       <div class="step" id="stLoc">
         <span class="n">1</span>
-        <div class="b"><b>Your location</b><div class="d" id="locText">Finding your location…</div></div>
+        <div class="b"><b>Location</b><div class="d" id="locText">Finding your location…</div></div>
       </div>
       <div class="step" id="stPhoto">
         <span class="n">2</span>
-        <div class="b"><b>Photo of the site</b><div class="d" id="photoText">Take a photo that shows you are at the site.</div>
-          <img id="ciPhoto" alt="Check-in photo" hidden>
+        <div class="b"><b>Arrival photo</b><div class="d" id="photoText">A photo of the site, for example the entrance or signboard.</div>
+          <img id="ciPhoto" alt="Arrival photo" hidden>
           <button type="button" class="btn ghost" id="ciCam">Open camera</button>
         </div>
       </div>
-      <button type="button" class="btn gold" id="ciGo" disabled>Check in</button>
-      <p class="muted small" style="margin-top:12px">The time, your location and the photo are sent to the company as proof of the visit.</p>
+      <button type="button" class="btn gold" id="ciGo" disabled>Start visit</button>
+      <p class="muted small" style="margin-top:12px">The time, location and photo are saved with your visit report.</p>
+    </section>
+
+    <!-- visit report -->
+    <section id="sReport" hidden>
+      <button type="button" class="back" data-home>‹ Back</button>
+      <h1>Visit report</h1>
+      <p class="site-line"><b id="rpSite"></b><br><span id="rpTime"></span></p>
+      <form id="reportForm" novalidate>
+        <fieldset class="opts">
+          <legend>How did the visit go?</legend>
+          <label><input type="radio" name="rpO" value="proceed"><span><b>Moving forward</b><small>They are ready to do business with us</small></span></label>
+          <label><input type="radio" name="rpO" value="in_progress"><span><b>In discussion</b><small>Talks are ongoing, nothing decided yet</small></span></label>
+          <label><input type="radio" name="rpO" value="no_business"><span><b>Not at this time</b><small>No business for now</small></span></label>
+        </fieldset>
+        <fieldset class="opts" id="rpFollow" hidden>
+          <legend>Is a follow-up needed?</legend>
+          <div class="pair">
+            <label><input type="radio" name="rpF" value="yes"><span><b>Yes</b></span></label>
+            <label><input type="radio" name="rpF" value="no"><span><b>No</b></span></label>
+          </div>
+        </fieldset>
+        <div id="rpWhen" hidden>
+          <label for="rpDate">Follow-up date <span class="muted">(optional)</span></label>
+          <input type="date" id="rpDate">
+          <p class="muted small" style="margin-top:6px">It will be listed on your home screen, where you can also add it to your phone calendar.</p>
+        </div>
+        <label for="rpNotes">Summary and comments</label>
+        <textarea id="rpNotes" maxlength="2000" rows="4" placeholder="Who you met, what was discussed, next steps"></textarea>
+        <label>Photos <span class="muted">(optional)</span></label>
+        <p class="muted small" style="margin:4px 0 0">For example the team you met or the products on display.</p>
+        <div class="thumbs" id="rpThumbs"></div>
+        <button type="button" class="btn ghost" id="rpPhoto">Add a photo</button>
+        <p id="rpMsg" class="msg err" role="status"></p>
+        <button class="btn gold" type="submit">Save report</button>
+        <button class="btn quiet" type="button" data-home>Finish it later</button>
+      </form>
     </section>
   </main>
 </div>
 
-<!-- on site -->
+<!-- visit in progress -->
 <section id="sOnSite" class="onsite" hidden>
-  <span class="tag"><i></i>On site</span>
+  <span class="tag"><i></i>Visit in progress</span>
   <h1 id="osSite"></h1>
   <div class="since" id="osSince"></div>
   <div class="timer" id="osTimer" aria-label="Time on site">0:00:00</div>
   <div class="thumbs" id="osThumbs"></div>
   <label for="osNotes">Notes <span>(optional)</span></label>
-  <textarea id="osNotes" maxlength="1000" placeholder="Who you met, what was discussed"></textarea>
+  <textarea id="osNotes" maxlength="2000" placeholder="Who you met, what was discussed"></textarea>
   <div class="actions">
     <button type="button" class="btn ghost" id="osPhoto">Add a photo</button>
-    <button type="button" class="btn gold" id="osLeave">Leave site</button>
+    <button type="button" class="btn gold" id="osLeave">End visit</button>
     <button type="button" class="sync" id="osSync"></button>
   </div>
 </section>
