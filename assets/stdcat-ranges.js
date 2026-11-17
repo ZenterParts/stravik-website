@@ -52,7 +52,7 @@ const BRAKES={
 const SST={};SS_TYPES.forEach(t=>SST[t[0]]=t);
 const STEERING={
   icon:"ball",title:"Steering & suspension",tab:"Steering & suspension catalogue",one:"part",many:"parts",cat:"Steering & Suspension",data:"/steering-suspension.json",
-  crumbs:crumbs("Steering & suspension","#/products/steering-suspension"),hero:"/assets/img/ss-box.webp",
+  crumbs:crumbs("Steering & suspension","#/products/steering-suspension"),hero:"/assets/img/ss-box.webp",photo:"/assets/img/steering-suspension/photo.webp",
   lead:"Ball joints, tie rod ends, rack ends, control arms, stabiliser links, bushes and mounts. Find the right Stravik part by Stravik or OE number, or vehicle.",
   placeholder:"Stravik or OE no., or vehicle and model code (e.g. Hilux KUN25)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:SS_TYPES.map(t=>t[1])},
@@ -76,7 +76,7 @@ const STEERING={
 const SAT={};SA_TYPES.forEach(t=>SAT[t[0]]=t);
 const SHOCKS={
   icon:"shock",title:"Shock absorbers",tab:"Shock absorber catalogue",one:"part",many:"parts",cat:"Shock Absorbers",data:"/shock-absorbers.json",
-  crumbs:crumbs("Shock absorbers","#/products/shock-absorbers"),
+  crumbs:crumbs("Shock absorbers","#/products/shock-absorbers"),photo:"/assets/img/shock-absorbers/photo.webp",
   lead:"MacPherson struts, shock absorbers, strut cartridges and dampers, matched to OE fit. Find the right Stravik part by Stravik or OE number, or vehicle.",
   placeholder:"Stravik or OE no., or vehicle and model code (e.g. Corolla ZZE121)",
   filters:[{k:"Part type",h:"Part type",any:"All part types",order:SA_TYPES.map(t=>t[1])},
