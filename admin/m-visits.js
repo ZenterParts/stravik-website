@@ -12,7 +12,7 @@
   var BASE = L.href('visits'), SBASE = L.href('visits', ['sites']);
   var BUCKET = 'stravik-visit-photos';
   var ACCESS = null, STAFF = null;
-  var FLAGS = { far_from_site: 'Checked in far from the site', checkout_far_from_site: 'Checked out far from the site', low_gps_accuracy: 'Weak GPS signal', clock_mismatch: 'Phone clock was wrong' };
+  var FLAGS = { outside_country: "Checked in outside the site's country", far_from_site: 'Checked in far from the site', checkout_far_from_site: 'Checked out far from the site', low_gps_accuracy: 'Weak GPS signal', clock_mismatch: 'Phone clock was wrong' };
   var FILTERS = [
     { key: 'flag', label: 'Needs a check', group: 'Status' }, { key: 'open', label: 'Still on site', group: 'Status' },
     { key: 'd1', label: 'Today', group: 'Date', single: true }, { key: 'd7', label: 'Last 7 days', group: 'Date', single: true }, { key: 'd30', label: 'Last 30 days', group: 'Date', single: true }
@@ -123,7 +123,7 @@
       var photos = L.must(await sb.from('stravik_visit_photos').select('*').eq('visit_id', id).order('taken_at'));
       var site = v.site || {}, m = mins(v), late = (new Date(v.received_at) - new Date(v.check_in_at)) / 60000;
       var why = v.flagged ? '<div class="sv-why"><b>This visit needs a check</b><ul>' + (v.flag_reasons || []).map(function (f) {
-        return '<li>' + esc(FLAGS[f] || f) + (f === 'far_from_site' ? ': ' + esc(metres(v.check_in_distance_m)) + ' from where this site was first recorded.' : f === 'checkout_far_from_site' ? ': ' + esc(metres(v.check_out_distance_m)) + ' from the site.' :
+        return '<li>' + esc(FLAGS[f] || f) + (f === 'outside_country' ? ': the phone was not in ' + esc(site.country || 'that country') + ' at check-in.' : f === 'far_from_site' ? ': ' + esc(metres(v.check_in_distance_m)) + ' from where this site was first recorded.' : f === 'checkout_far_from_site' ? ': ' + esc(metres(v.check_out_distance_m)) + ' from the site.' :
           f === 'low_gps_accuracy' ? ': the phone could only place itself within ' + esc(metres(v.check_in_accuracy_m)) + '.' : f === 'clock_mismatch' ? ': the check-in time is later than the time the server received it.' : '') + '</li>';
       }).join('') + '</ul></div>' : '';
       var sheet = why + '<h1>' + esc(site.name || 'Site') + '</h1><p class="muted">' + esc(who(v.staff_email)) + ', ' + esc(L.dt(v.check_in_at)) + '</p><div class="o-groups">' +
