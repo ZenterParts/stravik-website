@@ -26,9 +26,9 @@ const list = (a, n) => a.slice(0, n).join(", ") + (a.length > n ? ` and ${a.leng
 // ---- page shell from index.html
 // ---- cache-busting: stamp each shared asset with a short content hash so browsers fetch the new file after every change
 const crypto = require("crypto");
-const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "app.js", "warranty.js", "ecat.js", "ecat.css", "fcat.js", "fcat.css"];
+const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "stdcat-ranges.js", "app.js", "warranty.js", "ecat.js", "ecat.css", "fcat.js", "fcat.css"];
 const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
-{ const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|app\.js)(\?v=[0-9a-f]+)?/g, (m, f) => V[f]);
+{ const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|stdcat-ranges\.js|app\.js)(\?v=[0-9a-z]+)?/g, (m, f) => V[f]);
   if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
 // the admin app the same way: every /admin/<file>.js|css gets its own content hash, so staff get the new screens right after a merge
 { const before = rd("admin/index.html"), after = before.replace(/\/admin\/([\w.-]+\.(?:js|css))(\?v=[0-9a-z]+)?(?=["'])/g, (m, f) =>
@@ -448,7 +448,7 @@ ${cantFind}`;
 <section class="bhero"><div class="wrap bhero-in"><div class="bht">${crumbs([["/#/", "Home"], ["/#/products", "Products"], ["", "Batteries"]])}
 <h1>Starting power for every vehicle</h1><p class="bhl">SMF, EFB, AGM and heavy duty starter batteries for cars, SUVs, bakkies, trucks, buses and tractors, in the Platinum, Gold and Silver series.</p>
 <div class="bapps">${app("car", "Car batteries", "Passenger cars · SUVs · Bakkies", car, "?app=car")}${app("truck", "Commercial vehicle batteries", "Trucks · Buses · Tractors · Fork lifts", cv, "?app=cv")}</div></div>
-<div class="bhimg bhphoto" aria-hidden="true"><img src="/assets/img/batteries/photo.webp" alt="" width="1600" height="893"></div></div></section>
+<div class="bhimg bhphoto" aria-hidden="true"><img src="/assets/img/batteries/photo.webp" alt="" width="3840" height="2143"></div></div></section>
 <section class="bfind"><div class="wrap bfind-in">
 <form action="${CAT}" method="get" role="search"><label for="bq">Search the catalogue</label><div class="field"><input id="bq" name="q" type="search" autocomplete="off" placeholder="Stravik or SAB no., case, Ah or vehicle (e.g. 646, L3, Corolla)"><button type="submit" class="btn gold">Search</button></div></form>
 <form action="${CAT}" method="get"><input type="hidden" name="tab" value="vehicles"><label for="bmk">Find by vehicle make</label><div class="field"><select id="bmk" name="make"><option value="">Select make</option>${makes.map(m => `<option>${esc(m)}</option>`).join("")}</select><button type="submit" class="btn ink">Show batteries</button></div></form>

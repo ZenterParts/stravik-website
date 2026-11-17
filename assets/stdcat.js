@@ -320,7 +320,7 @@ function page(app,id,params){
   const st=readState(params,c);
   document.title=(TAB[id]||c.tab||c.title+" catalogue")+" | Stravik";
   app.innerHTML=`<div class="sc">
-  <section class="sc-hero${c.photo?" sc-phero":""}">${c.photo?`<img class="sc-phero-img" src="${esc(c.photo)}" alt="" width="1600" height="893">`:""}<div class="sc-in">
+  <section class="sc-hero${c.photo?" sc-phero":""}">${c.photo?`<img class="sc-phero-img" src="${esc(c.photo)}" alt="" width="3840" height="2143">`:""}<div class="sc-in">
     <nav class="sc-crumbs" aria-label="Breadcrumb"><a href="#/">Home</a>${c.crumbs.map(x=>`<span>/</span><a href="${x[1]}">${esc(x[0])}</a>`).join("")}<span>/</span><span aria-current="page">${esc(c.title)}</span></nav>
     <div class="sc-hero-g">
       <div class="sc-hero-t">
