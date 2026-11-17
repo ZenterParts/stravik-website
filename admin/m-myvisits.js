@@ -2,7 +2,7 @@
    Shows the report side only: site, date, time on site, outcome, follow-up, summary and the photos added to the report.
    Every staff member has this app and sees only their own visits: the list is filtered to the signed-in person, and row
    level security enforces it. Positions, distances and checks are not shown here; they are in the Site visits app.
-   Read-only: reports are written and changed in the phone app. */
+   Read-only here: "New visit" opens the phone app (/visits/, same sign-in), where visits are started and reports are written. */
 (function (L) {
   'use strict';
   var esc = L.esc, sb = L.sb, $ = L.$;
@@ -59,7 +59,7 @@
   ];
   var run = 0;
   function list() {
-    L.cp({ crumbs: [['My visits']], buttons: '<button type="button" class="btn ghost" id="mvXls">Download</button>' });
+    L.cp({ crumbs: [['My visits']], buttons: '<a class="btn" href="/visits/" target="_blank" rel="noopener">New visit</a> <button type="button" class="btn ghost" id="mvXls">Download</button>' });
     L.searchBar({ placeholder: 'Search site, town, country or summary…', text: S.text, filters: FILTERS, active: S.active, onChange: function (st) { S.text = st.text; S.active = st.active; S.offset = 0; load(); } });
     $('mvXls').addEventListener('click', download);
     load();
@@ -71,7 +71,7 @@
       var res = await query(uid, or, { count: 'exact' }).range(S.offset, S.offset + L.PAGE - 1), rows = L.must(res); if (r !== run) return;
       L.pager(S.offset, res.count || 0, function (o) { S.offset = o; load(); });
       L.content(rows.length ? L.listView(COLS, rows, function (v) { return L.href('myvisits', [v.id]); })
-        : L.empty('No visits found', S.text || Object.keys(S.active).length ? 'Try a different search or remove a filter.' : 'Your visits appear here after you start one in the phone app at <b>' + esc(location.host) + '/visits/</b>.'));
+        : L.empty('No visits found', S.text || Object.keys(S.active).length ? 'Try a different search or remove a filter.' : 'Press <b>New visit</b> to start one. Your visits appear here afterwards.'));
     } catch (e) { L.fail(e); }
   }
   async function download() {
@@ -98,7 +98,7 @@
         L.group('Visit', [['Started', esc(L.dt(v.check_in_at))], ['Ended', v.check_out_at ? esc(L.dt(v.check_out_at)) : L.pill('In progress', 'New')], ['Time on site', esc(durText(mins(v)))]]) +
         L.group('Visit report', v.reported_at ? [['Outcome', outcome(v)], ['Follow-up needed', v.outcome === 'no_business' ? '' : v.follow_up ? 'Yes' : 'No'], ['Follow-up date', esc(fuDate(v.follow_up_on))],
           ['Follow-up done', v.follow_up_done_at ? esc(L.dt(v.follow_up_done_at)) : ''], ['Report written', esc(L.dt(v.reported_at))]]
-          : [['Outcome', outcome(v)], ['Report', '<span class="muted">Write it in the phone app, under "Reports to complete".</span>']]) +
+          : [['Outcome', outcome(v)], ['Report', '<a href="/visits/" target="_blank" rel="noopener">Write the report</a> <span class="muted">(it is listed under "Reports to complete")</span>']]) +
         '</div><div class="o-group-title">Summary and comments</div><p style="white-space:pre-wrap;max-width:70ch">' + (v.notes ? esc(v.notes) : '<span class="muted">Nothing written yet.</span>') + '</p>' +
         '<div class="o-group-title">Photos (' + photos.length + ')</div><div id="mvPhotos" class="mv-photos">' + (photos.length ? '<p class="muted">Loading photos…</p>' : '<p class="muted">No photos were added to this report.</p>') + '</div>';
       L.form({ crumbs: [['My visits', BASE], [name]], sheet: sheet });
@@ -111,6 +111,9 @@
       }
     } catch (e) { L.fail(e); }
   }
+
+  // coming back from the visits app: show the new visit without a manual refresh
+  document.addEventListener('visibilitychange', function () { var r = L.route(); if (!document.hidden && r.app === 'myvisits' && !r.parts[0] && $('mvXls')) load(); });
 
   if (!document.getElementById('mvCss')) {
     var st = document.createElement('style'); st.id = 'mvCss';
