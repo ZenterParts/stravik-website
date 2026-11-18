@@ -18,15 +18,15 @@
     var a = new Date(made), b = new Date(bought); return (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
   }
   var voltOk = function (v) { v = Number(v); return v >= 13.4 && v <= 14.4; };
-  var PHOTOS = [['installed', 'Battery fitted'], ['serial_label', 'Serial label'], ['alternator_reading', 'Alternator reading']];
+  var PHOTOS = [['rest_reading', 'Resting voltage reading'], ['crank_reading', 'Cranking voltage reading'], ['alternator_reading', 'Alternator reading'], ['installed', 'Battery fitted'], ['serial_label', 'Serial label']];   // the first three since 18 Nov 2026
   var RANGE = { resting_voltage: [12.4, 12.9], cranking_voltage: [9.6, 13.0] };
-  var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['made_month', 'Made'], ['ean', 'Barcode'], ['purchase_date', 'Bought on'], ['seller', 'Bought from'], ['invoice_no', 'Invoice no.'], ['invoice_file', 'Invoice photo'],
+  var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['made_month', 'Made'], ['ean', 'Barcode'], ['purchase_date', 'Bought on'], ['vat_no', 'VAT number'], ['seller', 'Bought from'], ['invoice_no', 'Invoice no.'], ['invoice_file', 'Invoice photo'],
     ['photos', 'Photos'], ['fitted_by', 'Fitted by'], ['resting_voltage', 'Resting V at fitment'], ['cranking_voltage', 'Cranking V at fitment'], ['alt_voltage', 'Alternator V at fitment'], ['voltage_flags', 'Readings outside range'], ['taxi_fleet', 'Taxi / fleet'], ['warranty_months', 'Warranty months'], ['expires_on', 'Warranty until'], ['terms_version', 'Terms accepted'], ['vehicle', 'Vehicle'], ['reg_no', 'Vehicle reg.'], ['chassis_no', 'Chassis no. (VIN)'], ['odometer', 'Odometer (km)'], ['name', 'Name'], ['company', 'Company'], ['email', 'Email'], ['phone', 'Phone'], ['country', 'Country'], ['city', 'City'], ['status', 'Status'], ['staff_notes', 'Staff notes']];
 
   function query(opts) {
     var q = sb.from('stravik_battery_warranty').select('*', opts).order('created_at', { ascending: false });
     var st = STEPS.filter(function (s) { return S.active['st_' + s]; }); if (st.length) q = q.in('status', st);
-    var s = L.orSearch(['ref', 'sv_pn', 'serial', 'ean', 'name', 'email', 'phone', 'seller', 'invoice_no', 'reg_no', 'chassis_no'], S.text); if (s) q = q.or(s);
+    var s = L.orSearch(['ref', 'sv_pn', 'serial', 'ean', 'name', 'email', 'phone', 'vat_no', 'seller', 'invoice_no', 'reg_no', 'chassis_no'], S.text); if (s) q = q.or(s);
     if (S.active.ns) q = q.is('serial', null);
     return q;
   }
@@ -47,7 +47,7 @@
         { label: 'Battery', cls: 'pn', render: function (r) { return esc(r.sv_pn); } },
         { label: 'Serial no.', cls: 'pn', render: function (r) { return r.serial ? esc(r.serial) : '<span class="muted small">none</span>'; } },
         { label: 'Bought on', render: function (r) { var m = stockMonths(r.made_month, r.purchase_date); return esc(r.purchase_date) + (m != null && m > 6 ? ' <span class="pill warn" title="Bought ' + m + ' months after it was made">' + m + ' mo in stock</span>' : ''); } },
-        { label: 'Bought from', render: function (r) { return esc(r.seller); } },
+        { label: 'VAT number', render: function (r) { return esc(r.vat_no || ''); } },
         { label: 'Warranty until', render: function (r) { return r.expires_on ? esc(r.expires_on) + (r.expires_on < L.today() ? ' <span class="pill">expired</span>' : '') + (r.taxi_fleet ? ' <span class="pill warn">taxi/fleet</span>' : '') : ''; } },
         { label: 'Readings', render: function (r) { var n = (r.voltage_flags || []).length; return n ? '<span class="pill warn" title="' + esc(r.voltage_flags.join(' ')) + '">' + n + ' outside range</span>' : r.resting_voltage != null ? '<span class="muted small">OK</span>' : ''; } },
         { label: 'Alternator', num: true, render: function (r) { return r.alt_voltage == null ? '' : voltOk(r.alt_voltage) ? esc(r.alt_voltage) + ' V' : '<span class="pill warn" title="Outside 13.4–14.4 V: the warranty does not cover it">' + esc(r.alt_voltage) + ' V</span>'; } },

@@ -1265,3 +1265,5 @@ form.enq input[type=date],form.enq input[type=time],.enq input[type=date]{-webki
 form.enq input[type=date]::-webkit-date-and-time-value{text-align:left}
 /* the page never scrolls sideways (clip, not hidden, so sticky bars keep working) */
 main{overflow-x:clip}
+/* warranty form: the serial number from the QR code on the battery is locked */
+form.enq input.locked{cursor:not-allowed;opacity:.85;border-style:dashed}
