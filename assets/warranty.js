@@ -82,7 +82,7 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
   const pn=SN.pn||"";
   bad("w_sn",!SN.ok||!pn);
   bad("w_date",!d||d>today());
-  const vat=$("w_vat").value.trim();bad("w_vat",!!vat&&vat.replace(/[^A-Za-z0-9]/g,"").length<4);
+  const vat=$("w_vat").value.trim();bad("w_vat",vat.replace(/[^A-Za-z0-9]/g,"").length<4);
   ["w_veh","w_reg"].forEach(id=>bad(id,$(id).value.trim().length<2));
   bad("w_vin",$("w_vin").value.replace(/[^A-Za-z0-9]/g,"").length<5);
   const taxi=(f.querySelector("input[name=w_taxi]:checked")||{}).value||"";f.querySelector(".wtaxi").classList.toggle("invalid",!taxi);if(!taxi&&!first)first=f.querySelector("input[name=w_taxi]");
