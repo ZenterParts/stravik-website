@@ -1726,7 +1726,8 @@ function route(){
     const at=location.hash;app.innerHTML=`<div class="wrap" style="padding:60px 0" data-rwait><p class="loading">Loading your catalogues…</p></div>`;
     rangeCounts().catch(()=>null).then(()=>{if(location.hash===at&&rcReady())route();});return;}
   let key="home";
-  if(!parts.length)home();
+  // an approved South African customer gets the South Africa dashboard (assets/sa-home.js); everyone else the home page
+  if(!parts.length){if(!(window.StravikSA&&StravikSA.home(app,route)))home();}
   else if(parts[0]==="find"){key="find";findPage(params);}
   else if(parts[0]==="request"){key="find";requestPage(params);}
   else if(parts[0]==="new"){key="new";newPage();}

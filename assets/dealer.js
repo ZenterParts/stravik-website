@@ -613,7 +613,7 @@ if(hasSession()){const hold=[buyBox()].concat([...document.querySelectorAll(".bl
   if(hold.length){hold.forEach(e=>{e.style.visibility="hidden";});ready().then(()=>hold.forEach(e=>{e.style.visibility="";}));}}
 if(hasSession()){ready();paintRanges();rangesReady().then(()=>paintRanges(true));}   // the menu and the range links wait for the customer's catalogues
 if(hasSession()||/[?&]code=/.test(location.search))ensure().then(()=>{if(/[?&]code=/.test(location.search))history.replaceState(null,"",location.pathname+location.hash);});
-window.StravikDealer={page,cart,tag,refresh:()=>{S.loading=null;return ensure();},state:S,
+window.StravikDealer={page,cart,tag,client,refresh:()=>{S.loading=null;return ensure();},state:S,
   filtering,visible,range,ready,pending,condOf,rev:()=>REV,noList:NOLIST,
   rangeHas,rangeCounts,rangesReady,rangesPending,rangesKnown:rcKnown,rangeN:()=>rcKnown()?RC.n:null};
 })();
