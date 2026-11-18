@@ -607,6 +607,8 @@
         LS.del('sv_visits_user');
         return showLogin(s.user.email + ' is not on the staff list. Ask the data team to add you.');
       } else { user = { id: s.user.id, email: s.user.email }; LS.set('sv_visits_user', user); }
+      // "See all my visits" opens the admin's My visits, which is shown only to staff who see all visits for now
+      $('seeAll').hidden = !(access === 'manager' || access === 'viewer');
     } else if (cached && (!navigator.onLine || (gs && gs.error && /fetch|network|retry/i.test((gs.error.name || '') + (gs.error.message || ''))))) {
       user = cached;   // offline with an expired sign-in: keep working, send after the next sign-in
     } else return showLogin();

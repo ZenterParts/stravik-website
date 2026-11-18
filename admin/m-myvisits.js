@@ -246,10 +246,25 @@
     document.head.appendChild(st);
   }
 
-  L.register({
+  var APP = {
     key: 'myvisits', name: 'My visits', color: '#2f6b4f',
     icon: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5"/><path d="M8.5 10h7M8.5 13.5h7M8.5 17h4"/>',
     menus: [{ label: 'Overview', href: BASE }, { label: 'Visits', href: LIST }],
     route: function (r) { if (r.parts[0] === 'list') list(); else if (r.parts[0] === 'v' && r.parts[1]) visit(r.parts[1]); else overview(); }
-  });
+  };
+  // Hidden for now, until the visits app is approved for all staff: only staff who see all visits (staff.sees_visits)
+  // get this tile. Set ALL_STAFF to true to show it to every staff member again.
+  var ALL_STAFF = false, checking = false, recheck = false;
+  async function access() {
+    if (checking) { recheck = true; return; } checking = true;
+    try {
+      var ok = ALL_STAFF;
+      if (!ok) { var s = (await sb.auth.getSession()).data.session; if (s) { var r = await sb.rpc('my_visit_access'); ok = !r.error && (r.data === 'manager' || r.data === 'viewer'); } }
+      var i = L.apps.indexOf(APP);
+      if (ok && i < 0) L.apps.push(APP); else if (!ok && i >= 0) L.apps.splice(i, 1); else return;
+      if (L.ROLE && (!L.route().app || L.route().app === 'myvisits')) L.render();
+    } catch (e) { /* no tile without a confirmed access level */ } finally { checking = false; if (recheck) { recheck = false; access(); } }
+  }
+  sb.auth.onAuthStateChange(function (ev) { if (ev === 'INITIAL_SESSION' || ev === 'SIGNED_IN' || ev === 'SIGNED_OUT') setTimeout(access, 0); });
+  access();
 })(window.LS);
