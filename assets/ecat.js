@@ -317,19 +317,22 @@ function run(reset){
   if(reset)st.shown=48;
   const tk=toks(),ah=parseFloat(st.ah),cca=parseFloat(st.cca);
   // vehicle words: batteries listed for vehicles that match the text
+  // a SAB code on its own ("652", "sab 652"): exactly the batteries with that SAB number
+  const sq=tk.filter(t=>t!=="sab"),sabQ=sq.length===1&&/^\d{3}[a-z]?$/.test(sq[0])?sq[0].toUpperCase():null,sabHit=!!sabQ&&CAT.some(r=>r.sabs.includes(sabQ));
   let vset=null;
-  if(tk.length&&tk.join("").length>=3){const vm=VEH.filter(v=>tk.every(t=>v._t.includes(t)));if(vm.length){vset=new Set();vm.forEach(v=>v.fit.forEach(p=>vset.add(p)));}}
+  if(!sabHit&&tk.length&&tk.join("").length>=3){const vm=VEH.filter(v=>tk.every(t=>v._t.includes(t)));if(vm.length){vset=new Set();vm.forEach(v=>v.fit.forEach(p=>vset.add(p)));}}
   list=CAT.filter(r=>{
     if(st.types.size&&!st.types.has(r.type))return false;if(st.ser&&r.series!==st.ser)return false;if(st.org&&r.origin!==st.org)return false;if(st.box&&r.box!==st.box)return false;
     if(!isNaN(ah)&&r.ah<ah)return false;if(!isNaN(cca)&&parseFloat(r.cca)<cca)return false;
-    if(tk.length){const own=tk.every(t=>r._t.includes(t));if(!own&&!(vset&&vset.has(r.pn)))return false;}
+    if(sabHit){if(!r.sabs.includes(sabQ))return false;}
+    else if(tk.length){const own=tk.every(t=>r._t.includes(t));if(!own&&!(vset&&vset.has(r.pn)))return false;}
     return true;});
   const s=st.sort,dir=s[0]==="-"?-1:1,k=s.replace("-","");
   const RO=r=>["SMF","EFB","AGM","HDB"].indexOf(r.type)*10+["Platinum Series","Gold Series","Silver Series","EFB-II Start-Stop","EFB Start-Stop","AGM Start-Stop"].indexOf(r.series);
   if(k==="range")list.sort((a,b)=>RO(a)-RO(b)||a.ah-b.ah||a.pn.localeCompare(b.pn));else
   list.sort((a,b)=>{let x=a[k],y=b[k];if(k==="cca"){x=parseFloat(x);y=parseFloat(y);}
     const c=typeof x==="number"?x-y:String(x).localeCompare(String(y),undefined,{numeric:true});return dir*c||a.pn.localeCompare(b.pn);});
-  $("#count").innerHTML=list.length===CAT.length?`<b>${list.length}</b> batteries`:`<b>${list.length}</b> of ${CAT.length} batteries`+(vset&&tk.length?` · includes batteries listed for vehicles matching “${esc(q.value.trim())}”`:"");
+  $("#count").innerHTML=list.length===CAT.length?`<b>${list.length}</b> batteries`:`<b>${list.length}</b> of ${CAT.length} batteries`+(sabHit?` · SAB ${esc(sabQ)}`:vset&&tk.length?` · includes batteries listed for vehicles matching “${esc(q.value.trim())}”`:"");
   paint();
 }
 function picHtml(r,cls){
