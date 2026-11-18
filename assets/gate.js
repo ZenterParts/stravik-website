@@ -4,22 +4,37 @@
 //   - The static catalogue and part pages (/filters/, /batteries/catalogue/, /part/..., /filter/...) load this file in
 //     the head with the data-lock attribute (tools/build-pages.js): the page content is hidden from the first paint and
 //     only shown once the visitor is confirmed as an approved customer.
+//   - The range landing pages (/range/<range>/): "Find your …" opens the catalogue for an approved customer and the
+//     customer account page for everyone else, and the "Register with us" strip is hidden for approved customers.
+// Stravik staff see everything: signed in on the website with their staff account, or signed in to the admin site
+// (/admin/) in the same browser.
 // Note: this controls what the website shows. The published catalogue data files (/*.json) are still public.
 (function(){
   "use strict";
   var STORE="stravik-buyer-auth";   // the customer session (assets/dealer.js), separate from the staff session
   var hasSession=function(){try{return !!localStorage.getItem(STORE);}catch(e){return false;}};
   var D=function(){return window.StravikDealer||null;};
-  var settled=false;   // the account check has finished (or given up), so "wait" can end
-  function check(){var d=D();var done=function(){settled=true;};return (d&&d.ready?d.ready():Promise.resolve()).then(done,done);}
+  // staff signed in to the admin site in this browser (its own session, checked with the database)
+  var SB="https://kyegujgvlsbttyrlibgn.supabase.co",ADMIN="sb-kyegujgvlsbttyrlibgn-auth-token",
+      ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWd1amd2bHNidHR5cmxpYmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNTQ4NjUsImV4cCI6MjEwNjgzMDg2NX0.qw8n7Y9l8zO-npZ4BDlqK9PvksRQpEVg6BxqEo_MnWs";
+  var staffAdmin=false;
+  function adminToken(){try{var s=JSON.parse(localStorage.getItem(ADMIN)||"null");if(s&&s.access_token&&(!s.expires_at||s.expires_at*1000>Date.now()+30000))return s.access_token;}catch(e){}return null;}
+  function staffCheck(){
+    var t=adminToken();if(!t)return Promise.resolve(false);
+    return fetch(SB+"/rest/v1/rpc/my_staff_role",{method:"POST",headers:{apikey:ANON,Authorization:"Bearer "+t,"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){return r.ok?r.json():null;}).then(function(v){staffAdmin=!!v;return staffAdmin;},function(){return false;});
+  }
+  var settled=false;   // the account checks have finished (or given up), so "wait" can end
+  function check(){var d=D();var done=function(){settled=true;};
+    return Promise.all([(d&&d.ready?d.ready():Promise.resolve()).catch(function(){}),staffCheck()]).then(done,done);}
 
   // "ok" approved customer | "wait" signed in, still being checked | "pending" registration under review |
   // "changes" registration sent back | "inactive" account suspended | "register" signed in, business not registered | "none" not signed in
   function state(){
     var d=D(),me=d&&d.state&&d.state.me,dl=me&&me.dealer;
     if(dl&&dl.status==="Approved")return "ok";
-    if(me&&me.staff)return "ok";   // Stravik staff signed in on the website
-    if(!settled&&(d?(d.pending&&d.pending()):hasSession()))return "wait";
+    if(me&&me.staff||staffAdmin)return "ok";   // Stravik staff
+    if(!settled&&((d?(d.pending&&d.pending()):hasSession())||adminToken()))return "wait";
     if(dl&&dl.status==="Pending")return "pending";
     if(dl&&dl.status==="Rejected")return "changes";
     if(dl&&dl.status==="Suspended")return "inactive";
@@ -47,7 +62,8 @@
       (st==="wait"?'<p class="loading">Loading…</p>':'')+
       (t[2].length?'<div class="sv-gate-btns">'+t[2].map(function(b){return '<a class="btn '+b[2]+'" href="'+b[1]+'">'+esc(b[0])+'</a>';}).join("")+'</div>':'')+
       (st==="none"||st==="register"?'<ul class="sv-gate-why"><li>Search by Stravik, OE or competitor number, or by vehicle</li><li>Your prices next to every part</li><li>Order online, and track your orders</li></ul>':'')+
-      '<p class="sv-gate-more">Want to know more first? <a href="/#/products">See our product ranges</a> or <a href="/#/contact">contact us</a>.</p>'+
+      '<p class="sv-gate-more">Want to know more first? <a href="/#/products">See our product ranges</a> or <a href="/#/contact">contact us</a>.'+
+      (st==="none"?' Stravik staff: <a href="/#/dealer">sign in</a> with your staff email, or sign in to the <a href="/admin/">admin site</a> first.':'')+'</p>'+
       '</div></div></section>';
   }
 
@@ -67,6 +83,24 @@
   addCss();
 
   window.StravikGate={state:state,html:html,check:check,hasSession:hasSession};
+
+  // ---- range landing pages: "Find your …" and the "Register with us" strip
+  var NOTE={pending:"Thanks, your registration is with our team. You can open the catalogues as soon as your account is approved.",
+    changes:"We need a few changes to your registration. Update it and send it again to open the catalogues.",
+    inactive:"Your account can't open the catalogues right now. Please contact us.",
+    register:"You're signed in. Register your business to open the catalogues."};
+  function landing(){
+    var links=document.querySelectorAll("[data-rl-open]");if(!links.length)return;
+    var st=state(),ok=st==="ok";
+    Array.prototype.forEach.call(links,function(a){a.href=ok?a.getAttribute("data-cat"):(st==="register"||st==="changes"?"/#/dealer/register":"/#/dealer");});
+    var g=document.getElementById("rl-gate"),t=document.getElementById("rl-gate-t");
+    if(g)g.hidden=ok;
+    if(t&&NOTE[st])t.textContent=NOTE[st];
+  }
+  if(!(document.currentScript&&document.currentScript.hasAttribute("data-lock"))){
+    document.addEventListener("DOMContentLoaded",function(){if(document.querySelector("[data-rl-open]")){landing();check().then(landing);}});
+    document.addEventListener("stravik-prices",landing);
+  }
 
   // ---- static catalogue and part pages
   var me=document.currentScript;
