@@ -1253,3 +1253,15 @@ form.enq .wack .wwarn{background:#fff4e5;border-left:4px solid #e08a00;padding:1
 form.enq .wack label{display:flex;gap:10px;align-items:flex-start;font-weight:500}
 form.enq .wack input{width:auto;margin-top:4px}
 .wack.invalid .err{display:block}
+/* ---- phones and tablets (18 Nov 2026) ---- */
+/* page header: room for the gold diagonal on the right, slimmer diagonal on phones */
+.pagehead{--wedge:120px}
+.pagehead::after{width:var(--wedge)}
+.pagehead .wrap{padding-right:max(0px,calc(var(--wedge) + 16px - (100vw - min(1200px,100vw - 40px)) / 2))}
+@media (max-width:760px){.pagehead{--wedge:40px;padding:34px 0 30px}}
+/* forms: a field can shrink to its column; date fields on iPhone Safari included */
+form.enq>*,.enq>*{min-width:0}
+form.enq input[type=date],form.enq input[type=time],.enq input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:48px;text-align:left}
+form.enq input[type=date]::-webkit-date-and-time-value{text-align:left}
+/* the page never scrolls sideways (clip, not hidden, so sticky bars keep working) */
+main{overflow-x:clip}
