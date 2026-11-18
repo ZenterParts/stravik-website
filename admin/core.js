@@ -496,7 +496,7 @@ window.LS = (function () {
     setNav(null); $('cp').hidden = true;
     var h = new Date().getHours(), hello = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     L.content('<div class="o-launcher"><div class="o-launcher-head"><img src="/assets/img/logo-wordmark.webp" alt="Stravik" width="600" height="62"><p>' + hello + '. ' + (L.isEditor() ? 'Data team access: you can view and edit.' : 'View-only access: you can view and download.') + '</p></div>' +
-      '<div class="o-apps">' + L.apps.map(function (a) {
+      '<div class="o-apps">' + L.apps.filter(function (a) { return !a.hidden; }).map(function (a) {
         return '<a class="o-app" href="' + L.href(a.key) + '"><span class="o-app-icon" style="background:' + a.color + '">' + icon(a, 40) + '</span><span class="o-app-name">' + esc(a.name) + '</span></a>';
       }).join('') + '</div></div>');
   }

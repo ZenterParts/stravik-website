@@ -252,7 +252,8 @@
 
   // ------------------------------------------------------------ the app, registered only for people with visit access
   var APP = {
-    key: 'visits', name: 'Site visits', color: '#1f5c7a',
+    key: 'visits', name: 'Site visits', hidden: true,   // tile hidden until approval; /admin/#/visits still opens
+    color: '#1f5c7a',
     icon: '<path d="M12 21s-6.5-5.6-6.5-10.5a6.5 6.5 0 0113 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/>',
     menus: [{ label: 'Visits', href: BASE }, { label: 'Sites', href: SBASE }],
     route: function (r) {

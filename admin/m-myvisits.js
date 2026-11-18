@@ -247,7 +247,8 @@
   }
 
   var APP = {
-    key: 'myvisits', name: 'My visits', color: '#2f6b4f',
+    key: 'myvisits', name: 'My visits', hidden: true,   // tile hidden until approval; /admin/#/myvisits still opens
+    color: '#2f6b4f',
     icon: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5"/><path d="M8.5 10h7M8.5 13.5h7M8.5 17h4"/>',
     menus: [{ label: 'Overview', href: BASE }, { label: 'Visits', href: LIST }],
     route: function (r) { if (r.parts[0] === 'list') list(); else if (r.parts[0] === 'v' && r.parts[1]) visit(r.parts[1]); else overview(); }
