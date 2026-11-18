@@ -26,9 +26,9 @@ const list = (a, n) => a.slice(0, n).join(", ") + (a.length > n ? ` and ${a.leng
 // ---- page shell from index.html
 // ---- cache-busting: stamp each shared asset with a short content hash so browsers fetch the new file after every change
 const crypto = require("crypto");
-const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "stdcat-ranges.js", "app.js", "warranty.js", "ecat.js", "ecat.css", "fcat.js", "fcat.css"];
+const ASSETS = ["site.css", "stdcat.css", "catalog.js", "common.js", "dealer.js", "stdcat.js", "stdcat-ranges.js", "app.js", "warranty.js", "ecat.js", "ecat.css", "fcat.js", "fcat.css", "gate.js"];
 const V = {}; ASSETS.forEach(f => V[f] = "/assets/" + f + "?v=" + crypto.createHash("sha1").update(rd("assets/" + f)).digest("hex").slice(0, 10));
-{ const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|stdcat-ranges\.js|app\.js)(\?v=[0-9a-z]+)?/g, (m, f) => V[f]);
+{ const before = rd("index.html"), after = before.replace(/\/assets\/(site\.css|stdcat\.css|catalog\.js|common\.js|dealer\.js|stdcat\.js|stdcat-ranges\.js|app\.js|gate\.js)(\?v=[0-9a-z]+)?/g, (m, f) => V[f]);
   if (after !== before) { fs.writeFileSync(path.join(ROOT, "index.html"), after); console.log("index.html: asset versions updated"); } }
 // the admin app the same way: every /admin/<file>.js|css gets its own content hash, so staff get the new screens right after a merge
 { const before = rd("admin/index.html"), after = before.replace(/\/admin\/([\w.-]+\.(?:js|css))(\?v=[0-9a-z]+)?(?=["'])/g, (m, f) =>
@@ -44,6 +44,8 @@ const SHELL = {
   toast: cut('<div class="toast"', "</div>"),
   footer: cut('<footer class="site">', "</footer>"),
 };
+// the catalogue and part pages are for approved customers (assets/gate.js): locked, and not for search engines
+const LOCKED = u => /\/(part|filter)\/|\/filters\/$|\/batteries\/catalogue\/$/.test(u);
 function page({ url, title, desc, jsonld, body, type, scripts }) {
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -65,7 +67,7 @@ ${SHELL.icons}
 <script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, "\\u003c")}</script>
 ${SHELL.fonts}
 <link rel="stylesheet" href="${V["site.css"]}">
-</head>
+${LOCKED(url) ? `<meta name="robots" content="noindex">\n<script src="${V["gate.js"]}" data-lock></script>\n` : ""}</head>
 <body>
 ${SHELL.header}
 <main id="app" tabindex="-1">
@@ -644,6 +646,8 @@ for (const i of F.items) for (const old of i.o || []) {
 }
 
 // ================= sitemap and robots =================
-fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
+// locked pages are left out; the range landing pages (/range/<range>/) are added
+const RANGE_PAGES = fs.existsSync(path.join(ROOT, "range")) ? fs.readdirSync(path.join(ROOT, "range")).filter(d => fs.existsSync(path.join(ROOT, "range", d, "index.html"))).map(d => `${SITE}/range/${d}/`) : [];
+fs.writeFileSync(path.join(ROOT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}/</loc></url>\n${urls.filter(u => !LOCKED(u)).concat(RANGE_PAGES).map(u => `<url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
 fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`);
 console.log(`Built ${SS.length} steering & suspension pages, ${SA.length} shock absorber pages, ${BR.length} brake pages, ${BT.length} battery pages, ${GS.length} gas spring pages, ${F.items.length} filter pages and pages for ${stdCounts.join(", ")} (${urls.length + 1} URLs in sitemap.xml), ${forwards} forwards from old part numbers.`);

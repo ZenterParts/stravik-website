@@ -478,7 +478,7 @@ function productsHome(){
   // one card per catalogue: [catalogue (stravik_categories), card(text under the description)]
   // in page order. On wide screens the rows are 4, 3 (centred: pcat-row2 starts it), 4, 4 - see .pcats-all in site.css
   const RANGES=[
-    ["Filters",m=>pc("/assets/img/filters/card.webp","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",m],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/filters/">About the range</a>`,1)],
+    ["Filters",m=>pc("/assets/img/filters/card.webp","f_oil","Filters","Air, oil, fuel and cabin filters for passenger cars, bakkies, trucks and equipment.",["",m],`<a class="btn gold" href="/filters/">Open the catalogue</a><a class="btn line" href="/range/filters/">About the range</a>`,1)],
     ["Spark Plugs",m=>pc("/assets/img/spark-plugs/card.webp","spark","Spark Plugs","Nickel copper, platinum and iridium spark plugs, each with its plug type, electrode gap, NGK and OE numbers and the vehicles it fits.",["",m],`<a class="btn gold" href="#/spark-plugs">Open the catalogue</a>`,1)],
     ["Batteries",m=>pc("/assets/img/batteries/card.webp","battery","Batteries","SMF, EFB, AGM and heavy duty starter batteries, each with its SAB number, case, capacity and the vehicles it fits.",["",m],`<a class="btn gold" href="/batteries/catalogue/">Open the catalogue</a><a class="btn line" href="#/products/batteries">About the range</a>`,1)],
     ["Clutch Kits",m=>pc("/assets/img/clutch-kits/card.webp","kit","Clutch Kits","Clutch kits and clutch discs for cars, bakkies and light commercials, each with its kit type, OD, splines, OE and cross-reference numbers.",["",m],`<a class="btn gold" href="#/clutch-kits">Open the catalogue</a>`,1)],
@@ -1704,10 +1704,19 @@ function batRedirect(typeSlug,params){const p=new URLSearchParams();const T=type
   ["q","series","dwg"].forEach(k=>{if(params.get(k))p.set(k,params.get(k));});
   if(params.get("make")){p.set("tab","vehicles");p.set("make",params.get("make"));if(params.get("model"))p.set("model",params.get("model"));}
   location.replace("/batteries/catalogue/"+(p.toString()?"?"+p:""));}
+// approved customers only (assets/gate.js): the catalogues, part search, price requests and the cart
+const LOCKED=["find","request","cart","steering","shock-absorbers","brakes","gas-springs"];
+const lockedRoute=p=>LOCKED.includes(p)||!!(p&&window.StdCat&&StdCat.has(p));
 function route(){
   const raw=location.hash.replace(/^#/,"")||"/";
   const [path,qs]=raw.split("?");const params=new URLSearchParams(qs||"");
   const parts=path.split("/").filter(Boolean);
+  const G=window.StravikGate;
+  if(G&&lockedRoute(parts[0])){const st=G.state();
+    if(st!=="ok"){const at=location.hash;app.innerHTML=G.html(st);document.title=(st==="wait"?"Loading":"Register to see our catalogues")+" | Stravik";
+      ddSet(false);nav.classList.remove("open");menuBtn.setAttribute("aria-expanded","false");window.scrollTo(0,0);
+      if(st==="wait")G.check().then(()=>{if(location.hash===at)route();});
+      return;}}
   // a signed-in customer: the pages that list catalogues wait for their prices, so the full range never flashes first
   if(dpending()&&(parts[0]==="products"||parts[0]==="new")&&!(parts[0]==="products"&&parts[1]==="filters")){
     const at=location.hash;app.innerHTML=`<div class="wrap" style="padding:60px 0" data-rwait><p class="loading">Loading…</p></div>`;
@@ -1749,6 +1758,8 @@ function route(){
   if(parts[0]==="products"&&parts[1]==="filters")document.title="Filters | Stravik";else if(parts[0]==="products"&&parts[1]==="steering-suspension")document.title="Steering & Suspension | Stravik";else if(parts[0]==="products"&&parts[1]==="shock-absorbers")document.title="Shock Absorbers | Stravik";else if(parts[0]==="products"&&parts[1]==="braking-system"&&!parts[2])document.title="Braking System | Stravik";else if(parts[0]==="products"&&parts[1]==="batteries")document.title="Batteries | Stravik";else if(parts[0]==="products"&&parts[1]==="gas-springs")document.title="Gas Springs | Stravik";else if(parts[0]==="request")document.title="Can't find your part? | Stravik";else if(key!=="stdcat"&&!["filter","steering","shock-absorbers","brakes","batteries","gas-springs","part","find"].includes(parts[0]))document.title=parts[0]==="product"&&byId(parts[1])?byId(parts[1]).name+" | Stravik":titles[key]||"Stravik";
 }
 addEventListener("hashchange",route);route();
+// signed in or out while the "register to see our catalogues" panel is showing: draw the page again
+document.addEventListener("stravik-prices",()=>{if(app.querySelector("[data-gate]"))route();});
 // the price list changed while a page was waiting for it (e.g. the customer signed in in another tab): draw it now
 document.addEventListener("stravik-ranges",()=>{if(app.querySelector("[data-rwait]")&&!dpending()&&!(pfilt()&&!rcReady()))route();});
 })();

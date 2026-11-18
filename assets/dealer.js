@@ -300,7 +300,7 @@ async function page(app,parts){
   let c;try{c=await client();}catch(e){app.querySelector(".dwrap").innerHTML=`<p class="dnote bad">${esc(e.message)}. Check your connection and reload the page.</p>`;return;}
   const {data:{session}}=await c.auth.getSession();
   if(parts[0]==="password")return pwPage(app,c,session);
-  if(!session)return signIn(app,c);
+  if(!session)return signIn(app,c,/[?&]m=new\b/.test(location.hash)?"new":"in");
   S.loading=null;const me=await ensure();
   if(!me)return signIn(app,c);
   if(me.staff&&!me.dealer){app.innerHTML=head("Customer account")+`<div class="wrap dwrap"><p class="dnote">You're signed in as <b>${esc(me.email)}</b>, a staff account. Customer accounts are for our trade customers; manage them in the <a href="/admin/#/dealers">admin site</a>.</p><p><button class="btn line" type="button" id="dout">Sign out</button></p></div>`;app.querySelector("#dout").onclick=()=>signOut(c);return;}
