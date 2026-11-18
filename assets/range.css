@@ -1,0 +1,132 @@
+/* Range landing pages (/range/<range>/): one standard layout for every Stravik product range.
+   Order: hero (navy panel, angled cut into the product photo) > About the range (what the part does) > Why Stravik >
+   The range (photo cards) > Coverage band > Signs and fitting tips > Catalogue band (open the catalogue, or register).
+   Stravik Brand Standards 2026: navy carries, bronze highlights, paper gives space.
+   Every class starts with "rl-" so nothing here changes the rest of the site. The page keeps the site header and footer. */
+.rl{--rl-navy:#0B203D;--rl-bronze:#A97C42;--rl-deep:#8A6326;--rl-light:#D3A864;--rl-steel:#5B6475;--rl-paper:#F7F6F3;--rl-sand:#F5ECDD;--rl-line:#E6E0D4;
+  --rl-display:"Saira Semi Condensed","Arial Narrow",Arial,sans-serif;--rl-body:"Instrument Sans",Arial,sans-serif;
+  background:var(--rl-paper);color:var(--rl-navy);font:16px/1.4 var(--rl-body)}
+.rl *{box-sizing:border-box}
+.rl img{max-width:100%}
+.rl-wrap{width:min(1200px,100% - 40px);margin-inline:auto}
+.rl a:focus-visible,.rl button:focus-visible{outline:2px solid var(--rl-bronze);outline-offset:2px}
+
+/* buttons */
+.rl-btn{display:inline-flex;align-items:center;justify-content:center;font:600 15px var(--rl-display);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;border-radius:4px;padding:11px 22px;cursor:pointer;border:1px solid var(--rl-navy);background:var(--rl-navy);color:#FFFFFF}
+.rl-btn:hover{background:#12294B}
+.rl-btn.gold{background:var(--rl-light);border-color:var(--rl-light);color:var(--rl-navy)}
+.rl-btn.gold:hover{background:#DDB877}
+.rl-btn.ghost{background:transparent;color:#FFFFFF;border-color:rgba(255,255,255,.5)}
+.rl-btn.ghost:hover{background:rgba(255,255,255,.08)}
+.rl-btn.line{background:transparent;color:var(--rl-navy)}
+.rl-btn.line:hover{background:var(--rl-sand)}
+
+/* hero: navy panel, angled cut into the photo (the Stravik cover format) */
+.rl-hero{position:relative;background:var(--rl-navy);color:#FFFFFF;overflow:hidden}
+.rl-hero-grid{display:grid;grid-template-columns:minmax(0,44%) minmax(0,1fr);min-height:clamp(340px,36vw,500px)}
+.rl-hero-copy{position:relative;z-index:2;display:flex;align-items:center;padding-block:40px;padding-left:max(20px,calc((100vw - 1200px)/2));padding-right:24px}
+.rl-hero-text{display:grid;gap:14px;max-width:470px}
+.rl-crumbs{display:flex;flex-wrap:wrap;gap:8px;font-size:13px;color:#C3CAD6}
+.rl-crumbs a{color:#C3CAD6;text-decoration:none}
+.rl-crumbs a:hover{color:#FFFFFF;text-decoration:underline}
+.rl-eyebrow{font:600 13px var(--rl-display);letter-spacing:.15em;text-transform:uppercase;color:var(--rl-light);display:flex;align-items:center;gap:10px}
+.rl-eyebrow::before{content:"";width:28px;height:2px;background:var(--rl-bronze)}
+.rl-hero h1{font:700 clamp(36px,4vw,48px)/1.05 var(--rl-display);margin:0;color:#FFFFFF;text-wrap:balance}
+.rl-hero p{margin:0;color:#FFFFFF;opacity:.86;font-size:16px;line-height:1.4;max-width:44ch}
+.rl-stats{display:flex;flex-wrap:wrap;gap:12px 28px;margin-top:6px;padding-top:16px;border-top:1px solid var(--rl-bronze)}
+.rl-stats div{display:grid}
+.rl-stats b{font:700 clamp(30px,3.2vw,40px)/1 var(--rl-display);color:#FFFFFF;font-variant-numeric:tabular-nums}
+.rl-stats span{font:600 13px var(--rl-display);letter-spacing:.15em;text-transform:uppercase;color:var(--rl-light);margin-top:4px}
+.rl-hero-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.rl-hero-media{position:relative;margin-left:-90px;clip-path:polygon(90px 0,100% 0,100% 100%,0 100%)}
+.rl-hero-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:62% center}
+.rl-hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--rl-bronze)}
+@media (max-width:760px){
+  .rl-hero-grid{grid-template-columns:1fr}
+  .rl-hero-copy{padding:28px 20px}
+  .rl-hero-media{margin-left:0;clip-path:none;aspect-ratio:16/9}
+}
+
+/* sections */
+.rl-main{padding-block:28px 60px}
+.rl-sec-head{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+.rl-tag{font:700 13px var(--rl-display);color:#FFFFFF;background:var(--rl-bronze);padding:4px 14px 4px 9px;clip-path:polygon(0 0,100% 0,82% 100%,0 100%);letter-spacing:.05em}
+.rl-sec-head .k{font:600 13px var(--rl-display);letter-spacing:.15em;text-transform:uppercase;color:var(--rl-deep)}
+.rl-sec-head .r{flex:1;height:1px;background:linear-gradient(90deg,var(--rl-line),transparent)}
+.rl h2.rl-sec{font:600 32px/1.1 var(--rl-display);margin:0 0 18px;color:var(--rl-navy)}
+.rl h3.rl-sub{font:600 24px/1.2 var(--rl-display);color:var(--rl-navy);margin:34px 0 14px}
+
+/* what the part does: text beside a captioned photo */
+.rl-intro{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:28px;align-items:start}
+.rl-intro.solo{grid-template-columns:minmax(0,1fr)}
+.rl-lead{font-size:17px;line-height:1.5;margin:0 0 18px;max-width:62ch}
+.rl-text p{margin:0 0 14px;max-width:68ch;line-height:1.5}
+.rl-jobs{display:grid;gap:12px;margin:0}
+.rl-jobs div{display:grid;grid-template-columns:120px 1fr;gap:12px;padding-top:12px;border-top:1px solid var(--rl-line)}
+.rl-jobs dt{font:700 17px var(--rl-display);color:var(--rl-navy)}
+.rl-jobs dd{margin:0;color:var(--rl-steel);font-size:15px;line-height:1.45}
+.rl-shot{margin:0;background:var(--rl-navy);border-bottom:4px solid var(--rl-bronze)}
+.rl-shot img{display:block;width:100%;height:auto;aspect-ratio:1376/768;object-fit:cover}
+.rl-shot figcaption{display:flex;gap:12px;align-items:center;padding:12px 16px;color:#FFFFFF;font-size:13px}
+.rl-shot figcaption .k{font:600 13px var(--rl-display);letter-spacing:.15em;text-transform:uppercase;color:var(--rl-light)}
+
+/* why Stravik */
+.rl-why{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.rl-why div{background:#FFFFFF;border:1px solid var(--rl-line);border-top:3px solid var(--rl-bronze);padding:14px 16px}
+.rl-why b{font:700 18px var(--rl-display);color:var(--rl-navy)}
+.rl-why p{margin:6px 0 0;font-size:14px;color:var(--rl-steel);line-height:1.45}
+
+/* the range: photo cards, an optional wide band, or a table where there are no photos yet */
+.rl-range{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.rl-range{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.rl-range{grid-template-columns:1fr}}
+.rl-rc{background:#FFFFFF;border:1px solid var(--rl-line);display:grid;grid-template-rows:auto 1fr}
+.rl-rc-media{aspect-ratio:16/9;overflow:hidden;background:var(--rl-navy);border-bottom:3px solid var(--rl-bronze)}
+.rl-rc-media img{width:100%;height:100%;object-fit:cover;object-position:72% 60%;display:block}
+.rl-rc-body{padding:12px 16px 14px;display:grid;gap:4px;align-content:start}
+.rl-code{font:600 13px var(--rl-display);letter-spacing:.15em;color:var(--rl-deep)}
+.rl-rc h4{margin:0;font:700 20px var(--rl-display);color:var(--rl-navy)}
+.rl-rc p{margin:0;font-size:14px;color:var(--rl-steel)}
+.rl-n{font:700 15px var(--rl-display);color:var(--rl-navy);margin-top:4px}
+.rl-band{margin-top:12px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);background:#FFFFFF;border:1px solid var(--rl-line)}
+.rl-band-media{background:var(--rl-navy);border-right:3px solid var(--rl-bronze);min-height:220px}
+.rl-band-media img{display:block;width:100%;height:100%;max-height:300px;object-fit:cover;object-position:50% 60%;aspect-ratio:16/9}
+.rl-band-body{padding:22px 26px;display:grid;gap:6px;align-content:center}
+.rl-band-body h4{margin:0;font:700 26px var(--rl-display);color:var(--rl-navy)}
+.rl-band-body p{margin:0;font-size:15px;color:var(--rl-steel);line-height:1.45;max-width:46ch}
+@media (max-width:820px){.rl-band{grid-template-columns:1fr}.rl-band-media{border-right:0;border-bottom:3px solid var(--rl-bronze)}}
+.rl-tablebox{overflow-x:auto;background:#FFFFFF;border:1px solid var(--rl-line)}
+.rl-table{width:100%;border-collapse:collapse;font-size:15px}
+.rl-table th{text-align:left;font:600 13px var(--rl-display);letter-spacing:.12em;text-transform:uppercase;color:var(--rl-deep);padding:12px 16px;border-bottom:2px solid var(--rl-bronze);white-space:nowrap}
+.rl-table td{padding:12px 16px;border-top:1px solid var(--rl-line);vertical-align:top;line-height:1.45;color:var(--rl-steel)}
+.rl-table td:first-child{font:700 17px var(--rl-display);color:var(--rl-navy);min-width:210px}
+
+/* coverage band */
+.rl-cover{margin-top:28px;background:var(--rl-navy);color:#FFFFFF;border-bottom:4px solid var(--rl-bronze);padding:22px 24px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 24px}
+.rl-cover.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.rl-cover div{display:grid}
+.rl-cover b{font:700 clamp(28px,3.4vw,44px)/1 var(--rl-display);font-variant-numeric:tabular-nums}
+.rl-cover span{font:600 13px var(--rl-display);letter-spacing:.15em;text-transform:uppercase;color:var(--rl-light);margin-top:6px}
+.rl-cover p{grid-column:1/-1;margin:4px 0 0;font-size:14px;opacity:.86;border-top:1px solid rgba(255,255,255,.18);padding-top:12px}
+
+/* signs and fitting tips */
+.rl-two{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.rl-dash{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.rl-dash li{position:relative;padding-left:22px;font-size:15px;line-height:1.45}
+.rl-dash li::before{content:"";position:absolute;left:0;top:.7em;width:12px;height:3px;background:var(--rl-bronze);transform:skewX(-20deg)}
+
+/* catalogue band: open the catalogue, and the invitation to register */
+.rl-cat{margin-top:34px;background:#FFFFFF;border:1px solid var(--rl-line);border-top:3px solid var(--rl-bronze);padding:26px 28px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 28px;align-items:center}
+.rl-cat h3{margin:0 0 6px;font:700 28px/1.15 var(--rl-display);color:var(--rl-navy)}
+.rl-cat p{margin:0;color:var(--rl-steel);line-height:1.5;max-width:62ch}
+.rl-cat-actions{display:flex;gap:10px;flex-wrap:wrap}
+.rl-gate{grid-column:1/-1;display:flex;gap:10px 18px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rl-sand);padding:14px 18px;font-size:15px}
+.rl-gate b{font:700 18px var(--rl-display);color:var(--rl-navy);display:block}
+.rl-gate[hidden]{display:none}
+
+@media (max-width:820px){
+  .rl-intro,.rl-two{grid-template-columns:1fr}
+  .rl-cover,.rl-cover.three{grid-template-columns:1fr 1fr}
+  .rl-jobs div{grid-template-columns:1fr;gap:2px}
+  .rl-cat{grid-template-columns:1fr}
+}
