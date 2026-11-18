@@ -340,7 +340,10 @@ window.LS = (function () {
   // =====================================================================
   // app: { key, name, color, icon (svg path markup), menus: [{label, href | children:[...], editor, show: fn, action}], route: fn(r) }
   L.register = function (app) { L.apps.push(app); };
-  function appByKey(k) { return L.apps.find(function (a) { return a.key === k; }); }
+  // the apps this person may use: staff.admin_apps (function my_admin_apps); null = all
+  function allowed(a) { return !L.APPS || L.APPS.indexOf(a.key) >= 0; }
+  L.allowedApp = function (k) { return !!L.apps.find(function (a) { return a.key === k && allowed(a); }); };
+  function appByKey(k) { return L.apps.find(function (a) { return a.key === k && allowed(a); }); }
   function icon(app, size) { return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + app.icon + '</svg>'; }
 
   function menuHtml(m) {
@@ -496,7 +499,7 @@ window.LS = (function () {
     setNav(null); $('cp').hidden = true;
     var h = new Date().getHours(), hello = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     L.content('<div class="o-launcher"><div class="o-launcher-head"><img src="/assets/img/logo-wordmark.webp" alt="Stravik" width="600" height="62"><p>' + hello + '. ' + (L.isEditor() ? 'Data team access: you can view and edit.' : 'View-only access: you can view and download.') + '</p></div>' +
-      '<div class="o-apps">' + L.apps.filter(function (a) { return !a.hidden; }).map(function (a) {
+      '<div class="o-apps">' + L.apps.filter(function (a) { return !a.hidden && allowed(a); }).map(function (a) {
         return '<a class="o-app" href="' + L.href(a.key) + '"><span class="o-app-icon" style="background:' + a.color + '">' + icon(a, 40) + '</span><span class="o-app-name">' + esc(a.name) + '</span></a>';
       }).join('') + '</div></div>');
   }
@@ -541,6 +544,7 @@ window.LS = (function () {
       var role = L.must(await sb.rpc('my_staff_role'));
       if (!role) { $('naEmail').textContent = L.EMAIL; return authScreen('noAccess'); }
       L.ROLE = role; document.body.classList.toggle('viewer', !L.isEditor());
+      L.APPS = L.must(await sb.rpc('my_admin_apps')) || null;
       L.CATS = L.must(await sb.from('stravik_categories').select('name,subcategory_key,group_name,view_name,site_path,status,sort_order').eq('status', 'live').order('sort_order'));
       L.TYPES = L.must(await sb.from('stravik_part_types').select('code,subcategory,name,name_plural,part_group,sort').order('sort'));
       var ini = L.EMAIL.split('@')[0].split(/[._-]/).filter(Boolean).map(function (s) { return s[0]; }).join('').slice(0, 2).toUpperCase();
