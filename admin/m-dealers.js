@@ -8,6 +8,14 @@
    Emails: edge function stravik-dealer-mail (Resend). */
 (function (L) {
   'use strict';
+  // approval notes (stravik_dealers.sales_note / pricing_note / final_note): shown on the customer page and to the next approvers
+  function stepNote(n) { return n ? '<div class="small" style="margin-top:4px;white-space:pre-wrap"><b>Note:</b> ' + L.esc(n) + '</div>' : ''; }
+  function earlierNotes(d, step) {
+    if (step === 'sales') return '';
+    var n = [['Sales team', d.sales_approved_by, d.sales_note]].concat(step === 'final' ? [['Pricing team', d.pricing_approved_by, d.pricing_note]] : []).filter(function (x) { return x[2]; });
+    return n.length ? '<div class="notice"><b>Notes from the earlier approval steps</b>' + n.map(function (x) { return '<div style="margin-top:6px"><b>' + L.esc(x[0]) + '</b>' + (x[1] ? ' (' + L.esc(x[1]) + ')' : '') + ': <span style="white-space:pre-wrap">' + L.esc(x[2]) + '</span></div>'; }).join('') + '</div>'
+      : '<p class="muted small">No notes from the earlier approval steps.</p>';
+  }
   var esc = L.esc, sb = L.sb, $ = L.$;
   var DB = L.href('dealers'), OB = L.href('orders');
   var STATUSES = ['Pending', 'Approved', 'Rejected', 'Suspended'];
@@ -184,7 +192,7 @@
           '<div class="o-subtitle">' + esc(d.company_name) + ' · registered ' + esc(L.dt(d.submitted_at)) + (d.reviewed_at ? ' · reviewed ' + esc(L.dt(d.reviewed_at)) + ' by ' + esc(d.reviewed_by || '') : '') + '</div>' +
           (d.review_note ? '<div class="notice"><b>Note to the customer:</b> ' + esc(d.review_note) + '</div>' : '') +
           '<div class="o-groups">' +
-          L.group('Approval', [['1. Sales team', by(d.sales_approved_by, d.sales_approved_at)], ['2. Pricing team', by(d.pricing_approved_by, d.pricing_approved_at, d.pricing_approved_at && d.price_group ? ' · ' + esc(gname(d.price_group)) : '')], ['3. Final approval', by(d.final_approved_by, d.final_approved_at)]]) +
+          L.group('Approval', [['1. Sales team', by(d.sales_approved_by, d.sales_approved_at) + stepNote(d.sales_note)], ['2. Pricing team', by(d.pricing_approved_by, d.pricing_approved_at, d.pricing_approved_at && d.price_group ? ' · ' + esc(gname(d.price_group)) : '') + stepNote(d.pricing_note)], ['3. Final approval', by(d.final_approved_by, d.final_approved_at) + stepNote(d.final_note)]]) +
           L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], [d.country && d.country !== 'South Africa' ? 'Company reg. no.' : 'CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
           L.group('Contacts', [['Owner / director', t(d.owner_name)], ['Contact', t(d.contact_name) + (d.contact_role ? ' <span class="muted">(' + esc(d.contact_role) + ')</span>' : '')], ['Email (login)', '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>'], ['Mobile', t(d.mobile)], ['Phone', t(d.phone)], ['Accounts email', t(d.accounts_email)]]) +
           L.group('Address', [['Country', t(d.country)], [d.country && d.country !== 'South Africa' ? 'Region' : 'Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], [dels.length > 1 ? 'Delivery addresses (' + dels.length + ')' : 'Delivery address', delsHtml], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
@@ -211,8 +219,8 @@
         var intro = { sales: '<p>Step 1 of 3. Confirm the business details and documents are in order. Next, the pricing team chooses the price group.</p>',
           pricing: '<p>Step 2 of 3. Choose the price list this customer gets and the catalogues they may see and order. Then it goes for final approval.</p>',
           final: '<p>Step 3 of 3. Price group: <b>' + esc(gname(d.price_group)) + '</b>. Catalogues: <b>' + esc(catsText(d)) + '</b>. Once approved, the customer gets an email, sees these prices in the catalogue and can send order requests.</p>' }[STEP];
-        L.modal(STEPNAME[STEP] + ': ' + (d.trading_name || d.company_name), intro +
-          L.group('', (STEP === 'pricing' ? [['Price group', '<select id="apG"><option value="">Choose a price group…</option>' + opt(d.price_group || '') + '</select>'], ['Catalogues', '<div id="apCw">' + catBoxes('apC', d.categories, d.price_group || '') + '</div>']] : []).concat([['Note (internal, optional)', '<textarea id="apN"></textarea>']])) +
+        L.modal(STEPNAME[STEP] + ': ' + (d.trading_name || d.company_name), intro + earlierNotes(d, STEP) +
+          L.group('', (STEP === 'pricing' ? [['Price group', '<select id="apG"><option value="">Choose a price group…</option>' + opt(d.price_group || '') + '</select>'], ['Catalogues', '<div id="apCw">' + catBoxes('apC', d.categories, d.price_group || '') + '</div>']] : []).concat([[STEP === 'final' ? 'Note (internal, optional)' : 'Note for the next approver (internal, optional)', '<textarea id="apN"></textarea>']])) +
           (STEP === 'pricing' || STEP === 'final' ? '<div id="apP"></div>' : '') +
           '<div class="o-footer"><button class="btn" id="apGo"' + (STEP === 'pricing' && !d.price_group ? ' disabled' : '') + '>' + (STEP === 'final' ? 'Approve customer' : 'Approve') + '</button><button class="btn ghost" id="apX">Cancel</button></div>', STEP === 'pricing' || STEP === 'final');
         $('apX').onclick = L.closeModal;
