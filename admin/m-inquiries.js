@@ -29,7 +29,7 @@
       var s = L.orSearch(['ref', 'company', 'name', 'email'], S.text); if (s) q = q.or(s);
       var res = await q, rows = L.must(res);
       L.pager(S.offset, res.count || 0, function (o) { S.offset = o; load(); });
-      if (!rows.length) return L.content(L.empty('No inquiries', S.text || Object.keys(S.active).length ? 'Nothing matches the search.' : 'Customers\' lists are added with "New from a list"' + (L.isEditor() ? '.' : ' by the data team.')));
+      if (!rows.length) return L.content(L.empty('No inquiries', S.text || Object.keys(S.active).length ? 'Nothing matches the search.' : 'Customers\' lists are added with "New from a list"' + (L.canCreateInquiry() ? '.' : ' by the data team.')));
       L.content(L.listView([
         { label: 'Received', render: function (r) { return esc(L.dt(r.created_at)); } },
         { label: 'Inquiry no.', cls: 'pn', render: function (r) { return esc(r.ref); } },
@@ -275,7 +275,7 @@
   L.register({
     key: 'inquiries', name: 'Inquiries', color: '#a97c42',
     icon: '<path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
-    menus: [{ label: 'Inquiries', href: BASE }, { label: 'New from a list', action: 'new', editor: true }],
+    menus: [{ label: 'Inquiries', href: BASE }, { label: 'New from a list', action: 'new', show: function () { return L.canCreateInquiry(); } }],
     actions: { new: function () { wizard(); } },
     route: function (r) { if (r.parts[0]) form(r.parts[0]); else list(); }
   });

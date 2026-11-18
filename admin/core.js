@@ -33,6 +33,7 @@ window.LS = (function () {
     return out;
   };
   L.isEditor = function () { return L.ROLE === 'editor'; };
+  L.canCreateInquiry = function () { return L.isEditor() || !!L.INQ; };   // staff.creates_inquiries (function can_create_inquiry)
   L.money = function (v) { return v == null || v === '' ? '' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   // price band (from stravik_price_me().band): the sales team may move a recommended price from band.lo to band.hi in band.step steps
   L.BAND = { lo: -0.02, hi: 0.02, step: 0.005 };
@@ -547,6 +548,7 @@ window.LS = (function () {
       if (!role) { $('naEmail').textContent = L.EMAIL; return authScreen('noAccess'); }
       L.ROLE = role; document.body.classList.toggle('viewer', !L.isEditor());
       L.APPS = L.must(await sb.rpc('my_admin_apps')) || null;
+      L.INQ = !!L.must(await sb.rpc('can_create_inquiry'));
       L.CATS = L.must(await sb.from('stravik_categories').select('name,subcategory_key,group_name,view_name,site_path,status,sort_order').eq('status', 'live').order('sort_order'));
       L.TYPES = L.must(await sb.from('stravik_part_types').select('code,subcategory,name,name_plural,part_group,sort').order('sort'));
       var ini = L.EMAIL.split('@')[0].split(/[._-]/).filter(Boolean).map(function (s) { return s[0]; }).join('').slice(0, 2).toUpperCase();

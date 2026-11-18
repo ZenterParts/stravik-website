@@ -8,7 +8,7 @@
   function page() {
     L.cp({ crumbs: [['Number lookup']],
       buttons: '<button type="button" class="btn" id="lkGo">Look up</button><button type="button" class="btn ghost" id="lkUp">Upload a list</button><button type="button" class="btn ghost" id="lkClear">Clear</button>',
-      tools: S.rows.length ? '<button type="button" class="btn ghost" id="lkXls">' + (S.headers ? 'Download your file with results' : 'Download results') + '</button><button type="button" class="btn editor-only" id="lkInq">Create inquiry from this list</button>' : '' });
+      tools: S.rows.length ? '<button type="button" class="btn ghost" id="lkXls">' + (S.headers ? 'Download your file with results' : 'Download results') + '</button><button type="button" class="btn' + (L.canCreateInquiry() ? '' : ' editor-only') + '" id="lkInq">Create inquiry from this list</button>' : '' });
     L.content('<div class="cols2" style="margin-bottom:14px"><div class="card"><h2>Numbers to look up</h2>' +
       '<textarea id="lkInput" class="mono" rows="9" placeholder="One row per line, e.g.&#10;04C121004E&#10;MANN W 67/1&#10;5215796 ; 20          (quantity after ;)&#10;90915-YZZJ3 | WE01-13-Z40 ; 2   (OE | reference ; quantity)">' + esc(S.text) + '</textarea>' +
       '<p class="muted small" id="lkInfo">' + esc(S.info) + '</p></div>' +
