@@ -341,7 +341,9 @@ window.LS = (function () {
   // app: { key, name, color, icon (svg path markup), menus: [{label, href | children:[...], editor, show: fn, action}], route: fn(r) }
   L.register = function (app) { L.apps.push(app); };
   // the apps this person may use: staff.admin_apps (function my_admin_apps); null = all
-  function allowed(a) { return !L.APPS || L.APPS.indexOf(a.key) >= 0; }
+  // "*" = every app; hidden apps (a.hidden) show only to people who have them listed by name
+  function allowed(a) { return !L.APPS || L.APPS.indexOf('*') >= 0 || L.APPS.indexOf(a.key) >= 0; }
+  function listed(a) { return !!(L.APPS && L.APPS.indexOf(a.key) >= 0); }
   L.allowedApp = function (k) { return !!L.apps.find(function (a) { return a.key === k && allowed(a); }); };
   function appByKey(k) { return L.apps.find(function (a) { return a.key === k && allowed(a); }); }
   function icon(app, size) { return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + app.icon + '</svg>'; }
@@ -499,7 +501,7 @@ window.LS = (function () {
     setNav(null); $('cp').hidden = true;
     var h = new Date().getHours(), hello = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     L.content('<div class="o-launcher"><div class="o-launcher-head"><img src="/assets/img/logo-wordmark.webp" alt="Stravik" width="600" height="62"><p>' + hello + '. ' + (L.isEditor() ? 'Data team access: you can view and edit.' : 'View-only access: you can view and download.') + '</p></div>' +
-      '<div class="o-apps">' + L.apps.filter(function (a) { return !a.hidden && allowed(a); }).map(function (a) {
+      '<div class="o-apps">' + L.apps.filter(function (a) { return (!a.hidden || listed(a)) && allowed(a); }).map(function (a) {
         return '<a class="o-app" href="' + L.href(a.key) + '"><span class="o-app-icon" style="background:' + a.color + '">' + icon(a, 40) + '</span><span class="o-app-name">' + esc(a.name) + '</span></a>';
       }).join('') + '</div></div>');
   }
