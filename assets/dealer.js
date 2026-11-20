@@ -59,6 +59,17 @@ async function refresh(){
   // prices: map = new parts, rmap = remanufactured (the same Stravik number, a separate price)
   const pm=a=>new Map((a||[]).filter(x=>x[1]!=null).map(x=>[x[0],{p:x[1],i:x[2]}]));
   if(approved()){const p=must(await c.rpc("stravik_dealer_prices"));S.prices=p?Object.assign(p,{map:pm(p.prices),rmap:pm(p.reman)}):null;}else S.prices=null;
+  // South African customers (country South Africa, price group T1 to T5 or PREF) see the South African range only:
+  // their price list is kept to the parts in that range and treated as priced-only, so every catalogue hides the rest.
+  // If the range cannot be read, or has no parts for them, nothing changes and they see what any customer sees.
+  S.sa=null;
+  if(S.prices&&D().country==="South Africa"&&["T1","T2","T3","T4","T5","PREF"].indexOf(D().price_group)>=0){
+    try{const sa=must(await c.rpc("stravik_sa_stock"));
+      if(sa&&sa.parts){const keep=new Set(sa.stock.map(x=>x[0]));
+        [S.prices.map,S.prices.rmap].forEach(m=>Array.from(m.keys()).forEach(k=>{if(!keep.has(k))m.delete(k);}));
+        S.prices.priced_only=true;S.sa=sa;}
+    }catch(e){console.error(e);}
+  }
   paintAll();return S.me;
 }
 function ensure(){return S.loading||(S.loading=refresh().catch(e=>{console.error(e);return null;}));}
