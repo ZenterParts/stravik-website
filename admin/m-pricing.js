@@ -551,8 +551,8 @@
           else if (k === '_gross') f = sum(a('_landed'), ['_c_dist', '_c_cod']);
           else if (/^_t\d$|^_retail$/.test(k)) { var prev = { _t1: '_gross', _t2: '_t1', _t3: '_t2', _t4: '_t3', _t5: '_t4', _retail: '_t5' }[k], up = k === '_retail' ? '_retail_margin' : k + '_uplift'; f = a(prev) + '+(' + a(prev) + '*' + a(up) + ')'; }
           else if (k === '_check') {
-            var mk = a('_market_price'), lo = 'VALUE(TRIM(SUBSTITUTE(SUBSTITUTE(LEFT(' + mk + ',FIND("–",' + mk + '&"–")-1),"R",""),",","")))', hi = 'IFERROR(VALUE(TRIM(SUBSTITUTE(SUBSTITUTE(MID(' + mk + ',FIND("–",' + mk + ')+1,99),"R",""),",",""))),' + lo + ')';
-            f = 'IF(' + mk + '="","no market price",IFERROR(IF(' + a('_retail') + '*(1+$' + RV + '$9)<=(' + lo + '+' + hi + ')/2,"ok","not ok"),"check"))';
+            var mkt = a('_market_price'), lo = 'VALUE(TRIM(SUBSTITUTE(SUBSTITUTE(LEFT(' + mkt + ',FIND("–",' + mkt + '&"–")-1),"R",""),",","")))', hi = 'IFERROR(VALUE(TRIM(SUBSTITUTE(SUBSTITUTE(MID(' + mkt + ',FIND("–",' + mkt + ')+1,99),"R",""),",",""))),' + lo + ')';
+            f = 'IF(' + mkt + '="","no market price",IFERROR(IF(' + a('_retail') + '*(1+$' + RV + '$9)<=(' + lo + '+' + hi + ')/2,"ok","not ok"),"check"))';
             var mkv = val(x, '_market_price'), nums = String(mkv || '').replace(/–/g, '-').split('-').map(function (t) { return Number(t.replace(/[^0-9.]/g, '')); }).filter(function (t) { return t > 0; });
             y = !mkv ? 'no market price' : !nums.length ? 'check' : (val(x, '_retail') * (1 + vat) <= (nums[0] + (nums[1] || nums[0])) / 2 ? 'ok' : 'not ok');
           }
