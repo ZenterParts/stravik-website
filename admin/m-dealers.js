@@ -258,11 +258,12 @@
       };
       $('dEdit').onclick = function () {
         var F = [['company_name', 'Company'], ['trading_name', 'Trading as'], ['cipc_no', 'CIPC no.'], ['vat_no', 'VAT no.'], ['contact_name', 'Contact'], ['mobile', 'Mobile'], ['phone', 'Phone'], ['accounts_email', 'Accounts email'], ['province', 'Province'], ['city', 'City'], ['store_address', 'Store address'], ['delivery_address', 'Delivery address'], ['receiving_hours', 'Receiving hours'], ['truck_access', 'Truck access'], ['dpw_customer_code', 'DPW customer code'], ['internal_notes', 'Internal notes']];
-        L.modal('Edit ' + (d.trading_name || d.company_name), L.group('', F.map(function (f) { return [f[1], /address|notes/.test(f[0]) ? '<textarea data-k="' + f[0] + '">' + esc(d[f[0]] || '') + '</textarea>' : '<input data-k="' + f[0] + '" value="' + esc(d[f[0]] || '') + '">']; }).concat([['Test account', '<label><input type="checkbox" id="edT"' + (d.is_test ? ' checked' : '') + '> mark as a test (orders are tagged [TEST])</label>']])) +
+        L.modal('Edit ' + (d.trading_name || d.company_name), L.group('', F.map(function (f) { return [f[1], /address|notes/.test(f[0]) ? '<textarea data-k="' + f[0] + '">' + esc(d[f[0]] || '') + '</textarea>' : '<input data-k="' + f[0] + '" value="' + esc(d[f[0]] || '') + '">']; }).concat(d.price_group ? [['Catalogues', '<div id="edKw">' + catBoxes('edK', d.categories, d.price_group) + '</div>']] : []).concat([['Test account', '<label><input type="checkbox" id="edT"' + (d.is_test ? ' checked' : '') + '> mark as a test (orders are tagged [TEST])</label>']])) +
           '<div class="o-footer"><button class="btn" id="edGo">Save</button><button class="btn ghost" id="edX">Cancel</button></div>', true);
         $('edX').onclick = L.closeModal;
         $('edGo').onclick = async function () {
           var p = { is_test: $('edT').checked };
+          if ($('edK')) { var pick = catPick('edK'); if (pick === false) return L.toast('Tick at least one catalogue'); p.categories = pick; }
           $('modalBody').querySelectorAll('[data-k]').forEach(function (i) { p[i.dataset.k] = i.value.trim() || null; });
           if (!p.company_name || !p.contact_name) return L.toast('Company and contact are required');
           try { L.must(await sb.from('stravik_dealers').update(p).eq('id', id)); L.closeModal(); L.toast('Saved'); dForm(id); } catch (e) { L.fail(e); }
