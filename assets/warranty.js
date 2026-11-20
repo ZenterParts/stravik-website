@@ -1,7 +1,8 @@
 // Stravik battery fitment and warranty registration, warranty policy V1.1 (/warranty/battery/).
 // Opened from the QR code on each battery (?s=<serial no.>: the serial is filled in and locked) or from a battery page (?pn=<Stravik no.>).
 // The serial decides the battery (public.stravik_serial_check). The vehicle is chosen from the application list of that battery
-// (batteries.json). The fitment test follows policy 2.3: the form shows "do not fit" as soon as a result is outside the limits, and
+// (batteries.json; a regional number such as the South Africa SVS... numbers uses the list of the part it is the same as, app_pn).
+// The fitment test follows policy 2.3: the form shows "do not fit" as soon as a result is outside the limits, and
 // public.stravik_fitment_register checks everything again. The 5 photos of policy 2.2 are taken live with the camera: each is
 // redrawn as a JPEG with the date and time stamped on it (which also drops the phone's location data) and uploaded to a private
 // folder only Stravik staff can open. The serial format is checked by the database, so a new serial format needs no change here.
@@ -42,10 +43,10 @@ async function checkSn(){const el=$("w_snmsg"),v=clean($("w_sn").value),seq=++sn
   try{const j=await rpc("stravik_serial_check",{p_serial:$("w_sn").value});if(seq!==snSeq)return;
     if(!j.found){el.classList.add("bad");el.textContent="We can't find serial number "+$("w_sn").value.trim()+". Check it against the label on the battery, or contact info@zenterparts.com with a photo of the label.";vehicles();return;}
     await list;if(seq!==snSeq)return;
-    if(EXP&&j.pn!==EXP){el.classList.add("bad");el.innerHTML=`<b>This serial number is for ${esc(j.pn)}, not ${esc(EXP)}.</b> Check it against the label on the battery.`;vehicles();return;}
+    if(EXP&&j.pn!==EXP&&j.app_pn!==EXP){el.classList.add("bad");el.innerHTML=`<b>This serial number is for ${esc(j.pn)}, not ${esc(EXP)}.</b> Check it against the label on the battery.`;vehicles();return;}
     if(j.registered){el.classList.add("bad");el.innerHTML="This battery was already registered"+(j.registered_on?" on "+esc(dmy(j.registered_on)):"")+". Each battery can be registered once. Contact <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a> if this is wrong.";vehicles();return;}
     if(j.void){el.classList.add("bad");el.innerHTML="This serial number can't be registered. Contact <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a>.";vehicles();return;}
-    const b=BAT&&BAT[j.pn];SN={ok:true,sn:j.serial||$("w_sn").value.trim(),pn:j.pn,made:j.made,b};
+    const b=BAT&&BAT[j.app_pn||j.pn];SN={ok:true,sn:j.serial||$("w_sn").value.trim(),pn:j.pn,made:j.made,b};
     if(j.serial&&j.serial!==$("w_sn").value)$("w_sn").value=j.serial;
     el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b&&b.ser?", "+esc(b.ser):""}, batch ${esc(ym(j.made))}`;
   }catch(e){if(seq===snSeq){el.classList.add("bad");el.textContent="The serial number couldn't be checked. Check your connection and try again.";}}
@@ -202,7 +203,7 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
   try{const photos={},photo_times={};for(let n=0;n<PHK.length;n++){const k=PHK[n];btn.textContent="Uploading photo "+(n+1)+" of "+PHK.length+"…";photos[k]=await upload(k);photo_times[k]=PHS[k].taken.toISOString();}
     payload.photos=photos;payload.photo_times=photo_times;btn.textContent="Registering…";
     const j=await rpc("stravik_fitment_register",{payload});
-    const b=BAT&&BAT[j.pn],cov=cover(j),wa=payload.phone.replace(/\D/g,"").replace(/^00/,"");
+    const b=SN.b,cov=cover(j),wa=payload.phone.replace(/\D/g,"").replace(/^00/,"");
     const text=["Stravik battery warranty","Registration number: "+j.ref,"Battery: "+j.pn+(b?" "+b.desc:"")+", serial "+j.serial,"Fitted: "+stamp(fat),
       "Cover: "+cov+(j.replaces?" (replacement of "+j.replaces+": the remaining cover of the original battery)":""),
       "Claims: return the battery with the warranty card to the point of sale or the fitment centre within 30 days of the problem appearing.","Terms: "+SITE+"/warranty/battery/terms/"].join("\n");
