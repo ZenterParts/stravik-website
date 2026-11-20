@@ -1,114 +1,218 @@
-// Stravik battery warranty registration (/warranty/battery/?s=<serial no.> from the QR code on the battery, or ?pn=<Stravik no.>).
-// ?s= (the QR code on each battery): the serial number is filled in and locked, so it can't be changed.
-// ?pn= of a known battery shows that battery above the serial number box, starts the serial with its number ("SVADH001-") and refuses a serial of another battery.
-// Registration is by serial number only: it is checked with public.stravik_serial_check (which battery, already registered?). The form is saved with public.stravik_warranty_register,
-// which accepts each serial once (anyone may call it; only staff can read the registrations).
-// Photos: one of the multimeter for each test reading (resting, cranking, alternator), uploaded to a private folder only Stravik staff can open.
+// Stravik battery fitment and warranty registration, warranty policy V1.1 (/warranty/battery/).
+// Opened from the QR code on each battery (?s=<serial no.>: the serial is filled in and locked) or from a battery page (?pn=<Stravik no.>).
+// The serial decides the battery (public.stravik_serial_check). The vehicle is chosen from the application list of that battery
+// (batteries.json). The fitment test follows policy 2.3: the form shows "do not fit" as soon as a result is outside the limits, and
+// public.stravik_fitment_register checks everything again. The 5 photos of policy 2.2 are taken live with the camera: each is
+// redrawn as a JPEG with the date and time stamped on it (which also drops the phone's location data) and uploaded to a private
+// folder only Stravik staff can open. The serial format is checked by the database, so a new serial format needs no change here.
 (function(){
 const SB_URL="https://kyegujgvlsbttyrlibgn.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWd1amd2bHNidHR5cmxpYmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNTQ4NjUsImV4cCI6MjEwNjgzMDg2NX0.qw8n7Y9l8zO-npZ4BDlqK9PvksRQpEVg6BxqEo_MnWs";
+const SITE="https://stravikparts.com";
 const f=document.getElementById("wf");if(!f)return;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const clean=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
-const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
-let BAT=null;
-const list=fetch("/batteries.json").then(r=>r.json()).then(d=>{const T={};(d.types||[]).forEach(t=>T[t[0]]=t[1]);BAT={};
-  (d.parts||[]).forEach(p=>{BAT[p[0]]={pn:p[0],desc:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A (EN)",ser:p[2]||"",box:p[4]||"",
-    line:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A"+(p[4]?", "+p[4]+" case":"")};});}).catch(()=>{BAT=null;});
-// serial numbers: SVPDH003-2611-7K3M9 (Stravik no., YYMM made, 5 characters)
-const snFmt=s=>{const c=clean(s);return /^SV[A-Z0-9]{6}\d{4}[A-Z0-9]{5}$/.test(c)?c.slice(0,8)+"-"+c.slice(8,12)+"-"+c.slice(12):null;};
-const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],ym=s=>{const p=String(s||"").split("-");return p.length>1?MON[+p[1]-1]+" "+p[0]:"";};
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const localDT=d=>ymd(d)+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const ym=s=>{const p=String(s||"").split("-");return p.length>1?MON[+p[1]-1]+" "+p[0]:"";};
 const dmy=s=>{const p=String(s||"").split("-");return p.length>2?(+p[2])+" "+MON[+p[1]-1]+" "+p[0]:s;};
-let SN={ok:false},snSeq=0,EXP=null;   // EXP: the battery in ?pn=, when it is a known one
+const stamp=d=>d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear()+", "+pad(d.getHours())+":"+pad(d.getMinutes());
+const radio=n=>(f.querySelector("input[name="+n+"]:checked")||{}).value||"";
+const numv=id=>{const x=parseFloat(String($(id).value).replace(",","."));return isFinite(x)?x:null;};
+const rowOf=id=>$(id).parentElement;
+const show=(el,on)=>{el.hidden=!on;};
+async function rpc(name,body){const r=await fetch(SB_URL+"/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||("Status "+r.status));return j;}
+
+// ---------- battery list and vehicle applications (batteries.json)
+let BAT=null,MAKES=[],VEH=[];
+const list=fetch("/batteries.json").then(r=>r.json()).then(d=>{const T={};(d.types||[]).forEach(t=>T[t[0]]=t[1]);BAT={};MAKES=d.makes||[];VEH=d.vehicles||[];
+  (d.parts||[]).forEach((p,ix)=>{BAT[p[0]]={pn:p[0],ix,t:p[1],ser:p[2]||"",box:p[4]||"",desc:(T[p[1]]||"Battery")+" 12V "+p[5]+"Ah "+p[6]+"A (EN)"};});}).catch(()=>{BAT=null;});
+const startStopBattery=b=>!!b&&(b.t==="EFB"||b.t==="AGM"||/start-stop/i.test(b.ser));
+
+// ---------- serial number: from the QR code (?s=, or the scan button) or typed
+let SN={ok:false},snSeq=0,EXP=null,SRC="typed";
 const P=new URLSearchParams(location.search),qs=P.get("s"),q=P.get("pn");
-async function checkSn(){const el=$("w_snmsg"),v=$("w_sn").value,sn=snFmt(v),seq=++snSeq;SN={ok:false};el.classList.remove("bad");
-  if(!clean(v)){el.textContent="";return;}
-  if(!sn){el.textContent=clean(v).length>=17?"This doesn't look like a Stravik serial number. It looks like SVPDH003-2611-7K3M9.":"";el.classList.toggle("bad",clean(v).length>=17);return;}
+async function checkSn(){const el=$("w_snmsg"),v=clean($("w_sn").value),seq=++snSeq;SN={ok:false};el.classList.remove("bad");
+  if(v.length<8){el.textContent="";vehicles();tests();return;}
   el.textContent="Checking…";
-  try{const r=await fetch(SB_URL+"/rest/v1/rpc/stravik_serial_check",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},body:JSON.stringify({p_serial:sn})});
-    const j=await r.json();if(seq!==snSeq)return;
-    if(!j.found){el.classList.add("bad");el.textContent="We can't find serial number "+sn+(qs?". Contact us at info@zenterparts.com with a photo of the battery label.":". Check it against the label on the battery.");return;}
+  try{const j=await rpc("stravik_serial_check",{p_serial:$("w_sn").value});if(seq!==snSeq)return;
+    if(!j.found){el.classList.add("bad");el.textContent="We can't find serial number "+$("w_sn").value.trim()+". Check it against the label on the battery, or contact info@zenterparts.com with a photo of the label.";vehicles();return;}
     await list;if(seq!==snSeq)return;
-    if(EXP&&j.pn!==EXP){el.classList.add("bad");el.innerHTML=`<b>This serial number is for ${esc(j.pn)}, not ${esc(EXP)}.</b> Check it against the label on the battery. If your battery is ${esc(j.pn)}, <a href="/warranty/battery/?s=${encodeURIComponent(sn)}">register ${esc(j.pn)} instead</a>.`;return;}
-    if(j.registered){el.classList.add("bad");el.innerHTML="This battery was already registered"+(j.registered_on?" on "+esc(dmy(j.registered_on)):"")+". If it is yours, contact us at <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a> with your invoice.";return;}
-    if(j.void){el.classList.add("bad");el.innerHTML="This serial number can't be registered. Contact us at <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a>.";return;}
-    const b=BAT&&BAT[j.pn];SN={ok:true,sn,pn:j.pn,made:j.made};
-    if(sn!==$("w_sn").value)$("w_sn").value=sn;
-    el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b?", "+esc(b.ser):""}, made ${esc(ym(j.made))}${j.months?" · "+j.months+"-month warranty":""} · <a href="/part/${encodeURIComponent(j.pn)}/">battery page</a>`+
-      (q&&clean(q)!==j.pn?`<br>This serial is for battery ${esc(j.pn)}, not ${esc(clean(q))}: check that you scanned the QR code on the same battery.`:"");
-  }catch(e){if(seq===snSeq){el.textContent="";SN={ok:true,sn,unchecked:true};}}}
-// from the QR code on the battery: the serial is filled in and locked
-if(qs){const el=$("w_sn");el.value=snFmt(qs)||String(qs).toUpperCase().slice(0,24);el.readOnly=true;el.setAttribute("aria-readonly","true");el.classList.add("locked");
-  const help=$("w_snrow").querySelector(".wsub");if(help)help.innerHTML="Filled in from the QR code on the battery. Scanned the wrong battery? Scan the QR code on the battery you are registering.";}
-else{let snT=0;$("w_sn").addEventListener("input",()=>{clearTimeout(snT);snT=setTimeout(checkSn,350);});
-  $("w_sn").addEventListener("blur",()=>{clearTimeout(snT);checkSn();});}
-if(qs)checkSn();
-// ?pn=<known battery>: name the battery above the serial number box and start the serial with its number
-if(!qs)list.then(()=>{const b=BAT&&BAT[clean(q)];if(!b)return;EXP=b.pn;
-  const d=document.createElement("div");d.className="wbat";d.id="w_bat";d.style.margin="0 0 10px";d.innerHTML=`Battery: <b>${esc(b.pn)}</b>, ${esc(b.line)}`;
-  const row=$("w_snrow");row.insertBefore(d,row.firstChild);
-  const el=$("w_sn");if(!el.value){el.value=b.pn+"-";el.focus({preventScroll:true});el.setSelectionRange(el.value.length,el.value.length);}
-  else if(snFmt(el.value))checkSn();});
-$("w_date").max=today();
-// test readings at fitment: resting 12.4–12.9 V, cranking 9.6–13.0 V, alternator 13.4–14.4 V (the warranty terms).
-// A reading outside its range shows a warning that must be ticked.
-const RD=["w_rest","w_crank","w_volt"],num=id=>{const x=parseFloat($(id).value.replace(",","."));return isFinite(x)?x:null;};
-const RLIM={w_rest:[8,15],w_crank:[5,15],w_volt:[10,18]},RNAME={w_rest:"Battery resting voltage",w_crank:"Cranking voltage",w_volt:"Alternator voltage"};
-function outOfRange(){return RD.filter(id=>{const x=num(id),el=$(id);return x!=null&&x>=RLIM[id][0]&&x<=RLIM[id][1]&&(x<+el.dataset.lo||x>+el.dataset.hi);});}
-function readings(){RD.forEach(id=>{const x=num(id),el=$(id+"_msg"),inp=$(id),ok=x==null||x<RLIM[id][0]||x>RLIM[id][1]?null:x>=+inp.dataset.lo&&x<=+inp.dataset.hi;
-    el.classList.toggle("bad",ok===false);el.textContent=ok===null?el.dataset.hint:ok?"Within the healthy range ("+inp.dataset.lo+" to "+inp.dataset.hi+" V).":"Outside the healthy range of "+inp.dataset.lo+" to "+inp.dataset.hi+" V.";});
-  const bad=outOfRange();$("w_ackrow").hidden=!bad.length;if(!bad.length)$("w_ack").checked=false;
-  $("w_warn").innerHTML=bad.map(id=>"<b>"+RNAME[id]+" "+esc(num(id))+" V</b> is outside the healthy range ("+$(id).dataset.lo+" to "+$(id).dataset.hi+" V).").join("<br>")+
-    (bad.includes("w_volt")?"<br>Have the vehicle's charging system checked before relying on the warranty.":"");}
-RD.forEach(id=>$(id).addEventListener("input",readings));
-// photos of the multimeter, one per reading: uploaded to a private folder only Stravik staff can open; the file names are random
-async function upload(file){const ext={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heic"}[file.type]||"jpg";
-  const id=(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)))+"."+ext;
-  const r=await fetch(SB_URL+"/storage/v1/object/stravik-warranty-invoices/"+id,{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":file.type||"image/jpeg","x-upsert":"false"},body:file});
-  if(!r.ok)throw new Error("A photo didn't upload. Try a smaller photo and register again.");return id;}
-// UP remembers each photo already uploaded: pressing Register again (after a refusal) reuses it, unless a different photo
-// was chosen for that reading, in which case the latest one is uploaded and used.
-const UP={},PH=[["w_rest_ph","rest_reading"],["w_crank_ph","crank_reading"],["w_volt_ph","alternator_reading"]];
-const okFile=fl=>!!fl&&fl.size<=8*1024*1024&&/^image\/(jpeg|png|webp|heic|heif)$/.test(fl.type||"image/jpeg");
-f.querySelectorAll("input[name=w_taxi]").forEach(el=>el.addEventListener("change",()=>f.querySelector(".wtaxi").classList.remove("invalid")));
-f.querySelectorAll("input").forEach(el=>el.addEventListener("input",()=>{el.classList.remove("invalid");if(el.id==="w_ok")el.closest(".wok").classList.remove("invalid");if(el.id==="w_ack")el.closest(".wack").classList.remove("invalid");}));
-PH.forEach(([id])=>$(id).addEventListener("change",()=>$(id).classList.remove("invalid")));
+    if(EXP&&j.pn!==EXP){el.classList.add("bad");el.innerHTML=`<b>This serial number is for ${esc(j.pn)}, not ${esc(EXP)}.</b> Check it against the label on the battery.`;vehicles();return;}
+    if(j.registered){el.classList.add("bad");el.innerHTML="This battery was already registered"+(j.registered_on?" on "+esc(dmy(j.registered_on)):"")+". Each battery can be registered once. Contact <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a> if this is wrong.";vehicles();return;}
+    if(j.void){el.classList.add("bad");el.innerHTML="This serial number can't be registered. Contact <a href=\"mailto:info@zenterparts.com\">info@zenterparts.com</a>.";vehicles();return;}
+    const b=BAT&&BAT[j.pn];SN={ok:true,sn:j.serial||$("w_sn").value.trim(),pn:j.pn,made:j.made,b};
+    if(j.serial&&j.serial!==$("w_sn").value)$("w_sn").value=j.serial;
+    el.innerHTML=`<b>Stravik ${esc(b?b.desc:j.pn)}</b>, battery ${esc(j.pn)}${b&&b.ser?", "+esc(b.ser):""}, batch ${esc(ym(j.made))}`;
+  }catch(e){if(seq===snSeq){el.classList.add("bad");el.textContent="The serial number couldn't be checked. Check your connection and try again.";}}
+  vehicles();tests();}
+function lockSerial(v){const el=$("w_sn");el.value=v;el.readOnly=true;el.setAttribute("aria-readonly","true");el.classList.add("locked");SRC="qr";
+  $("w_snhelp").innerHTML="Filled in from the QR code on the battery. Scanned the wrong battery? Scan the QR code on the battery you are fitting.";}
+if(qs){lockSerial(String(qs).toUpperCase().slice(0,30));checkSn();}
+else{let t=0;$("w_sn").addEventListener("input",()=>{SRC="typed";clearTimeout(t);t=setTimeout(checkSn,400);});$("w_sn").addEventListener("blur",()=>{clearTimeout(t);checkSn();});
+  list.then(()=>{const b=BAT&&BAT[clean(q)];if(b){EXP=b.pn;const d=document.createElement("div");d.className="wbat";d.style.margin="0 0 10px";d.innerHTML=`Battery: <b>${esc(b.pn)}</b>, ${esc(b.desc)}`;$("w_snrow").insertBefore(d,$("w_snrow").firstChild);}});}
+// scan button: phones whose browser can read QR codes (BarcodeDetector); elsewhere the phone camera app opens the QR link
+if(!qs&&"BarcodeDetector" in window&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){const btn=$("w_scan");btn.hidden=false;
+  btn.addEventListener("click",async()=>{let stream=null,stop=false;const ov=document.createElement("div");
+    ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px";
+    ov.innerHTML='<video playsinline muted style="width:100%;max-width:480px;border-radius:8px"></video><p style="color:#fff;margin:0">Point the camera at the QR code on the battery.</p><button type="button" class="btn line" style="color:#fff;border-color:#fff">Close</button>';
+    document.body.appendChild(ov);const close=()=>{stop=true;if(stream)stream.getTracks().forEach(t=>t.stop());ov.remove();};ov.querySelector("button").onclick=close;
+    try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});const v=ov.querySelector("video");v.srcObject=stream;await v.play();
+      const det=new BarcodeDetector({formats:["qr_code"]});
+      while(!stop){const codes=await det.detect(v).catch(()=>[]);if(codes.length){const raw=codes[0].rawValue||"";let s=null,pn=null;
+          try{const u=new URL(raw);s=u.searchParams.get("s");pn=u.searchParams.get("pn");}catch(e){s=clean(raw).length>=8?raw:null;}
+          close();if(s){lockSerial(String(s).toUpperCase().slice(0,30));checkSn();}
+          else{const el=$("w_snmsg");el.classList.add("bad");el.textContent=pn?"This QR code is for the battery model, not this battery. Enter the serial number printed on the battery.":"This QR code is not a Stravik battery serial.";}
+          return;}
+        await new Promise(r=>setTimeout(r,250));}
+    }catch(e){close();const el=$("w_snmsg");el.classList.add("bad");el.textContent="The camera couldn't be opened. Scan the QR code with the phone camera app, or enter the serial number.";}});}
+
+// ---------- replacement under warranty
+f.querySelectorAll("input[name=w_rep]").forEach(r=>r.addEventListener("change",()=>show($("w_reprow"),radio("w_rep")==="yes")));
+
+// ---------- dates
+$("w_idate").max=ymd(new Date());$("w_fat").value=localDT(new Date());
+const fatRange=()=>{const n=new Date();$("w_fat").max=localDT(n);$("w_fat").min=localDT(new Date(n-24*3600e3));};fatRange();
+
+// ---------- use and market
+function useHint(){const za=$("w_country").value==="South Africa";
+  $("w_usehint").textContent=za?"South Africa: Platinum, 24 months free replacement for every use. Claims are rejected for the wrong application (for example a car battery in a truck, machine or cycling use), excessive use or abnormal wear and tear."
+    :"Taxi and commercial use have their own warranty periods (policy section 3). Commercial cover also ends at 100,000 km or 1,500 engine hours.";}
+$("w_country").addEventListener("change",useHint);useHint();
+f.querySelector("input[name=w_odou][value=km]").checked=true;
+
+// ---------- vehicle from the application list of the battery
+let VL=[];   // vehicles that list this battery: [index in VEH, 0 recommended / 1 alternative]
+function vehicles(){const mk=$("w_make"),md=$("w_model"),yr=$("w_year"),b=SN.ok&&SN.b,msg=$("w_vehhelp");
+  VL=b?VEH.map((v,i)=>[i,(v[5]||[]).includes(b.ix)?0:(v[6]||[]).includes(b.ix)?1:-1]).filter(x=>x[1]>=0):[];
+  const keep=mk.value;mk.innerHTML='<option value="">Choose…</option>';md.innerHTML='<option value="">Choose…</option>';yr.innerHTML='<option value="">Choose…</option>';
+  [mk,md,yr].forEach(s=>s.disabled=true);
+  if(!SN.ok){msg.textContent="Choose the vehicle from the Stravik application list for this battery. Scan or enter the serial number first.";return;}
+  if(!VL.length){msg.innerHTML=`No vehicles are listed for battery ${esc(SN.pn)}. Fit only the battery listed for the vehicle: contact <a href="mailto:info@zenterparts.com">info@zenterparts.com</a> before fitting.`;return;}
+  msg.textContent="Vehicles listed for battery "+SN.pn+" in the Stravik application list. Vehicle not in the list: do not fit, select the correct battery.";
+  const makes=[...new Set(VL.map(x=>MAKES[VEH[x[0]][0]]))].sort();makes.forEach(m=>mk.add(new Option(m,m)));mk.disabled=false;
+  if(makes.includes(keep)){mk.value=keep;models();}}
+function models(){const md=$("w_model"),m=$("w_make").value;md.innerHTML='<option value="">Choose…</option>';$("w_year").innerHTML='<option value="">Choose…</option>';$("w_year").disabled=true;
+  VL.filter(x=>MAKES[VEH[x[0]][0]]===m).sort((a,b)=>VEH[a[0]][1].localeCompare(VEH[b[0]][1])).forEach(x=>{const v=VEH[x[0]];md.add(new Option(v[1]+(v[2]?" ("+v[2]+")":"")+(x[1]?", alternative fit":""),String(x[0])));});
+  md.disabled=!m;}
+function years(){const yr=$("w_year"),v=VEH[+$("w_model").value];yr.innerHTML='<option value="">Choose…</option>';if(!$("w_model").value||!v){yr.disabled=true;return;}
+  const cur=new Date().getFullYear(),y=String(v[2]||""),m=y.match(/(\d{4})\s*(?:-\s*(\d{2,4}))?/);let a=1980,b=cur+1;
+  if(m){a=+m[1];if(m[2])b=m[2].length===2?+(m[1].slice(0,2)+m[2])+(+m[2]<+m[1].slice(2)?100:0):+m[2];}
+  b=Math.min(Math.max(b,a),cur+1);for(let k=b;k>=a;k--)yr.add(new Option(String(k),String(k)));yr.disabled=false;}
+$("w_make").addEventListener("change",models);$("w_model").addEventListener("change",years);
+
+// ---------- fitment test, policy 2.3: "do not fit" as soon as a result is outside the limits
+function tests(){const tt=radio("w_tt"),ss=radio("w_ss"),ct=$("w_ct").value,lo=radio("w_lo"),T=tt==="tester";
+  ["w_bt","w_st","w_ct","w_rp"].forEach(id=>show(rowOf(id),tt!=="voltmeter"));
+  show($("w_lo_row"),T&&ss==="yes"&&ct==="low");show($("w_specrow"),T&&ss==="yes"&&ct==="low"&&lo==="maker_spec");
+  const bad=[],ocv=numv("w_ocv"),cv=numv("w_crank"),v=numv("w_volt");
+  if(ss==="yes"&&SN.ok&&SN.b&&!startStopBattery(SN.b))bad.push(`Battery ${SN.pn} is not a start-stop battery. A start-stop or smart charging vehicle needs an EFB or AGM battery: do not fit.`);
+  if(tt==="voltmeter"&&ss==="yes")bad.push("A voltmeter is accepted only on vehicles without start-stop or smart charging. Test with a battery and system tester.");
+  if(T&&$("w_bt").value&&$("w_bt").value!=="good")bad.push("Battery test not Good: do not fit. Recharge and retest, or replace the battery.");
+  if(ocv!=null&&ocv<12.5)bad.push("Battery below 12.5 V before fitment: recharge it before fitting.");
+  if(T&&$("w_st").value==="low")bad.push("Starting test Low: do not fit. Advise a starter and cable check.");
+  if(cv!=null&&cv<9.6)bad.push("Cranking below 9.6 V: do not fit. Advise a starter and cable check.");
+  if(v!=null&&v>14.8)bad.push("Charging above 14.8 V: the vehicle is overcharging. Do not fit, advise vehicle repair.");
+  else if(tt==="voltmeter"&&v!=null&&(v<13.8||v>14.7))bad.push("With a voltmeter the charging voltage must be 13.8 to 14.7 V: do not fit, advise vehicle repair.");
+  if(T&&(ct==="high"||ct==="none"||(ct==="low"&&ss==="no")))bad.push("Charging test not Normal: do not fit. Advise vehicle repair.");
+  if(T&&ct==="low"&&ss==="yes"&&lo==="no")bad.push("Charging still low with the loads on: do not fit. Advise vehicle repair.");
+  if(T&&$("w_rp").value==="fail")bad.push("Ripple test failed: do not fit. Advise vehicle repair.");
+  if(radio("w_bms")==="not_done")bad.push("Register the battery to the vehicle's battery management system before registering the fitment.");
+  const filled=!!(tt&&ss&&ocv!=null&&cv!=null&&v!=null&&radio("w_bms")&&(!T||($("w_bt").value&&$("w_st").value&&ct&&$("w_rp").value&&(!(ss==="yes"&&ct==="low")||(lo&&(lo!=="maker_spec"||$("w_spec").value.trim().length>2))))));
+  const box=$("w_testmsg");box.style.background=bad.length?"":filled?"#e8f3ec":"";box.style.borderLeftColor=bad.length?"#b3261e":filled?"#2f6f4f":"";
+  box.innerHTML=bad.length?"<b>Do not fit.</b><br>"+bad.map(esc).join("<br>"):filled?"<b>Fitment test passed.</b>":"Enter the tester results. Outside any limit: do not fit.";
+  return{bad,filled};}
+f.addEventListener("change",e=>{if(/^w_(tt|ss|lo|bms|bt|st|ct|rp)$/.test(e.target.name||e.target.id))tests();});
+["w_ocv","w_crank","w_volt","w_spec"].forEach(id=>$(id).addEventListener("input",tests));tests();
+
+// ---------- photos: taken live with the camera, stamped with the date and time, no location data
+const PHK=["tester_result","tester_connected","plate_vin","battery_fitted","invoice"],PHS={};
+const PHN={tester_result:"Tester result",tester_connected:"Tester connected",plate_vin:"Plate or VIN",battery_fitted:"Battery fitted",invoice:"Invoice"};
+async function decode(file){if(window.createImageBitmap){try{return await createImageBitmap(file);}catch(e){}}
+  return await new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>res(i);i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("decode"));};i.src=u;});}
+async function stampPhoto(file,key,taken){const img=await decode(file),W=img.width,H=img.height,sc=Math.min(1,2000/Math.max(W,H)),w=Math.round(W*sc),h=Math.round(H*sc);
+  const c=document.createElement("canvas"),bar=Math.max(28,Math.round(w*0.035));c.width=w;c.height=h+bar;const x=c.getContext("2d");
+  x.drawImage(img,0,0,w,h);x.fillStyle="#0b203d";x.fillRect(0,h,w,bar);x.fillStyle="#fff";x.font=Math.round(bar*0.5)+"px sans-serif";x.textBaseline="middle";
+  x.fillText("Stravik fitment | "+PHN[key]+" | "+stamp(taken)+(SN.ok?" | "+SN.sn:""),Math.round(bar*0.4),h+bar/2);
+  return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("encode")),"image/jpeg",0.85));}
+PHK.forEach(key=>{const inp=$("w_ph_"+key),msg=$("w_ph_"+key+"_msg"),hint=msg.textContent;
+  inp.addEventListener("change",async()=>{msg.classList.remove("bad");delete PHS[key];const fl=inp.files[0];if(!fl){msg.textContent=hint;return;}
+    const n=Date.now(),taken=new Date(fl.lastModified&&fl.lastModified<=n+60e3?fl.lastModified:n);
+    if(!/^image\//.test(fl.type||"image/jpeg")){msg.classList.add("bad");msg.textContent="This file is not a photo. Take the photo with the camera.";inp.value="";return;}
+    if(n-taken>30*60e3){msg.classList.add("bad");msg.textContent="This photo was taken on "+stamp(taken)+". Take it now, with the camera, at this fitment.";inp.value="";return;}
+    msg.textContent="Preparing the photo…";
+    try{const blob=await stampPhoto(fl,key,taken);PHS[key]={blob,taken,id:null};
+      msg.innerHTML=`<img src="${URL.createObjectURL(blob)}" alt="" style="display:block;max-width:180px;max-height:120px;border-radius:4px;margin:4px 0">Taken ${esc(stamp(taken))}.`;}
+    catch(e){msg.classList.add("bad");msg.textContent="This photo couldn't be read. Take it again with the camera.";inp.value="";}});});
+async function upload(key){const p=PHS[key];if(p.id)return p.id;
+  const id=(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)))+".jpg";
+  const r=await fetch(SB_URL+"/storage/v1/object/stravik-warranty-invoices/"+id,{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"Content-Type":"image/jpeg","x-upsert":"false"},body:p.blob});
+  if(!r.ok)throw new Error("A photo didn't upload. Check your connection and register again.");p.id=id;return id;}
+
+// ---------- clear the error mark when a field is changed
+const unmark=e=>{const el=e.target;el.classList.remove("invalid");const w=el.closest(".wtaxi,.wok");if(w)w.classList.remove("invalid");};
+f.addEventListener("input",unmark);f.addEventListener("change",unmark);
+
+// ---------- cover, as returned by the database
+function cover(j){if(j.free_months==null)return"the warranty period printed on the battery label and the box, from "+dmy(j.cover_start);
+  return j.half_months>0?`${j.free_months} months free replacement until ${dmy(j.free_until)}, then 50% of the price until ${dmy(j.expires_on)}`:`${j.free_months} months free replacement, until ${dmy(j.expires_on)}`;}
+
+// ---------- register
 f.addEventListener("submit",async ev=>{ev.preventDefault();
   const btn=f.querySelector("button[type=submit]"),ready=f.querySelector(".ready");let first=null;
-  const bad=(id,cond)=>{const el=$(id);(id==="w_ok"?el.closest(".wok"):id==="w_ack"?el.closest(".wack"):el).classList.toggle("invalid",cond);if(cond&&!first)first=el;};
-  const d=$("w_date").value;
-  if(!SN.ok&&snFmt($("w_sn").value))await checkSn();
-  const pn=SN.pn||"";
-  bad("w_sn",!SN.ok||!pn);
-  bad("w_date",!d||d>today());
-  const vat=$("w_vat").value.trim();bad("w_vat",vat.replace(/[^A-Za-z0-9]/g,"").length<4);
-  ["w_veh","w_reg"].forEach(id=>bad(id,$(id).value.trim().length<2));
-  bad("w_vin",$("w_vin").value.replace(/[^A-Za-z0-9]/g,"").length<5);
-  const taxi=(f.querySelector("input[name=w_taxi]:checked")||{}).value||"";f.querySelector(".wtaxi").classList.toggle("invalid",!taxi);if(!taxi&&!first)first=f.querySelector("input[name=w_taxi]");
-  RD.forEach((id,n)=>{const x=num(id);bad(id,x==null||x<RLIM[id][0]||x>RLIM[id][1]);bad(PH[n][0],!okFile($(PH[n][0]).files[0]));});const volt=num("w_volt");
-  readings();if(outOfRange().length)bad("w_ack",!$("w_ack").checked);
-  ["w_name","w_country"].forEach(id=>bad(id,$(id).value.trim().length<2));
-  bad("w_email",!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($("w_email").value.trim()));
-  bad("w_phone",$("w_phone").value.replace(/\D/g,"").length<7);
-  bad("w_ok",!$("w_ok").checked);
-  if(first){first.focus();return;}
-  const v=id=>$(id).value.trim();
-  const payload={pn,serial:SN.sn,purchase_date:d,vat_no:vat,alt_voltage:String(volt),resting_voltage:String(num("w_rest")),cranking_voltage:String(num("w_crank")),voltage_ack:$("w_ack").checked?"yes":"",
-    chassis_no:v("w_vin"),odometer:v("w_odo"),taxi,terms:"accepted",vehicle:v("w_veh"),reg_no:v("w_reg"),
-    name:v("w_name"),company:v("w_co"),email:v("w_email"),phone:v("w_phone"),country:v("w_country"),city:v("w_city"),botcheck:$("w_bot").value,page:location.pathname+location.search};
-  btn.disabled=true;btn.textContent="Registering…";ready.classList.remove("show");
-  try{const photos={};for(let n=0;n<PH.length;n++){const [id,key]=PH[n],fl=$(id).files[0];
-      if(!UP[id]||UP[id].file!==fl){btn.textContent="Uploading photo "+(n+1)+" of "+PH.length+"…";UP[id]={file:fl,id:await upload(fl)};}photos[key]=UP[id].id;}
-    payload.photos=photos;btn.textContent="Registering…";
-    const r=await fetch(SB_URL+"/rest/v1/rpc/stravik_warranty_register",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY},body:JSON.stringify({payload})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.message||("Status "+r.status));
-    const b=BAT&&BAT[j.pn||pn];
-    f.querySelectorAll(":scope > div:not(.ready)").forEach(el=>el.hidden=true);
-    ready.innerHTML=`<b>Your battery is registered.</b><br>Registration number <b>${esc(j.ref)}</b> for Stravik ${esc(j.pn||pn)}${b?" ("+esc(b.desc)+")":""}${j.serial?", serial "+esc(j.serial):""}, bought on ${esc(dmy(d))}.<br>${j.months?`Your warranty is <b>${j.months} months</b>, until <b>${esc(dmy(j.expires_on))}</b>, under the <a href="/warranty/battery/terms/">Stravik battery warranty terms</a>.<br>`:""}Keep this number and your invoice as proof of purchase.${j.voltage_ok===false?"<br><b>The alternator voltage you entered is outside 13.4 to 14.4 V.</b> Have the charging system checked: a battery on a vehicle that charges outside this range is not covered.":(j.voltage_flags&&j.voltage_flags.length?"<br><b>Some test readings were outside the healthy range.</b> Have the battery and charging system checked.":"")} <a href="/part/${encodeURIComponent(pn)}/">Back to the battery</a>`;
+  const bad=(el,cond)=>{const box=el.closest(".wtaxi,.wok");(box||el).classList.toggle("invalid",cond);if(cond&&!first)first=el;};
+  const req=(id,ok)=>bad($(id),!ok);
+  const needRadio=n=>{const el=f.querySelector("input[name="+n+"]");if(!el.closest(".wtaxi").hidden)bad(el,!radio(n));};
+  if(!SN.ok&&clean($("w_sn").value).length>=8)await checkSn();
+  req("w_sn",SN.ok);
+  needRadio("w_rep");if(radio("w_rep")==="yes")req("w_repref",clean($("w_repref").value).length>=6);
+  ["w_seller","w_branch","w_scontact"].forEach(id=>req(id,$(id).value.trim().length>=2));
+  req("w_inv",clean($("w_inv").value).length>=1);
+  const idate=$("w_idate").value;req("w_idate",!!idate&&idate<=ymd(new Date()));
+  ["w_fco","w_ftech"].forEach(id=>req(id,$(id).value.trim().length>=2));
+  fatRange();const fv=$("w_fat").value,fat=fv?new Date(fv):null;req("w_fat",!!fat&&fat<=new Date(Date.now()+10*60e3)&&fat>=new Date(Date.now()-24*3600e3));
+  req("w_name",$("w_name").value.trim().length>=2);req("w_phone",$("w_phone").value.replace(/\D/g,"").length>=8);
+  const em=$("w_email").value.trim();req("w_email",!em||/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em));
+  needRadio("w_use");
+  ["w_make","w_model","w_year","w_fuel","w_litres"].forEach(id=>req(id,!!$(id).value));
+  req("w_reg",clean($("w_reg").value).length>=2||clean($("w_vin").value).length>=5);
+  req("w_odo",/^\d+$/.test($("w_odo").value.replace(/[\s,.]/g,"")));needRadio("w_odou");needRadio("w_ss");
+  needRadio("w_tt");const T=radio("w_tt")==="tester";
+  if(T){["w_bt","w_st","w_ct","w_rp"].forEach(id=>req(id,!!$(id).value));needRadio("w_lo");if(!$("w_specrow").hidden)req("w_spec",$("w_spec").value.trim().length>=3);}
+  ["w_ocv","w_crank","w_volt"].forEach(id=>req(id,numv(id)!=null));needRadio("w_bms");
+  const ts=tests();if(ts.bad.length&&!first)first=$("w_testmsg");
+  PHK.forEach(k=>req("w_ph_"+k,!!PHS[k]));
+  bad($("w_ok"),!$("w_ok").checked);
+  if(first){first.scrollIntoView({block:"center",behavior:"smooth"});if(first.focus)first.focus({preventScroll:true});return;}
+  const v=id=>$(id).value.trim(),mv=VEH[+$("w_model").value];
+  const payload={serial:SN.sn,serial_source:SRC,replaces:radio("w_rep")==="yes"?v("w_repref"):"",country:$("w_country").value,city:v("w_city"),
+    seller:v("w_seller"),seller_branch:v("w_branch"),seller_contact:v("w_scontact"),invoice_no:v("w_inv"),invoice_date:idate,
+    fitter_company:v("w_fco"),fitter_technician:v("w_ftech"),fitted_at:fat.toISOString(),
+    name:v("w_name"),phone:v("w_phone"),email:em,company:v("w_co"),use_type:radio("w_use"),
+    vehicle_make:MAKES[mv[0]],vehicle_model:mv[1],vehicle_years:mv[2]||"",vehicle_year:$("w_year").value,engine_fuel:$("w_fuel").value,engine_litres:$("w_litres").value,
+    reg_no:v("w_reg"),chassis_no:v("w_vin"),odometer:$("w_odo").value.replace(/[\s,.]/g,""),odometer_unit:radio("w_odou"),start_stop:radio("w_ss"),
+    tester_type:radio("w_tt"),battery_test:T?$("w_bt").value:"",ocv:String(numv("w_ocv")),starting_test:T?$("w_st").value:"",cranking_voltage:String(numv("w_crank")),
+    charging_test:T?$("w_ct").value:"",charging_voltage:String(numv("w_volt")),ripple:T?$("w_rp").value:"",loads_on:$("w_lo_row").hidden?"":radio("w_lo"),maker_spec:$("w_specrow").hidden?"":v("w_spec"),
+    bms:radio("w_bms"),terms:"accepted",botcheck:$("w_bot").value,page:location.pathname+location.search};
+  btn.disabled=true;ready.classList.remove("show");
+  try{const photos={},photo_times={};for(let n=0;n<PHK.length;n++){const k=PHK[n];btn.textContent="Uploading photo "+(n+1)+" of "+PHK.length+"…";photos[k]=await upload(k);photo_times[k]=PHS[k].taken.toISOString();}
+    payload.photos=photos;payload.photo_times=photo_times;btn.textContent="Registering…";
+    const j=await rpc("stravik_fitment_register",{payload});
+    const b=BAT&&BAT[j.pn],cov=cover(j),wa=payload.phone.replace(/\D/g,"").replace(/^00/,"");
+    const text=["Stravik battery warranty","Registration number: "+j.ref,"Battery: "+j.pn+(b?" "+b.desc:"")+", serial "+j.serial,"Fitted: "+stamp(fat),
+      "Cover: "+cov+(j.replaces?" (replacement of "+j.replaces+": the remaining cover of the original battery)":""),
+      "Claims: return the battery with the warranty card to the point of sale or the fitment centre within 30 days of the problem appearing.","Terms: "+SITE+"/warranty/battery/terms/"].join("\n");
+    f.querySelectorAll(":scope > div:not(.ready), :scope > p").forEach(el=>el.hidden=true);
+    ready.innerHTML=`<b>Fitment registered.</b><br>Registration number <b>${esc(j.ref)}</b> for Stravik ${esc(j.pn)}${b?" ("+esc(b.desc)+")":""}, serial ${esc(j.serial)}.<br>`+
+      `Cover: <b>${esc(cov)}</b>${j.replaces?`, the remaining cover of ${esc(j.replaces)}`:""}.<br>`+
+      `Send the registration number to the customer on WhatsApp, and hand over the completed warranty card.`+
+      `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px"><a class="btn gold" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Send on WhatsApp</a><a class="btn line" href="/warranty/battery/">Register another fitment</a></div>`;
     ready.classList.add("show");ready.scrollIntoView({block:"center",behavior:"smooth"});
-  }catch(e){ready.innerHTML=`<b>The registration wasn't saved.</b> ${esc(e.message||"Check your connection and try again.")}`;ready.classList.add("show");}
-  finally{btn.disabled=false;btn.textContent="Register battery";}
+  }catch(e){ready.innerHTML=`<b>The fitment wasn't registered.</b> ${esc(e.message||"Check your connection and try again.")}`;ready.classList.add("show");ready.scrollIntoView({block:"center",behavior:"smooth"});}
+  finally{btn.disabled=false;btn.textContent="Register fitment";}
 });
 })();
