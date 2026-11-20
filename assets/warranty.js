@@ -3,7 +3,8 @@
 // The serial decides the battery (public.stravik_serial_check). The vehicle is chosen from the application list of that battery
 // (batteries.json; a regional number such as the South Africa SVS... numbers uses the list of the part it is the same as, app_pn).
 // The fitment test follows policy 2.3: the form shows "do not fit" as soon as a result is outside the limits, and
-// public.stravik_fitment_register checks everything again. The 5 photos of policy 2.2 are taken live with the camera: each is
+// public.stravik_fitment_register checks everything again. The photos (invoice, plate or VIN, each voltage reading, tester
+// connected, battery fitted) sit next to their fields and are taken live with the camera: each is
 // redrawn as a JPEG with the date and time stamped on it (which also drops the phone's location data) and uploaded to a private
 // folder only Stravik staff can open. The serial format is checked by the database, so a new serial format needs no change here.
 (function(){
@@ -107,32 +108,24 @@ function years(){const yr=$("w_year"),v=VEH[+$("w_model").value];yr.innerHTML='<
 $("w_make").addEventListener("change",models);$("w_model").addEventListener("change",years);
 
 // ---------- fitment test, policy 2.3: "do not fit" as soon as a result is outside the limits
-function tests(){const tt=radio("w_tt"),ss=radio("w_ss"),ct=$("w_ct").value,lo=radio("w_lo"),T=tt==="tester";
-  ["w_bt","w_st","w_ct","w_rp"].forEach(id=>show(rowOf(id),tt!=="voltmeter"));
-  show($("w_lo_row"),T&&ss==="yes"&&ct==="low");show($("w_specrow"),T&&ss==="yes"&&ct==="low"&&lo==="maker_spec");
-  const bad=[],ocv=numv("w_ocv"),cv=numv("w_crank"),v=numv("w_volt");
-  if(ss==="yes"&&SN.ok&&SN.b&&!startStopBattery(SN.b))bad.push(`Battery ${SN.pn} is not a start-stop battery. A start-stop or smart charging vehicle needs an EFB or AGM battery: do not fit.`);
-  if(tt==="voltmeter"&&ss==="yes")bad.push("A voltmeter is accepted only on vehicles without start-stop or smart charging. Test with a battery and system tester.");
-  if(T&&$("w_bt").value&&$("w_bt").value!=="good")bad.push("Battery test not Good: do not fit. Recharge and retest, or replace the battery.");
+function tests(){const tt=radio("w_tt"),T=tt==="tester";
+  const bad=[],ocv=numv("w_ocv"),cv=numv("w_crank"),v=numv("w_volt");let note="";
   if(ocv!=null&&ocv<12.5)bad.push("Battery below 12.5 V before fitment: recharge it before fitting.");
-  if(T&&$("w_st").value==="low")bad.push("Starting test Low: do not fit. Advise a starter and cable check.");
   if(cv!=null&&cv<9.6)bad.push("Cranking below 9.6 V: do not fit. Advise a starter and cable check.");
   if(v!=null&&v>14.8)bad.push("Charging above 14.8 V: the vehicle is overcharging. Do not fit, advise vehicle repair.");
   else if(tt==="voltmeter"&&v!=null&&(v<13.8||v>14.7))bad.push("With a voltmeter the charging voltage must be 13.8 to 14.7 V: do not fit, advise vehicle repair.");
-  if(T&&(ct==="high"||ct==="none"||(ct==="low"&&ss==="no")))bad.push("Charging test not Normal: do not fit. Advise vehicle repair.");
-  if(T&&ct==="low"&&ss==="yes"&&lo==="no")bad.push("Charging still low with the loads on: do not fit. Advise vehicle repair.");
-  if(T&&$("w_rp").value==="fail")bad.push("Ripple test failed: do not fit. Advise vehicle repair.");
+  else if(T&&v!=null&&v<13.8)note="Charging below 13.8 V: accepted only on a smart charging or start-stop vehicle where the tester shows Normal. The photo of the reading must show it.";
   if(radio("w_bms")==="not_done")bad.push("Register the battery to the vehicle's battery management system before registering the fitment.");
-  const filled=!!(tt&&ss&&ocv!=null&&cv!=null&&v!=null&&radio("w_bms")&&(!T||($("w_bt").value&&$("w_st").value&&ct&&$("w_rp").value&&(!(ss==="yes"&&ct==="low")||(lo&&(lo!=="maker_spec"||$("w_spec").value.trim().length>2))))));
+  const filled=!!(tt&&ocv!=null&&cv!=null&&v!=null&&radio("w_bms"));
   const box=$("w_testmsg");box.style.background=bad.length?"":filled?"#e8f3ec":"";box.style.borderLeftColor=bad.length?"#b3261e":filled?"#2f6f4f":"";
-  box.innerHTML=bad.length?"<b>Do not fit.</b><br>"+bad.map(esc).join("<br>"):filled?"<b>Fitment test passed.</b>":"Enter the tester results. Outside any limit: do not fit.";
+  box.innerHTML=bad.length?"<b>Do not fit.</b><br>"+bad.map(esc).join("<br>"):filled?"<b>Fitment test passed.</b>"+(note?"<br>"+esc(note):""):"Enter the readings. Outside any limit: do not fit.";
   return{bad,filled};}
-f.addEventListener("change",e=>{if(/^w_(tt|ss|lo|bms|bt|st|ct|rp)$/.test(e.target.name||e.target.id))tests();});
-["w_ocv","w_crank","w_volt","w_spec"].forEach(id=>$(id).addEventListener("input",tests));tests();
+f.addEventListener("change",e=>{if(/^w_(tt|bms)$/.test(e.target.name||e.target.id))tests();});
+["w_ocv","w_crank","w_volt"].forEach(id=>$(id).addEventListener("input",tests));tests();
 
 // ---------- photos: taken live with the camera, stamped with the date and time, no location data
-const PHK=["tester_result","tester_connected","plate_vin","battery_fitted","invoice"],PHS={};
-const PHN={tester_result:"Tester result",tester_connected:"Tester connected",plate_vin:"Plate or VIN",battery_fitted:"Battery fitted",invoice:"Invoice"};
+const PHK=["invoice","plate_vin","ocv_reading","crank_reading","charging_reading","tester_connected","battery_fitted"],PHS={};
+const PHN={invoice:"Invoice",plate_vin:"Plate or VIN",ocv_reading:"Battery voltage before fitting",crank_reading:"Cranking voltage",charging_reading:"Charging voltage",tester_connected:"Tester connected",battery_fitted:"Battery fitted"};
 async function decode(file){if(window.createImageBitmap){try{return await createImageBitmap(file);}catch(e){}}
   return await new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>res(i);i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("decode"));};i.src=u;});}
 async function stampPhoto(file,key,taken){const img=await decode(file),W=img.width,H=img.height,sc=Math.min(1,2000/Math.max(W,H)),w=Math.round(W*sc),h=Math.round(H*sc);
@@ -171,19 +164,17 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
   if(!SN.ok&&clean($("w_sn").value).length>=8)await checkSn();
   req("w_sn",SN.ok);
   needRadio("w_rep");if(radio("w_rep")==="yes")req("w_repref",clean($("w_repref").value).length>=6);
-  ["w_seller","w_branch","w_scontact"].forEach(id=>req(id,$(id).value.trim().length>=2));
+  req("w_seller",$("w_seller").value.trim().length>=2);
   req("w_inv",clean($("w_inv").value).length>=1);
   const idate=$("w_idate").value;req("w_idate",!!idate&&idate<=ymd(new Date()));
-  ["w_fco","w_ftech"].forEach(id=>req(id,$(id).value.trim().length>=2));
   fatRange();const fv=$("w_fat").value,fat=fv?new Date(fv):null;req("w_fat",!!fat&&fat<=new Date(Date.now()+10*60e3)&&fat>=new Date(Date.now()-24*3600e3));
   req("w_name",$("w_name").value.trim().length>=2);req("w_phone",$("w_phone").value.replace(/\D/g,"").length>=8);
   const em=$("w_email").value.trim();req("w_email",!em||/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em));
   needRadio("w_use");
-  ["w_make","w_model","w_year","w_fuel","w_litres"].forEach(id=>req(id,!!$(id).value));
+  ["w_make","w_model","w_year"].forEach(id=>req(id,!!$(id).value));
   req("w_reg",clean($("w_reg").value).length>=2||clean($("w_vin").value).length>=5);
-  req("w_odo",/^\d+$/.test($("w_odo").value.replace(/[\s,.]/g,"")));needRadio("w_odou");needRadio("w_ss");
-  needRadio("w_tt");const T=radio("w_tt")==="tester";
-  if(T){["w_bt","w_st","w_ct","w_rp"].forEach(id=>req(id,!!$(id).value));needRadio("w_lo");if(!$("w_specrow").hidden)req("w_spec",$("w_spec").value.trim().length>=3);}
+  req("w_odo",/^\d+$/.test($("w_odo").value.replace(/[\s,.]/g,"")));needRadio("w_odou");
+  needRadio("w_tt");
   ["w_ocv","w_crank","w_volt"].forEach(id=>req(id,numv(id)!=null));needRadio("w_bms");
   const ts=tests();if(ts.bad.length&&!first)first=$("w_testmsg");
   PHK.forEach(k=>req("w_ph_"+k,!!PHS[k]));
@@ -191,13 +182,11 @@ f.addEventListener("submit",async ev=>{ev.preventDefault();
   if(first){first.scrollIntoView({block:"center",behavior:"smooth"});if(first.focus)first.focus({preventScroll:true});return;}
   const v=id=>$(id).value.trim(),mv=VEH[+$("w_model").value];
   const payload={serial:SN.sn,serial_source:SRC,replaces:radio("w_rep")==="yes"?v("w_repref"):"",country:$("w_country").value,city:v("w_city"),
-    seller:v("w_seller"),seller_branch:v("w_branch"),seller_contact:v("w_scontact"),invoice_no:v("w_inv"),invoice_date:idate,
-    fitter_company:v("w_fco"),fitter_technician:v("w_ftech"),fitted_at:fat.toISOString(),
-    name:v("w_name"),phone:v("w_phone"),email:em,company:v("w_co"),use_type:radio("w_use"),
-    vehicle_make:MAKES[mv[0]],vehicle_model:mv[1],vehicle_years:mv[2]||"",vehicle_year:$("w_year").value,engine_fuel:$("w_fuel").value,engine_litres:$("w_litres").value,
-    reg_no:v("w_reg"),chassis_no:v("w_vin"),odometer:$("w_odo").value.replace(/[\s,.]/g,""),odometer_unit:radio("w_odou"),start_stop:radio("w_ss"),
-    tester_type:radio("w_tt"),battery_test:T?$("w_bt").value:"",ocv:String(numv("w_ocv")),starting_test:T?$("w_st").value:"",cranking_voltage:String(numv("w_crank")),
-    charging_test:T?$("w_ct").value:"",charging_voltage:String(numv("w_volt")),ripple:T?$("w_rp").value:"",loads_on:$("w_lo_row").hidden?"":radio("w_lo"),maker_spec:$("w_specrow").hidden?"":v("w_spec"),
+    seller:v("w_seller"),invoice_no:v("w_inv"),invoice_date:idate,fitted_at:fat.toISOString(),
+    name:v("w_name"),phone:v("w_phone"),email:em,use_type:radio("w_use"),
+    vehicle_make:MAKES[mv[0]],vehicle_model:mv[1],vehicle_years:mv[2]||"",vehicle_year:$("w_year").value,
+    reg_no:v("w_reg"),chassis_no:v("w_vin"),odometer:$("w_odo").value.replace(/[\s,.]/g,""),odometer_unit:radio("w_odou"),
+    tester_type:radio("w_tt"),ocv:String(numv("w_ocv")),cranking_voltage:String(numv("w_crank")),charging_voltage:String(numv("w_volt")),
     bms:radio("w_bms"),terms:"accepted",botcheck:$("w_bot").value,page:location.pathname+location.search};
   btn.disabled=true;ready.classList.remove("show");
   try{const photos={},photo_times={};for(let n=0;n<PHK.length;n++){const k=PHK[n];btn.textContent="Uploading photo "+(n+1)+" of "+PHK.length+"…";photos[k]=await upload(k);photo_times[k]=PHS[k].taken.toISOString();}

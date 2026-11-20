@@ -19,8 +19,8 @@
   }
   // policy V1.1: charging 14.8 V or below (13.8 to 14.7 V on a conventional alternator); V1.0 registrations used 13.4 to 14.4 V
   var voltOk = function (v, r) { v = Number(v); return r && r.policy_version ? v <= 14.8 : v >= 13.4 && v <= 14.4; };
-  var PHOTOS = [['tester_result', 'Tester result'], ['tester_connected', 'Tester connected'], ['plate_vin', 'Plate or VIN'], ['battery_fitted', 'Battery fitted'], ['invoice', 'Invoice'],   // policy V1.1 (live, date and time stamped)
-    ['rest_reading', 'Resting voltage reading'], ['crank_reading', 'Cranking voltage reading'], ['alternator_reading', 'Alternator reading'], ['installed', 'Battery fitted'], ['serial_label', 'Serial label']];   // older registrations
+  var PHOTOS = [['invoice', 'Invoice'], ['plate_vin', 'Plate or VIN'], ['ocv_reading', 'Battery voltage before fitting'], ['crank_reading', 'Cranking voltage'], ['charging_reading', 'Charging voltage'], ['tester_connected', 'Tester connected'], ['battery_fitted', 'Battery fitted'],   // form of 20 Nov 2026: a photo next to each field
+    ['tester_result', 'Tester result'], ['rest_reading', 'Resting voltage reading'], ['alternator_reading', 'Alternator reading'], ['installed', 'Battery fitted'], ['serial_label', 'Serial label']];   // older registrations
   var RANGE = { resting_voltage: [12.4, 12.9], cranking_voltage: [9.6, 13.0] };
   var COLS = [['ref', 'Registration no.'], ['created_at', 'Registered'], ['policy_version', 'Policy'], ['review_flags', 'To check'], ['sv_pn', 'Stravik no.'], ['serial', 'Serial no.'], ['serial_source', 'Serial entered by'], ['made_month', 'Made'], ['ean', 'Barcode'],
     ['country', 'Country of sale'], ['city', 'City'], ['market', 'Market'], ['tier', 'Tier'], ['use_type', 'Use'], ['replaces_ref', 'Replaces'], ['cover_start', 'Cover from'], ['free_months', 'Free months'], ['free_until', 'Free until'], ['half_months', '50% months'], ['warranty_months', 'Warranty months'], ['expires_on', 'Warranty until'],

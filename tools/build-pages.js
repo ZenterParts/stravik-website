@@ -386,7 +386,7 @@ ${cantFind}`;
   const num = (id, label, ph, err, hint) => `<div><label for="${id}">${label}</label><input id="${id}" required type="text" inputmode="decimal" placeholder="${ph}" maxlength="5"><div class="err">${err}</div>${hint ? `<div class="wbat" id="${id}_msg" aria-live="polite">${hint}</div>` : ""}</div>`;
   const photo = (key, label, hint) => `<div class="wph"><label for="w_ph_${key}">${label}</label><input id="w_ph_${key}" type="file" required accept="image/*" capture="environment" data-key="${key}"><div class="err">Take this photo with the camera, at the vehicle.</div><div class="wbat" id="w_ph_${key}_msg" aria-live="polite">${hint}</div></div>`;
   const body = `<div class="pagehead"><div class="wrap">${crumbs([["/#/", "Home"], ["/batteries/", "Batteries"], ["", "Warranty registration"]])}<h1>Battery fitment and warranty registration</h1><p>No registration, no warranty. The fitter registers every Stravik battery here within 24 hours of fitment, at the vehicle, with a phone: the 5 photos are taken live with the camera.</p></div></div>
-<style>form.enq [hidden]{display:none!important}</style>
+<style>form.enq [hidden]{display:none!important}form.enq .wpair{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:start}@media (max-width:700px){form.enq .wpair{grid-template-columns:1fr}}</style>
 <section class="block"><div class="wrap wform">
 <form class="enq" id="wf" novalidate>
 <div class="full wsep" style="margin-top:-14px"><h2>Battery</h2></div>
@@ -397,51 +397,34 @@ ${radios("w_rep", [["no", "No, a new sale"], ["yes", "Yes, it replaces a battery
 <div><label for="w_country">Country of sale</label><select id="w_country" required>${COUNTRIES.map(c => `<option${c === "South Africa" ? " selected" : ""}>${esc(c)}</option>`).join("")}</select><div class="err">Choose the country.</div></div>
 <div><label for="w_city">City or town <span class="opt">(optional)</span></label><input id="w_city" autocomplete="address-level2" maxlength="80"></div>
 <div><label for="w_seller">Seller (company)</label><input id="w_seller" required maxlength="160"><div class="err">Enter the company that sold the battery.</div></div>
-<div><label for="w_branch">Seller branch</label><input id="w_branch" required maxlength="120"><div class="err">Enter the branch.</div></div>
-<div><label for="w_scontact">Seller contact person</label><input id="w_scontact" required maxlength="120"><div class="err">Enter the contact person.</div></div>
-<div><label for="w_inv">Invoice number</label><input id="w_inv" required maxlength="60" autocapitalize="characters" spellcheck="false"><div class="err">Enter the invoice number.</div></div>
 <div><label for="w_idate">Invoice date</label><input id="w_idate" type="date" required><div class="err">Enter the invoice date.</div></div>
+<div class="full wpair"><div><label for="w_inv">Invoice number</label><input id="w_inv" required maxlength="60" autocapitalize="characters" spellcheck="false"><div class="err">Enter the invoice number.</div></div>${photo("invoice", "Photo of the sale invoice", "The invoice number and date must be readable.")}</div>
 <div class="full wsep"><h2>Fitment</h2></div>
-<div><label for="w_fco">Fitted by (company or workshop)</label><input id="w_fco" required maxlength="160" autocomplete="organization"><div class="err">Enter the company or workshop.</div></div>
-<div><label for="w_ftech">Technician</label><input id="w_ftech" required maxlength="120"><div class="err">Enter the technician's name.</div></div>
 <div><label for="w_fat">Fitment date and time</label><input id="w_fat" type="datetime-local" required><div class="err">Enter the date and time of fitment, within the last 24 hours.</div><p class="wsub">Register within 24 hours of fitment. A battery sold over the counter must be fitted and registered within 30 days of the sale.</p></div>
 <div class="full wsep"><h2>Customer</h2></div>
 <div><label for="w_name">Customer name</label><input id="w_name" required autocomplete="name" maxlength="120"><div class="err">Enter the customer's name.</div></div>
 <div><label for="w_phone">Customer WhatsApp number</label><input id="w_phone" required type="tel" autocomplete="tel" placeholder="With country code, for example +27 82 123 4567" maxlength="60"><div class="err">Enter the WhatsApp number with the country code.</div><p class="wsub">The registration number and the warranty card go to this number.</p></div>
 <div><label for="w_email">Email <span class="opt">(optional)</span></label><input id="w_email" type="email" autocomplete="email" maxlength="160"><div class="err">Check the email address, or leave it empty.</div></div>
-<div><label for="w_co">Customer company <span class="opt">(optional)</span></label><input id="w_co" maxlength="160"></div>
 ${radios("w_use", [["private", "Private"], ["taxi", "Taxi, minibus taxi or ride-hailing"], ["commercial", "Commercial (delivery, fleet, trucks, buses, plant)"]], "How is the vehicle used?")}
 <p class="full wsub" id="w_usehint" style="margin-top:-8px"></p>
 <div class="full wsep"><h2>Vehicle</h2><p class="wsub" id="w_vehhelp">Choose the vehicle from the Stravik application list for this battery. Scan or enter the serial number first.</p></div>
 <div><label for="w_make">Make</label><select id="w_make" required disabled><option value="">Choose…</option></select><div class="err">Choose the make.</div></div>
 <div><label for="w_model">Model</label><select id="w_model" required disabled><option value="">Choose…</option></select><div class="err">Choose the model.</div></div>
 <div><label for="w_year">Year</label><select id="w_year" required disabled><option value="">Choose…</option></select><div class="err">Choose the year.</div></div>
-<div class="wengine" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label for="w_fuel">Engine fuel</label><select id="w_fuel" required><option value="">Choose…</option><option>Petrol</option><option>Diesel</option><option>Hybrid</option><option>LPG / CNG</option><option>Other</option></select><div class="err">Choose the fuel.</div></div><div><label for="w_litres">Engine size</label><select id="w_litres" required><option value="">Choose…</option>${Array.from({ length: 75 }, (_, k) => (0.6 + k / 10).toFixed(1)).concat(["9.0", "10.0", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0"]).map(l => `<option value="${l}">${l} L</option>`).join("")}</select><div class="err">Choose the engine size.</div></div></div>
-<div class="full wbat" id="w_appmsg" aria-live="polite" hidden></div>
-<div><label for="w_reg">Registration number</label><input id="w_reg" maxlength="30" autocapitalize="characters" spellcheck="false"><div class="err">Enter the registration number or the VIN.</div></div>
-<div><label for="w_vin">VIN <span class="opt">(if no registration number)</span></label><input id="w_vin" maxlength="40" autocapitalize="characters" spellcheck="false"><div class="err">Enter the registration number or the VIN.</div></div>
 <div><label for="w_odo">Odometer reading</label><input id="w_odo" required type="text" inputmode="numeric" maxlength="9"><div class="err">Enter the odometer reading.</div></div>
 ${radios("w_odou", [["km", "Kilometres"], ["hours", "Engine hours"]], "Odometer unit")}
-${radios("w_ss", [["no", "No"], ["yes", "Yes"]], "Does the vehicle have start-stop or smart charging?")}
-<div class="full wsep"><h2>Fitment test</h2><p class="wsub">Test the vehicle after fitting the battery, engine warm and loads off, with a battery and system tester with EFB, AGM and start-stop modes, used to the tester maker's procedure. A voltmeter is accepted only on vehicles without start-stop or smart charging. Outside any limit: do not fit.</p></div>
+<div class="full wbat" id="w_appmsg" aria-live="polite" hidden></div>
+<div class="full wpair"><div><div><label for="w_reg">Registration number</label><input id="w_reg" maxlength="30" autocapitalize="characters" spellcheck="false"><div class="err">Enter the registration number or the VIN.</div></div><div style="margin-top:14px"><label for="w_vin">VIN <span class="opt">(if no registration number)</span></label><input id="w_vin" maxlength="40" autocapitalize="characters" spellcheck="false"><div class="err">Enter the registration number or the VIN.</div></div></div>${photo("plate_vin", "Photo of the registration plate or VIN", "The number must be readable.")}</div>
+<div class="full wsep"><h2>Fitment test</h2><p class="wsub">Test after fitting the battery, engine warm and loads off, with a battery and system tester with EFB, AGM and start-stop modes, used to the tester maker's procedure. A voltmeter is accepted only on vehicles without start-stop or smart charging. Photograph each reading on the tester or voltmeter screen. Outside any limit: do not fit.</p></div>
 ${radios("w_tt", [["tester", "Battery and system tester (EFB, AGM and start-stop modes)"], ["voltmeter", "Voltmeter (no start-stop, no smart charging)"]], "Test equipment")}
-${sel("w_bt", "Battery test result", [["good", "Good"], ["recharge", "Good, recharge"], ["retest", "Charge and retest"], ["replace", "Replace"], ["badcell", "Bad cell"]], "Choose the battery test result.")}
-${num("w_ocv", "Battery voltage before fitting (V)", "for example 12.7", "Enter the voltage.", "Open circuit, before fitting: 12.5 V or more.")}
-${sel("w_st", "Starting test result", [["normal", "Normal"], ["low", "Low"]], "Choose the starting test result.")}
-${num("w_crank", "Lowest voltage while cranking (V)", "for example 10.4", "Enter the voltage.", "Pass: 9.6 V or above.")}
-${sel("w_ct", "Charging test result", [["normal", "Normal"], ["low", "Low"], ["high", "High"], ["none", "No output"]], "Choose the charging test result.")}
-${num("w_volt", "Charging voltage (V)", "for example 14.2", "Enter the voltage.", "Conventional alternator: 13.8 to 14.7 V. Above 14.8 V is overcharging: do not fit.")}
-${sel("w_rp", "Ripple test", [["pass", "Pass"], ["fail", "Fail"]], "Choose the ripple result.")}
-${radios("w_lo", [["rose", "The voltage rose into the normal range"], ["tester_normal", "The tester showed Normal"], ["maker_spec", "Within the vehicle maker's specification"], ["no", "None of these"]], "Smart charging: low voltage at idle is normal. Switch on the high beam, rear demister and blower. Result:", " hidden")}
-<div class="full" id="w_specrow" hidden><label for="w_spec">Vehicle maker's charging specification</label><input id="w_spec" maxlength="200" placeholder="for example 12.6 to 15.0 V, from the workshop manual"><div class="err">Enter the vehicle maker's specification.</div></div>
+<div class="full wpair">${num("w_ocv", "Battery voltage before fitting (V)", "for example 12.7", "Enter the voltage.", "Open circuit, before fitting: 12.5 V or more.")}${photo("ocv_reading", "Photo of this reading", "The tester or voltmeter screen showing the voltage.")}</div>
+<div class="full wpair">${num("w_crank", "Lowest voltage while cranking (V)", "for example 10.4", "Enter the voltage.", "Pass: 9.6 V or above.")}${photo("crank_reading", "Photo of this reading", "The tester screen showing the cranking voltage.")}</div>
+<div class="full wpair">${num("w_volt", "Charging voltage (V)", "for example 14.2", "Enter the voltage.", "Conventional alternator: 13.8 to 14.7 V. Smart charging or start-stop: lower at idle is normal when the tester shows Normal. Above 14.8 V: do not fit.")}${photo("charging_reading", "Photo of this reading", "The tester or voltmeter screen showing the charging voltage and result.")}</div>
 ${radios("w_bms", [["done", "Done"], ["not_required", "Not required for this vehicle"], ["not_done", "Required, not done"]], "Battery registered to the vehicle's battery management system")}
 <div class="full wack" id="w_testrow"><div class="wwarn" id="w_testmsg" aria-live="polite">Enter the tester results.</div></div>
-<div class="full wsep"><h2>Photos</h2><p class="wsub">Take each photo live with the phone camera, at this fitment. The date and time are recorded on each photo; the location is not. Only Stravik staff see the photos.</p></div>
-${photo("tester_result", "1. Tester result: battery, starting and charging tests", "The tester screen or printout.")}
-${photo("tester_connected", "2. Tester connected to the battery in the vehicle", "Show the Stravik label.")}
-${photo("plate_vin", "3. Registration plate or VIN", "The number must be readable.")}
-${photo("battery_fitted", "4. Battery fitted, with the hold-down clamp", "The clamp must be in place.")}
-${photo("invoice", "5. Sale invoice", "The invoice number and date must be readable.")}
+<div class="full wsep"><h2>Fitment photos</h2><p class="wsub">Take every photo on this form live with the phone camera, at this fitment. The date and time are recorded on each photo; the location is not. Only Stravik staff see the photos.</p></div>
+${photo("tester_connected", "Tester connected to the battery in the vehicle", "Show the Stravik label.")}
+${photo("battery_fitted", "Battery fitted, with the hold-down clamp", "The clamp must be in place.")}
 <div class="full wok"><label><input type="checkbox" id="w_ok" required> <span>I fitted this battery and confirm that the vehicle passed the fitment test, that the details and photos are true, and that the customer receives the Stravik warranty card. I have read the <a href="/warranty/battery/terms/" target="_blank" rel="noopener">Stravik battery warranty policy</a>, and agree that Stravik keeps these details to handle the warranty of this battery.</span></label><div class="err">Tick the box to confirm.</div></div>
 <input type="text" id="w_bot" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
 <div class="full" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><button class="btn gold" type="submit">Register fitment</button></div>
