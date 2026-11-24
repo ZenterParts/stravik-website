@@ -8,6 +8,7 @@
 // Nothing here is in a public file: every function answers only the signed-in account it is meant for.
 (function(){
 "use strict";
+try{localStorage.setItem("stravik-portal","/autobarn/");}catch(e){}   // the main site then shows a link back to this page
 const NET=document.body.dataset.network||"autobarn",NAME=document.body.dataset.networkName||"Autobarn";
 const app=document.getElementById("app");
 const SD=()=>window.StravikDealer;

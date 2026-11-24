@@ -228,6 +228,8 @@ function paintNav(){
   let a=nav.querySelector("a[data-nav=dealer]");
   if(!a){a=document.createElement("a");a.dataset.nav="dealer";a.href="/#/dealer";a.className="nav-ic nav-dealer";
     const ref=nav.querySelector('a[data-nav=contact]');nav.insertBefore(a,ref||null);}
+  let portal="";try{portal=localStorage.getItem("stravik-portal")||"";}catch(e){}
+  if((portal==="/autobarn/"||portal==="/insync/")&&!nav.querySelector("a[data-nav=portal]")){const p=document.createElement("a");p.dataset.nav="portal";p.href=portal;p.textContent=portal==="/insync/"?"DP World InSync portal":"Autobarn portal";nav.insertBefore(p,a);}
   const d=D();
   const label=d?(d.trading_name||d.company_name):S.me?"My account":"Customer login";
   a.title=d?"Your customer account":"Sign in for customer prices and ordering";
@@ -372,7 +374,7 @@ function pwPage(app,c,session){
   f.addEventListener("submit",async ev=>{ev.preventDefault();const a=f.querySelector("#np1").value,b=f.querySelector("#np2").value,st=f.querySelector("#pst");
     if(a.length<8||a!==b){st.textContent=a.length<8?"At least 8 characters.":"The two passwords don't match.";st.classList.add("show");return;}
     const r=await c.auth.updateUser({password:a});if(r.error){st.textContent=msg(r.error);st.classList.add("show");return;}
-    toast("Password saved");go("#/dealer");});
+    toast("Password saved");let portal="";try{portal=localStorage.getItem("stravik-portal")||"";}catch(e){}if(portal==="/autobarn/"||portal==="/insync/"){location.href=portal;return;}go("#/dealer");});
 }
 
 // ---------- registration form ----------

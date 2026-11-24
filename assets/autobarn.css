@@ -132,3 +132,7 @@
 .is-form .dhint{margin:8px 0 10px}
 @media (max-width:900px){.is-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.is-grid{grid-template-columns:1fr}}
 @media (max-width:520px){.is-fields{grid-template-columns:1fr}}
+
+/* Portal pages (/autobarn/, /insync/): no public menu, cart button or footer links, so nobody leaves the portal by accident */
+body.portal header.site nav.main,body.portal header.site .menu-btn,body.portal #fcart,body.portal footer.site .cols > div:not(.about),body.portal footer.site .staff{display:none !important}
+body.portal footer.site .cols{display:block}

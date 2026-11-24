@@ -8,6 +8,7 @@
 // Uses the same sign-in as customer accounts (assets/dealer.js); styles from assets/autobarn.css.
 (function(){
 "use strict";
+try{localStorage.setItem("stravik-portal","/insync/");}catch(e){}   // the main site then shows a link back to this page
 const app=document.getElementById("app"),NAME="DP World InSync";
 const SD=()=>window.StravikDealer;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
