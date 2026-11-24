@@ -105,7 +105,7 @@
       return 'Email sent.';
     } catch (e) { return 'Email not sent: ' + (e.message || e); }
   }
-  var pillCls = { Pending: 'New', 'Sales approval': 'New', 'Pricing approval': 'New', 'Final approval': 'Quoted', Approved: 'Active', Rejected: 'warn', Suspended: 'Inactive', Submitted: 'New', 'With DPW': 'Quoted', Invoiced: 'Quoted', Dispatched: 'Won', Delivered: 'Won', Cancelled: 'Inactive' };
+  var pillCls = { Pending: 'New', 'Sales approval': 'New', 'Pricing approval': 'New', 'Final approval': 'Quoted', Approved: 'Active', Rejected: 'warn', Suspended: 'Inactive', Submitted: 'New', 'Finance approval': 'New', 'Supply chain approval': 'New', 'With DPW': 'Quoted', Invoiced: 'Quoted', Dispatched: 'Won', Delivered: 'Won', Cancelled: 'Inactive' };
   var pill = function (s) { return L.pill(s, pillCls[s] || ''); };
 
   // =================================================================== customers list
@@ -432,7 +432,10 @@
   // =================================================================== orders
   var O = L.state.orders = { text: '', active: {}, offset: 0 };
   var OSTAT = ['Submitted', 'With DPW', 'Invoiced', 'Dispatched', 'Delivered', 'Cancelled'];
-  var OFILTERS = OSTAT.map(function (s) { return { key: 'st_' + s, label: s, group: 'Status' }; }).concat([{ key: 'mailbad', label: 'Email not sent', group: 'Email' }, { key: 'real', label: 'Hide test orders', group: 'Other' }]);
+  // an order is approved by sales, then finance, then supply chain; the third approval releases it to DP World InSync
+  var OSTAGES = ['Sales approval', 'Finance approval', 'Supply chain approval'], OSTEPS = OSTAGES.concat(['With DPW', 'Invoiced', 'Dispatched', 'Delivered']);
+  var ostage = function (o) { return o.status !== 'Submitted' ? o.status : !o.sales_approved_at ? OSTAGES[0] : !o.finance_approved_at ? OSTAGES[1] : !o.supply_approved_at ? OSTAGES[2] : 'With DPW'; };
+  var OFILTERS = OSTAGES.map(function (s, i) { return { key: 'sg_' + i, label: 'Waiting for ' + s.toLowerCase(), group: 'Approval' }; }).concat(OSTAT.map(function (s) { return { key: 'st_' + s, label: s === 'Submitted' ? 'Being approved' : s === 'With DPW' ? 'With DP World InSync' : s, group: 'Status' }; })).concat([{ key: 'mailbad', label: 'Email not sent', group: 'Email' }, { key: 'real', label: 'Hide test orders', group: 'Other' }]);
   async function oList() {
     await groups();
     L.cp({ crumbs: [['Orders', OB]], buttons: '<button type="button" class="btn ghost" id="oXls">Download</button>' });
@@ -443,6 +446,7 @@
   function oQuery(opts) {
     var q = sb.from('stravik_order_list').select('*', opts);
     var st = OSTAT.filter(function (s) { return O.active['st_' + s]; }); if (st.length) q = q.in('status', st);
+    var sg = OSTAGES.filter(function (s, i) { return O.active['sg_' + i]; }); if (sg.length) q = q.in('stage', sg);
     if (O.active.mailbad) q = q.neq('email_status', 'sent');
     if (O.active.real) q = q.eq('is_test', false);
     var s = L.orSearch(['order_no', 'company_name', 'po_ref', 'invoice_no', 'waybill_no'], O.text); if (s) q = q.or(s);
@@ -459,7 +463,7 @@
       if (!rows.length) { $('oListBox').innerHTML = L.empty('No orders yet', 'Approved customers place orders from their cart on the website. Each order is emailed to DP World SA and to us, and shows up here.'); return; }
       $('oListBox').innerHTML = L.listView([
         { label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>' + (o.is_test ? ' ' + L.pill('Test', 'warn') : ''); } }, { label: 'Date', render: function (o) { return '<span class="small">' + esc(L.dt(o.created_at)) + '</span>'; } },
-        { label: 'Customer', render: function (o) { return esc(o.company_name) + '<div class="small muted">' + esc(gname(o.price_group)) + '</div>'; } }, { label: 'Status', render: function (o) { return pill(o.status); } },
+        { label: 'Customer', render: function (o) { return esc(o.trading_name || o.company_name) + '<div class="small muted">' + esc((o.network_name ? o.network_name + ' · ' : '') + gname(o.price_group)) + '</div>'; } }, { label: 'Status', render: function (o) { return pill(o.stage || o.status); } },
         { label: 'PO', render: function (o) { return esc(o.po_ref || ''); } }, { label: 'Lines', num: true, render: function (o) { return o.lines + condNote(o); } }, { label: 'Units', num: true, render: function (o) { return o.units; } },
         { label: 'Total', num: true, render: function (o) { var t = o.total != null ? o.total : o.total_usd; return t == null ? '' : esc(omoney(t, o.currency)) + (o.vat_amount ? '<div class="small muted">incl. VAT</div>' : ''); } }, { label: 'Email', render: function (o) { return o.email_status === 'sent' ? '<span class="ok">Sent</span>' : '<span class="flag">' + esc(o.email_status) + '</span>'; } },
         { label: 'DPW invoice', render: function (o) { return esc(o.invoice_no || '') + (o.invoice_amount != null ? ' <span class="small muted">' + L.money(o.invoice_amount) + '</span>' : ''); } }
@@ -477,6 +481,26 @@
       ], 'Stravik_orders_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
+  // the people at DP World InSync who may sign in to its portal (/insync/)
+  async function pUsers() {
+    L.cp({ crumbs: [['Orders', OB], ['DP World InSync users']], buttons: '' }); $('cpSearch').innerHTML = '';
+    try {
+      var rows = L.must(await sb.from('stravik_partner_users').select('*').order('is_test').order('email')), ed = L.isEditor();
+      L.content('<p class="small muted" style="margin:0 0 10px">These people sign in at <b>/insync/</b> with their own email. They see the orders released to DP World InSync, with the store, the delivery details and the parts, and fill in their reference, the invoice, the waybill and the dates. They see no costs and no price lists. A new person creates a password on that page with "First time here?".</p>' +
+        (ed ? '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px"><input id="puEmail" type="email" placeholder="name@company.com" style="width:280px;margin:0"><input id="puName" placeholder="Name" style="width:220px;margin:0"><button type="button" class="btn" id="puAdd">Add</button></div>' : '') +
+        (rows.length ? '<div class="o-list"><table class="grid"><thead><tr><th>Email</th><th>Name</th><th>Sees</th><th>Access</th><th></th></tr></thead><tbody>' + rows.map(function (u) {
+          return '<tr><td>' + esc(u.email) + '</td><td>' + esc(u.full_name || '') + '</td><td>' + (u.is_test ? L.pill('Test orders only', 'warn') : 'Real orders') + '</td><td>' + (u.active ? '<span class="ok">Active</span>' : '<span class="flag">Off</span>') + '</td><td>' + (ed ? '<button class="link" data-pu="' + esc(u.email) + '" data-on="' + (u.active ? '1' : '') + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+          : L.empty('No DP World InSync users yet', 'Add the email addresses of the people at DP World InSync who handle Stravik orders.')));
+      if (!ed) return;
+      $('puAdd').onclick = async function () {
+        try {
+          var e = $('puEmail').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('Enter an email address');
+          L.must(await sb.from('stravik_partner_users').upsert({ email: e, full_name: $('puName').value.trim() || null, active: true }, { onConflict: 'email' })); L.toast('Added ' + e); pUsers();
+        } catch (x) { L.fail(x); }
+      };
+      $('content').querySelectorAll('[data-pu]').forEach(function (b) { b.onclick = async function () { try { L.must(await sb.from('stravik_partner_users').update({ active: !b.dataset.on }).eq('email', b.dataset.pu)); pUsers(); } catch (x) { L.fail(x); } }; });
+    } catch (e) { L.fail(e); }
+  }
   async function oForm(no) {
     try {
       await groups();
@@ -484,21 +508,43 @@
       if (!o) { L.cp({ crumbs: [['Orders', OB], [no]] }); return L.content(L.empty('Order not found', '')); }
       var r = await Promise.all([sb.from('stravik_order_items').select('*').eq('order_id', o.id).order('line'), sb.from('stravik_dealers').select('id,company_name,trading_name,email,cipc_no,dpw_customer_code,country').eq('id', o.dealer_id).single()]);
       var items = L.must(r[0]), d = L.must(r[1]), ed = L.isEditor(), ro = ed ? '' : ' readonly';
+      var stg = ostage(o), mine = []; try { mine = L.must(await sb.rpc('stravik_order_my_steps', { p_country: d.country })) || []; } catch (e) { mine = []; }
+      var STEPKEY = { 'Sales approval': 'sales', 'Finance approval': 'finance', 'Supply chain approval': 'supply' }[stg], canStep = !!STEPKEY && mine.indexOf(STEPKEY) >= 0;
+      var oby = function (who, at, note) { return at ? esc(who || '') + ' <span class="small muted">' + esc(L.dt(at)) + '</span>' + stepNote(note) : '<span class="muted">waiting</span>'; };
+      var stepDialog = function (step, title) {
+        var rej = step === 'reject';
+        L.modal(title, '<p>' + (rej ? 'The order is cancelled and the customer is emailed your reason.' : step === 'supply' ? 'This is the last approval: the order is released to DP World InSync for pick, pack, invoice and delivery.' : 'The order moves to the next approval, and the people who give it are emailed.') + '</p>' +
+          '<label for="osNote">' + (rej ? 'Reason for the customer' : 'Note for the next step (optional)') + '</label><textarea id="osNote" rows="3" style="width:100%"></textarea>' +
+          '<div class="o-footer"><button class="btn" id="osGo">' + (rej ? 'Cancel the order' : 'Approve') + '</button><button class="btn ghost" id="osX">Close</button></div>');
+        $('osX').onclick = L.closeModal;
+        $('osGo').onclick = async function () {
+          var b = this; b.disabled = true;
+          try {
+            L.must(await sb.rpc('stravik_order_approve', { p_order_no: o.order_no, p_step: step, p_note: $('osNote').value.trim() || null }));
+            L.closeModal(); L.toast((rej ? 'Order cancelled. ' : 'Approved. ') + await mail({ action: 'order-step', order_no: o.order_no })); oForm(no);
+          } catch (e) { L.fail(e); b.disabled = false; }
+        };
+      };
       var inp = function (k, type) { return '<input data-k="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(o[k] == null ? '' : o[k]) + '"' + ro + '>'; };
       L.form({
         crumbs: [['Orders', OB], [o.order_no]],
         buttons: ed ? '<button type="button" class="btn" id="oSave">Save</button>' : '',
-        actions: (ed ? '<button type="button" class="btn ghost" id="oMail">' + (o.email_status === 'sent' ? 'Send the email again' : 'Send the email') + '</button>' : '') + '<a class="btn ghost" href="' + L.href('dealers', [d.id]) + '">Open customer</a>',
-        status: { steps: OSTAT, current: o.status, clickable: ed, onClick: async function (s) { try { L.must(await sb.from('stravik_orders').update({ status: s }).eq('id', o.id)); L.toast('Status: ' + s); oForm(no); } catch (e) { L.fail(e); } } },
+        actions: (canStep ? '<button type="button" class="btn" id="oApprove">' + esc(stg) + '</button>' : '') + (STEPKEY && (mine.length || ed) ? '<button type="button" class="btn ghost" id="oReject">Cancel the order</button>' : '') +
+          (STEPKEY && !canStep ? '<span class="small muted" style="align-self:center">Waiting for the ' + esc(stg.toLowerCase()) + '.</span>' : '') + (ed ? '<button type="button" class="btn ghost" id="oMail">' + (o.email_status === 'sent' ? 'Send the email again' : 'Send the email') + '</button>' : '') + '<a class="btn ghost" href="' + L.href('dealers', [d.id]) + '">Open customer</a>',
+        status: { steps: OSTEPS.concat(!STEPKEY ? ['Cancelled'] : []), current: stg, clickable: ed && !STEPKEY, onClick: async function (s) { if (/approval$/.test(s)) return L.toast('The approvals are given with the approval button, in order.'); try { L.must(await sb.from('stravik_orders').update({ status: s }).eq('id', o.id)); L.toast('Status: ' + s); oForm(no); } catch (e) { L.fail(e); } } },
         sheet: '<div class="o-title"><h1>' + esc(o.order_no) + '</h1>' + (o.is_test ? L.pill('Test', 'warn') : '') + '</div><div class="o-subtitle">' + esc(d.trading_name || d.company_name) + ' · ' + esc(gname(o.price_group)) + ' · ' + esc(L.dt(o.created_at)) + '</div>' +
-          '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Email to DP World SA and us: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
-          '<div class="o-groups">' + L.group('Order', [['Customer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['Company reg. no.', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
-          L.group('From DP World SA', [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
+          '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Latest email, to whoever acts next: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
+          '<div class="o-groups">' + L.group('Approval', [['1. Sales', oby(o.sales_approved_by, o.sales_approved_at, o.sales_note)], ['2. Finance', oby(o.finance_approved_by, o.finance_approved_at, o.finance_note)], ['3. Supply chain', oby(o.supply_approved_by, o.supply_approved_at, o.supply_note)],
+            ['Released to DP World InSync', o.released_at ? esc(L.dt(o.released_at)) : '<span class="muted">after the three approvals</span>']].concat(o.status === 'Cancelled' && o.reject_note ? [['Cancelled', esc(o.rejected_by || '') + stepNote(o.reject_note)]] : [])) +
+          L.group('Order', [['Customer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['Company reg. no.', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
+          L.group('From DP World InSync' + (o.dpw_updated_by ? ' (last updated by ' + o.dpw_updated_by + ')' : ''), [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
           L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Condition</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th><th class="num">Total ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th></tr></thead><tbody>' +
             items.map(function (i) { return '<tr><td>' + i.line + '</td><td class="pn"><a href="' + L.href('parts', ['p', i.sv_pn]) + '">' + esc(i.sv_pn) + '</a></td><td>' + (i.cond === 'R' ? L.pill('Remanufactured', 'warn') : 'New') + '</td><td>' + esc(i.description || '') + '</td><td>' + esc(i.subcategory || '') + '</td><td class="num">' + i.qty + '</td><td class="num">' + ((i.unit_price != null ? i.unit_price : i.unit_price_usd) == null ? '<span class="muted">on request</span>' : L.money(i.unit_price != null ? i.unit_price : i.unit_price_usd)) + '</td><td class="num">' + L.money(i.line_total != null ? i.line_total : i.line_total_usd) + '</td></tr>'; }).join('') +
             '</tbody><tfoot>' + (o.vat_rate ? '<tr><td colspan="7">Subtotal excl. VAT</td><td class="num">' + L.money(o.subtotal) + '</td></tr><tr><td colspan="7">VAT ' + Math.round(o.vat_rate * 100) + '%</td><td class="num">' + L.money(o.vat_amount) + '</td></tr>' : '') +
             '<tr><td colspan="5">' + o.lines + ' lines</td><td class="num">' + o.units + '</td><td>' + (o.vat_rate ? 'Total incl. VAT' : '') + '</td><td class="num"><b>' + esc(omoney(o.total != null ? o.total : o.total_usd, o.currency)) + '</b></td></tr></tfoot></table>' }])
       });
+      if ($('oApprove')) $('oApprove').onclick = function () { stepDialog(STEPKEY, stg); };
+      if ($('oReject')) $('oReject').onclick = function () { stepDialog('reject', 'Cancel the order'); };
       if (!ed) return;
       $('oSave').onclick = async function () {
         var p = {};
@@ -512,7 +558,7 @@
   L.register({
     key: 'orders', name: 'Orders', color: '#8a6326',
     icon: '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 11h7M9 15h7M9 19h4"/>',
-    menus: [{ label: 'Orders', href: OB }, { label: 'Customers', href: DB }],
-    route: function (r) { if (r.parts[0]) oForm(r.parts[0]); else oList(); }
+    menus: [{ label: 'Orders', href: OB }, { label: 'DP World InSync users', href: L.href('orders', ['insync-users']) }, { label: 'Customers', href: DB }],
+    route: function (r) { if (r.parts[0] === 'insync-users') pUsers(); else if (r.parts[0]) oForm(r.parts[0]); else oList(); }
   });
 })(window.LS);

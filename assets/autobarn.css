@@ -117,3 +117,18 @@
 }
 @media (prefers-reduced-motion: reduce){.ab-o td.no::before{transition:none}}
 #otable > tbody > tr.ab-o > td:first-child{white-space:nowrap}
+
+/* DP World InSync portal (assets/insync.js): the opened order */
+.is-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 30px;padding:8px 0 12px;font-size:14.5px}
+.is-grid h3,.is-form h3{font-size:16px;margin:0 0 4px}
+.is-grid p{margin:0 0 8px;color:var(--muted)}
+.is-grid p b{color:var(--ink)}
+.is-form{margin-top:14px;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:6px}
+.is-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px;margin-top:8px}
+.is-fields label{display:grid;gap:4px;font-size:13.5px;font-weight:600;color:var(--muted);align-content:start}
+.is-fields label.wide{grid-column:1/-1}
+.is-fields input,.is-fields textarea{font:inherit;font-size:15px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);width:100%;min-width:0}
+.is-fields input:focus,.is-fields textarea:focus{border-color:var(--gold);outline:none}
+.is-form .dhint{margin:8px 0 10px}
+@media (max-width:900px){.is-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.is-grid{grid-template-columns:1fr}}
+@media (max-width:520px){.is-fields{grid-template-columns:1fr}}
