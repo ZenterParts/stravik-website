@@ -307,6 +307,7 @@ let raf=0;new MutationObserver(()=>{if(!S.prices||raf)return;raf=requestAnimatio
 // =====================================================================
 const head=(title,lead,crumb)=>`<div class="pagehead"><div class="wrap"><div class="crumbs"><a href="#/">Home</a><span>/</span>${crumb?`<a href="#/dealer">Customer account</a><span>/</span><span>${esc(crumb)}</span>`:"<span>Customer account</span>"}</div><h1>${esc(title)}</h1>${lead?`<p>${lead}</p>`:""}</div></div>`;
 async function page(app,parts){
+  try{const g=/[?&]g=([a-z0-9-]+)/.exec(location.hash);if(g)localStorage.setItem("stravik-reg-group",g[1]);}catch(e){}
   app.innerHTML=head("Customer account","Loading…")+`<div class="wrap dwrap"></div>`;
   let c;try{c=await client();}catch(e){app.querySelector(".dwrap").innerHTML=`<p class="dnote bad">${esc(e.message)}. Check your connection and reload the page.</p>`;return;}
   const {data:{session}}=await c.auth.getSession();
@@ -398,6 +399,7 @@ function regForm(app,c,me){
      ${inp("company_name","Registered company name",{req:1,ac:"organization"})}${inp("trading_name","Trading (store) name",{req:1})}
      ${inp("cipc_no","CIPC registration number",{req:1,ph:"2015/123456/07"})}${inp("vat_no","VAT number",{req:1,ph:"4123456789"})}
      <div><label for="r_business_type">Type of business${star}</label>${sel("r_business_type",["Distributor","Dealer / parts store","Workshop","Fleet operator","Other"],d.business_type,"Choose…")}<div class="err">Required.</div></div>${inp("years_trading","Years trading",{req:1})}
+     <div class="full"><label for="r_network">Does your store belong to a group?</label><select id="r_network"><option value="">No, we are independent</option></select><small class="dhint">If your store is part of a group such as Autobarn, choose it here so we link your account to your head office.</small></div>
    </div></fieldset>
    <fieldset><legend>Contacts</legend><div class="enq">
      ${inp("owner_name","Owner or director",{req:1})}${inp("contact_name","Main contact person",{req:1,ac:"name"})}
@@ -469,6 +471,10 @@ function regForm(app,c,me){
   msPaint();
   const ro=f.querySelector("#rout");if(ro)ro.onclick=()=>signOut(c);
   app.querySelector("#rout2").onclick=()=>signOut(c);
+  // the groups a store can belong to (Autobarn): the answer tells us which head office the store is under
+  c.rpc("stravik_network_names").then(r=>{const s=f.querySelector("#r_network");if(!s||r.error||!r.data)return;
+    let want=d.network_claim||(d.network&&d.network.code)||"";if(!want&&!me.dealer){try{want=localStorage.getItem("stravik-reg-group")||"";}catch(e){}}
+    s.insertAdjacentHTML("beforeend",r.data.map(n=>`<option value="${esc(n.code)}"${n.code===want?" selected":""}>${esc(n.name)}</option>`).join(""));});
   // a field marked red clears as soon as it is filled in
   ["input","change"].forEach(ev=>f.addEventListener(ev,e=>{if(e.target.classList)e.target.classList.remove("invalid");}));
   const say=t=>{st.textContent=t;st.classList.add("show");st.scrollIntoView({block:"center",behavior:"smooth"});};
@@ -492,7 +498,7 @@ function regForm(app,c,me){
     const big=files.find(i=>i.files[0].size>10485760);if(big){say(big.files[0].name+" is larger than 10 MB.");return;}
     const p={};["company_name","trading_name","cipc_no","vat_no","business_type","years_trading","owner_name","contact_name","contact_role","mobile","phone","accounts_email","country","province","city","store_address","postal_code","receiving_hours","truck_access","monthly_volume","comments"].forEach(k=>p[k]=val(k));
     p.delivery_addresses=delTa.map(t=>t.value.trim());
-    p.ranges_interest=picked();p.accepted_terms=true;p.accepted_popia=true;
+    p.ranges_interest=picked();p.network=val("network");p.accepted_terms=true;p.accepted_popia=true;
     btn.disabled=true;btn.textContent="Sending…";
     try{
       const me2=must(await c.rpc("stravik_dealer_save",{p}));

@@ -115,9 +115,24 @@
     await groups();
     L.cp({ crumbs: [['Customers', DB], ['Accounts']], buttons: '<button type="button" class="btn ghost" id="dXls">Download</button>' });
     L.searchBar({ placeholder: 'Search company, contact, email, reg. no., country…', text: S.text, filters: DFILTERS, active: S.active, onChange: function (s) { S.text = s.text; S.active = s.active; S.offset = 0; dLoad(); } });
-    L.content('<div class="cards" id="dStats" style="margin-bottom:14px"></div><div id="dListBox"></div>');
+    L.content('<div class="cards" id="dStats" style="margin-bottom:14px"></div><div id="dGroupBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px"></div><div id="dListBox"></div>');
     $('dXls').onclick = dExcel;
+    dGroupBar();
     dStats(); dLoad();
+  }
+  // groups (networks such as Autobarn): choose one to see its head office first, then its stores, then the accounts that
+  // chose the group when they registered and are not linked to the store list yet
+  async function dGroupBar() {
+    try {
+      var nets = L.must(await sb.from('stravik_networks').select('code,name,is_test').order('is_test').order('name'));
+      if (!nets.length || !$('dGroupBar')) return;
+      var on = S.group && S.group !== '-';
+      $('dGroupBar').innerHTML = '<label for="dGroupSel"><b>Group</b></label><select id="dGroupSel" style="width:auto;margin:0"><option value="">All customers</option>' +
+        nets.map(function (n) { return '<option value="' + esc(n.code) + '"' + (n.code === S.group ? ' selected' : '') + '>' + esc(n.name) + ': head office and stores</option>'; }).join('') +
+        '<option value="-"' + (S.group === '-' ? ' selected' : '') + '>Not in a group</option></select>' +
+        (on ? '<a class="btn ghost small" href="' + L.href('networks', [S.group]) + '">Open the store list</a><span class="small muted">The head office first, then its stores, then accounts that chose this group and are not linked yet.</span>' : '');
+      $('dGroupSel').onchange = function () { S.group = this.value; S.offset = 0; if (S.group) S.active = {}; dList(); };
+    } catch (e) { /* the list works without it */ }
   }
   function dQuery(opts) {
     var q = sb.from('stravik_dealer_list').select('*', opts);
@@ -126,6 +141,8 @@
     if (S.active.test && !S.active.real) q = q.eq('is_test', true);
     if (S.active.real && !S.active.test) q = q.eq('is_test', false);
     var s = L.orSearch(['company_name', 'trading_name', 'contact_name', 'email', 'cipc_no', 'vat_no', 'city', 'country'], S.text); if (s) q = q.or(s);
+    if (S.group === '-') q = q.is('network', null); else if (S.group) q = q.eq('network', S.group);
+    if (S.group && S.group !== '-') return q.order('network_sort').order('company_name');
     return q.order('submitted_at', { ascending: false });
   }
   async function dStats() {
@@ -144,6 +161,7 @@
       if (!rows.length) { $('dListBox').innerHTML = L.empty(S.active.st_Pending ? 'No registrations waiting' : 'No accounts', 'Customers register on the website under "Customer login". New registrations appear here for review.'); return; }
       $('dListBox').innerHTML = L.listView([
         { label: 'Company', render: function (x) { return '<b>' + esc(x.trading_name || x.company_name) + '</b>' + (x.trading_name ? '<div class="small muted">' + esc(x.company_name) + '</div>' : '') + (x.is_test ? ' ' + L.pill('Test', 'warn') : ''); } },
+        { label: 'Group', render: function (x) { return x.network_name ? esc(x.network_name) + '<div class="small ' + (x.network_role === 'Not linked yet' ? 'flag' : 'muted') + '">' + esc(x.network_role || '') + (x.store_class ? ', class ' + esc(x.store_class) : '') + '</div>' : ''; } },
         { label: 'Status', render: function (x) { return pill(x.stage || x.status); } }, { label: 'Price group', render: function (x) { return esc(x.group_name || ''); } },
         { label: 'Contact', render: function (x) { return esc(x.contact_name) + '<div class="small muted">' + esc(x.email) + '</div>'; } }, { label: 'Location', render: function (x) { return esc([x.city, x.province, x.country === 'South Africa' ? '' : x.country].filter(Boolean).join(', ')); } },
         { label: 'Reg. no.', render: function (x) { return esc(x.cipc_no || ''); } }, { label: 'Docs', num: true, render: function (x) { return x.documents; } }, { label: 'Orders', num: true, render: function (x) { return x.orders; } },
@@ -160,6 +178,37 @@
   }
 
   // =================================================================== customer form
+  // on an account: the group it is in. An account that chose a group when it registered is linked here to its row on
+  // the group's store list (or added to the list), which puts it under the head office.
+  async function dGroupBox(d) {
+    var box = $('dGrpBox'); if (!box) return;
+    try {
+      var x = L.must(await sb.from('stravik_dealer_list').select('network,network_name,network_role,network_store,store_class').eq('id', d.id).maybeSingle()) || {};
+      if (!x.network) { box.innerHTML = '<span class="muted">Not in a group</span>'; return; }
+      var open = ' <a class="small" href="' + L.href('networks', [x.network]) + '">Open the store list</a>';
+      if (x.network_role === 'Head office') { box.innerHTML = '<b>' + esc(x.network_name) + '</b>: head office.' + open; return; }
+      if (x.network_role === 'Store') { box.innerHTML = '<b>' + esc(x.network_name) + '</b>: store' + (x.network_store ? ' "' + esc(x.network_store) + '"' : '') + (x.store_class ? ', class ' + esc(x.store_class) : '') + '.' + open; return; }
+      var html = 'Chose <b>' + esc(x.network_name) + '</b> when registering. <span class="flag">Not linked to the store list yet.</span>' + open;
+      if (L.isEditor()) {
+        var free = await L.fetchAll(function () { return sb.from('stravik_network_stores').select('id,store_name,town,store_class').eq('network', x.network).is('dealer_id', null).order('store_name'); });
+        var nm = (d.trading_name || d.company_name || '').toLowerCase(), city = (d.city || '').toLowerCase();
+        var guess = free.find(function (s) { return s.store_name.toLowerCase() === nm; }) || free.find(function (s) { return nm && (s.store_name.toLowerCase().indexOf(nm) >= 0 || nm.indexOf(s.store_name.toLowerCase()) >= 0); }) || free.find(function (s) { return city && (s.town || '').toLowerCase().indexOf(city) >= 0; });
+        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px"><select id="dGrpStore" style="width:auto;max-width:100%;margin:0"><option value="">Choose its row on the store list…</option>' +
+          free.map(function (s) { return '<option value="' + s.id + '"' + (guess && guess.id === s.id ? ' selected' : '') + '>' + esc(s.store_name + (s.town ? ', ' + s.town : '') + (s.store_class ? ' (class ' + s.store_class + ')' : '')) + '</option>'; }).join('') +
+          '<option value="new">Not on the list: add it as a new store</option></select><button type="button" class="btn small" id="dGrpLink">Link</button></div>';
+      }
+      box.innerHTML = html;
+      if ($('dGrpLink')) $('dGrpLink').onclick = async function () {
+        try {
+          var v = $('dGrpStore').value; if (!v) throw new Error('Choose the store\'s row on the list, or add it as a new store');
+          if (v === 'new') L.must(await sb.from('stravik_network_stores').insert({ network: x.network, store_name: d.trading_name || d.company_name, town: d.city || null, province: d.province || null, country: d.country || 'South Africa', phone: d.phone || d.mobile || null, dealer_id: d.id }));
+          else L.must(await sb.from('stravik_network_stores').update({ dealer_id: d.id }).eq('id', v).is('dealer_id', null));
+          L.toast('Linked to ' + x.network_name); dGroupBox(d);
+        } catch (e) { L.fail(e); }
+      };
+    } catch (e) { box.innerHTML = '<span class="muted">Could not read the group</span>'; }
+  }
+
   async function dForm(id) {
     try {
       await groups(); await cats();
@@ -196,13 +245,14 @@
           L.group('Business', [['Company', t(d.company_name)], ['Trading as', t(d.trading_name)], [d.country && d.country !== 'South Africa' ? 'Company reg. no.' : 'CIPC no.', t(d.cipc_no)], ['VAT no.', t(d.vat_no)], ['Type', t(d.business_type)], ['Years trading', t(d.years_trading)]]) +
           L.group('Contacts', [['Owner / director', t(d.owner_name)], ['Contact', t(d.contact_name) + (d.contact_role ? ' <span class="muted">(' + esc(d.contact_role) + ')</span>' : '')], ['Email (login)', '<a href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>'], ['Mobile', t(d.mobile)], ['Phone', t(d.phone)], ['Accounts email', t(d.accounts_email)]]) +
           L.group('Address', [['Country', t(d.country)], [d.country && d.country !== 'South Africa' ? 'Region' : 'Province', t(d.province)], ['City', t(d.city)], ['Store address', t(d.store_address)], ['Postal code', t(d.postal_code)], [dels.length > 1 ? 'Delivery addresses (' + dels.length + ')' : 'Delivery address', delsHtml], ['Receiving hours', t(d.receiving_hours)], ['Truck access', t(d.truck_access)]]) +
-          L.group('Our side', [['Price group', t(gname(d.price_group))], ['Catalogues', d.price_group ? esc(catsText(d)) : ''], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
+          L.group('Our side', [['Group', '<div id="dGrpBox"><span class="muted">…</span></div>'], ['Price group', t(gname(d.price_group))], ['Catalogues', d.price_group ? esc(catsText(d)) : ''], ['DPW customer code', t(d.dpw_customer_code)], ['Ranges of interest', t((d.ranges_interest || []).join(', '))], ['Monthly volume', t(d.monthly_volume)], ['Comments', t(d.comments)], ['Internal notes', t(d.internal_notes)], ['Consent', d.accepted_terms && d.accepted_popia ? 'Details confirmed, POPIA consent given ' + esc(L.dt(d.consent_at)) : '<span class="flag">Missing</span>']]) +
           '</div>' +
           L.notebook([
             { key: 'docs', label: 'Documents (' + docs.length + ')', html: docs.length ? '<table class="grid compact"><thead><tr><th>Document</th><th>File</th><th>Uploaded</th><th></th></tr></thead><tbody>' + docs.map(function (x) { return '<tr><td>' + esc(x.kind) + '</td><td>' + esc(x.file_name) + ' <span class="small muted">' + (x.size_bytes ? Math.round(x.size_bytes / 1024) + ' KB' : '') + '</span></td><td class="small">' + esc(L.dt(x.uploaded_at)) + '</td><td><button type="button" class="btn ghost small" data-doc="' + esc(x.path) + '">Open</button></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">No documents uploaded. Ask the customer to email them, or to upload them under “Update your details”.</p>' },
             { key: 'orders', label: 'Orders (' + orders.length + ')', html: orders.length ? L.listView([{ label: 'Order', render: function (o) { return '<b>' + esc(o.order_no) + '</b>'; } }, { label: 'Date', render: function (o) { return esc(L.dt(o.created_at)); } }, { label: 'Status', render: function (o) { return pill(o.status); } }, { label: 'Lines', num: true, render: function (o) { return o.lines; } }, { label: 'Total', num: true, render: function (o) { var t = o.total != null ? o.total : o.total_usd; return t == null ? '' : esc(omoney(t, o.currency)); } }, { label: 'Invoice', render: function (o) { return esc(o.invoice_no || ''); } }], orders, function (o) { return L.href('orders', [o.order_no]); }) : '<p class="muted">No orders yet.</p>' }
           ])
       });
+      dGroupBox(d);
       $('content').querySelectorAll('[data-doc]').forEach(function (b) {
         b.onclick = async function () { try { var u = L.must(await sb.storage.from('stravik-dealer-docs').createSignedUrl(b.dataset.doc, 300)); window.open(u.signedUrl, '_blank', 'noopener'); } catch (e) { L.fail(e); } };
       });

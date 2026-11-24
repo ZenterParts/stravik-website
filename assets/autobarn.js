@@ -46,7 +46,7 @@ function signIn(){
     <aside class="ab-side">
       <h2>New ${esc(NAME)} store?</h2>
       <p>Each store has its own account. Register your store once; we check it with ${esc(NAME)} head office and email you when your prices are ready.</p>
-      <p><a class="btn line" href="/#/dealer?m=new">Register your store</a></p>
+      <p><a class="btn line" href="/#/dealer?m=new&g=${esc(NET)}">Register your store</a></p>
       <h2>What you can do here</h2>
       <ul><li>See the Stravik range stocked in South Africa, with your prices</li><li>Order online for delivery to your store</li><li>Follow each order, its invoice and its delivery</li></ul>
     </aside>
