@@ -432,9 +432,9 @@
   // =================================================================== orders
   var O = L.state.orders = { text: '', active: {}, offset: 0 };
   var OSTAT = ['Submitted', 'With DPW', 'Invoiced', 'Dispatched', 'Delivered', 'Cancelled'];
-  // an order is approved by sales, then finance, then supply chain; the third approval releases it to DP World InSync
-  var OSTAGES = ['Sales approval', 'Finance approval', 'Supply chain approval'], OSTEPS = OSTAGES.concat(['With DPW', 'Invoiced', 'Dispatched', 'Delivered']);
-  var ostage = function (o) { return o.status !== 'Submitted' ? o.status : !o.sales_approved_at ? OSTAGES[0] : !o.finance_approved_at ? OSTAGES[1] : !o.supply_approved_at ? OSTAGES[2] : 'With DPW'; };
+  // an order needs one approval, by sales: it releases the order to DP World InSync, and finance and supply chain are told by email
+  var OSTAGES = ['Sales approval'], OSTEPS = OSTAGES.concat(['With DPW', 'Invoiced', 'Dispatched', 'Delivered']);
+  var ostage = function (o) { return o.status !== 'Submitted' ? o.status : !o.sales_approved_at ? OSTAGES[0] : 'With DPW'; };
   var OFILTERS = OSTAGES.map(function (s, i) { return { key: 'sg_' + i, label: 'Waiting for ' + s.toLowerCase(), group: 'Approval' }; }).concat(OSTAT.map(function (s) { return { key: 'st_' + s, label: s === 'Submitted' ? 'Being approved' : s === 'With DPW' ? 'With DP World InSync' : s, group: 'Status' }; })).concat([{ key: 'mailbad', label: 'Email not sent', group: 'Email' }, { key: 'real', label: 'Hide test orders', group: 'Other' }]);
   async function oList() {
     await groups();
@@ -509,12 +509,12 @@
       var r = await Promise.all([sb.from('stravik_order_items').select('*').eq('order_id', o.id).order('line'), sb.from('stravik_dealers').select('id,company_name,trading_name,email,cipc_no,dpw_customer_code,country').eq('id', o.dealer_id).single()]);
       var items = L.must(r[0]), d = L.must(r[1]), ed = L.isEditor(), ro = ed ? '' : ' readonly';
       var stg = ostage(o), mine = []; try { mine = L.must(await sb.rpc('stravik_order_my_steps', { p_country: d.country })) || []; } catch (e) { mine = []; }
-      var STEPKEY = { 'Sales approval': 'sales', 'Finance approval': 'finance', 'Supply chain approval': 'supply' }[stg], canStep = !!STEPKEY && mine.indexOf(STEPKEY) >= 0;
+      var STEPKEY = { 'Sales approval': 'sales' }[stg], canStep = !!STEPKEY && mine.indexOf(STEPKEY) >= 0;
       var oby = function (who, at, note) { return at ? esc(who || '') + ' <span class="small muted">' + esc(L.dt(at)) + '</span>' + stepNote(note) : '<span class="muted">waiting</span>'; };
       var stepDialog = function (step, title) {
         var rej = step === 'reject';
-        L.modal(title, '<p>' + (rej ? 'The order is cancelled and the customer is emailed your reason.' : step === 'supply' ? 'This is the last approval: the order is released to DP World InSync for pick, pack, invoice and delivery.' : 'The order moves to the next approval, and the people who give it are emailed.') + '</p>' +
-          '<label for="osNote">' + (rej ? 'Reason for the customer' : 'Note for the next step (optional)') + '</label><textarea id="osNote" rows="3" style="width:100%"></textarea>' +
+        L.modal(title, '<p>' + (rej ? 'The order is cancelled and the customer is emailed your reason.' : 'The order is released to DP World InSync for pick, pack, invoice and delivery. Finance and supply chain get an email for their information.') + '</p>' +
+          '<label for="osNote">' + (rej ? 'Reason for the customer' : 'Note (optional)') + '</label><textarea id="osNote" rows="3" style="width:100%"></textarea>' +
           '<div class="o-footer"><button class="btn" id="osGo">' + (rej ? 'Cancel the order' : 'Approve') + '</button><button class="btn ghost" id="osX">Close</button></div>');
         $('osX').onclick = L.closeModal;
         $('osGo').onclick = async function () {
@@ -531,11 +531,11 @@
         buttons: ed ? '<button type="button" class="btn" id="oSave">Save</button>' : '',
         actions: (canStep ? '<button type="button" class="btn" id="oApprove">' + esc(stg) + '</button>' : '') + (STEPKEY && (mine.length || ed) ? '<button type="button" class="btn ghost" id="oReject">Cancel the order</button>' : '') +
           (STEPKEY && !canStep ? '<span class="small muted" style="align-self:center">Waiting for the ' + esc(stg.toLowerCase()) + '.</span>' : '') + (ed ? '<button type="button" class="btn ghost" id="oMail">' + (o.email_status === 'sent' ? 'Send the email again' : 'Send the email') + '</button>' : '') + '<a class="btn ghost" href="' + L.href('dealers', [d.id]) + '">Open customer</a>',
-        status: { steps: OSTEPS.concat(!STEPKEY ? ['Cancelled'] : []), current: stg, clickable: ed && !STEPKEY, onClick: async function (s) { if (/approval$/.test(s)) return L.toast('The approvals are given with the approval button, in order.'); try { L.must(await sb.from('stravik_orders').update({ status: s }).eq('id', o.id)); L.toast('Status: ' + s); oForm(no); } catch (e) { L.fail(e); } } },
+        status: { steps: OSTEPS.concat(!STEPKEY ? ['Cancelled'] : []), current: stg, clickable: ed && !STEPKEY, onClick: async function (s) { if (/approval$/.test(s)) return L.toast('The sales approval is given with the approval button.'); try { L.must(await sb.from('stravik_orders').update({ status: s }).eq('id', o.id)); L.toast('Status: ' + s); oForm(no); } catch (e) { L.fail(e); } } },
         sheet: '<div class="o-title"><h1>' + esc(o.order_no) + '</h1>' + (o.is_test ? L.pill('Test', 'warn') : '') + '</div><div class="o-subtitle">' + esc(d.trading_name || d.company_name) + ' · ' + esc(gname(o.price_group)) + ' · ' + esc(L.dt(o.created_at)) + '</div>' +
           '<div class="notice' + (o.email_status === 'sent' ? ' good' : ' bad') + '">Latest email, to whoever acts next: <b>' + esc(o.email_status) + '</b>' + (o.email_sent_at ? ' · ' + esc(L.dt(o.email_sent_at)) : '') + (o.email_error ? '<div class="small">' + esc(o.email_error) + '</div>' : '') + '</div>' +
-          '<div class="o-groups">' + L.group('Approval', [['1. Sales', oby(o.sales_approved_by, o.sales_approved_at, o.sales_note)], ['2. Finance', oby(o.finance_approved_by, o.finance_approved_at, o.finance_note)], ['3. Supply chain', oby(o.supply_approved_by, o.supply_approved_at, o.supply_note)],
-            ['Released to DP World InSync', o.released_at ? esc(L.dt(o.released_at)) : '<span class="muted">after the three approvals</span>']].concat(o.status === 'Cancelled' && o.reject_note ? [['Cancelled', esc(o.rejected_by || '') + stepNote(o.reject_note)]] : [])) +
+          '<div class="o-groups">' + L.group('Approval', [['Sales approval', oby(o.sales_approved_by, o.sales_approved_at, o.sales_note)],
+            ['Released to DP World InSync', o.released_at ? esc(L.dt(o.released_at)) : '<span class="muted">after the sales approval</span>'], ['Finance and supply chain', '<span class="muted">' + (o.released_at ? 'told by email' : 'are told by email once sales approves') + '</span>']].concat(o.status === 'Cancelled' && o.reject_note ? [['Cancelled', esc(o.rejected_by || '') + stepNote(o.reject_note)]] : [])) +
           L.group('Order', [['Customer PO', esc(o.po_ref || '')], ['Contact', esc(o.contact_name || '') + ' · ' + esc(o.contact_phone || '')], ['Deliver to', esc(o.delivery_address || '')], ['Notes', esc(o.notes || '')], ['Company reg. no.', esc(d.cipc_no || '')], ['DPW customer code', esc(d.dpw_customer_code || '')]]) +
           L.group('From DP World InSync' + (o.dpw_updated_by ? ' (last updated by ' + o.dpw_updated_by + ')' : ''), [['DPW reference', inp('dpw_ref')], ['Invoice no.', inp('invoice_no')], ['Invoice date', inp('invoice_date', 'date')], ['Invoice amount', inp('invoice_amount')], ['Invoice currency', inp('invoice_currency')], ['Dispatched', inp('dispatched_at', 'date')], ['Waybill no.', inp('waybill_no')], ['Delivered', inp('delivered_at', 'date')], ['Notes', '<textarea data-k="dpw_notes"' + ro + '>' + esc(o.dpw_notes || '') + '</textarea>']]) + '</div>' +
           L.notebook([{ key: 'lines', label: 'Parts (' + items.length + ')', html: '<table class="grid"><thead><tr><th>#</th><th>Stravik PN</th><th>Condition</th><th>Description</th><th>Range</th><th class="num">Qty</th><th class="num">Unit ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th><th class="num">Total ' + esc(o.currency || 'USD') + (o.vat_rate ? ' excl. VAT' : '') + '</th></tr></thead><tbody>' +
