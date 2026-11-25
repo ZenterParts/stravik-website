@@ -79,7 +79,7 @@ function signIn(mode){
     catch(err){say(esc(msg(err)));btn.disabled=false;}
   });
 }
-async function signOut(){try{await C.auth.signOut();}catch(e){}try{await SD().refresh();}catch(e){}signIn();}
+async function signOut(){siteMenu(false);try{await C.auth.signOut();}catch(e){}try{await SD().refresh();}catch(e){}signIn();}
 function note(title,html){
   app.innerHTML=head(title)+`<div class="wrap ab-note"><div class="dnote">${html}</div><p><button class="btn line" type="button" id="asout">Sign out</button></p></div>`;
   app.querySelector("#asout").onclick=signOut;
@@ -112,10 +112,13 @@ async function call(body){
   return r.data;
 }
 async function load(){O.data=must(await C.rpc("stravik_my_staff"));}
+// a store owner is a normal customer of the site: show the site menu and send the logo home
+function siteMenu(on){document.body.classList.toggle("portal",!on);const b=document.querySelector("a.brand");if(b)b.href=on?"/":"/allstar/";}
 function owner(email){
+  siteMenu(true);
   document.title="Stravik All Star | "+O.data.store;
   const S=O.data.staff,act=S.filter(s=>s.active).length;
-  app.innerHTML=head(O.data.store,"Your counter team on Stravik All Star. Add each person who sells at your counter, with their mobile number and a 6-digit PIN. They sign in on this page and see their Stravik sales and share.","Stravik All Star")+
+  app.innerHTML=head(O.data.store,"Your counter team on Stravik All Star. Add each person who sells at your counter, with their mobile number and a 6-digit PIN. They sign in on this page and see their Stravik sales and share.","Stravik All Star").replace("</h1>","</h1><p><a class=\"btn line small\" href=\"/\">← Back to your products and prices</a></p>")+
   `<section class="ab-stats" aria-label="Counter team"><div class="wrap"><div class="ab-stat"><b>${act}</b><span>${act===1?"counter person registered":"counter staff registered"}</span></div><div class="ab-stat"><b>${S.filter(s=>s.last_login_at).length}</b><span>have signed in</span></div></div></section>
    <div class="wrap ab-dash">
      <div class="ab-tabs" role="tablist"><button type="button" aria-selected="true">Counter staff</button></div>
