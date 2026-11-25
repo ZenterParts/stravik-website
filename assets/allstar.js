@@ -39,6 +39,7 @@ const loginPassword=(m,pin)=>"stravik-allstar:"+pin+":"+m.replace(/\D/g,"");
 // sign in: counter staff (mobile + PIN) or store owner (email + password)
 // ---------------------------------------------------------------------------------------------------------------
 function signIn(mode){
+  siteMenu(true);
   mode=mode||"staff";
   document.title="Stravik All Star | Sign in";
   app.innerHTML=head("All Star","Rewards for the stores that sell Stravik and the counter teams who recommend it.")+
@@ -79,8 +80,9 @@ function signIn(mode){
     catch(err){say(esc(msg(err)));btn.disabled=false;}
   });
 }
-async function signOut(){siteMenu(false);try{await C.auth.signOut();}catch(e){}try{await SD().refresh();}catch(e){}signIn();}
+async function signOut(){try{await C.auth.signOut();}catch(e){}try{await SD().refresh();}catch(e){}signIn();}
 function note(title,html){
+  siteMenu(true);
   app.innerHTML=head(title)+`<div class="wrap ab-note"><div class="dnote">${html}</div><p><button class="btn line" type="button" id="asout">Sign out</button></p></div>`;
   app.querySelector("#asout").onclick=signOut;
 }
@@ -89,6 +91,7 @@ function note(title,html){
 // counter staff: their own page
 // ---------------------------------------------------------------------------------------------------------------
 function counter(me){
+  siteMenu(false);
   document.title="Stravik All Star | "+me.name;
   if(!me.active)return note(me.name,"Your All Star access is switched off. Please speak to your store owner.");
   app.innerHTML=head("Hello, "+me.name.split(" ")[0],`${esc(me.store)}${me.town?", "+esc(me.town):""}${me.is_test?" (test store)":""}`)+
