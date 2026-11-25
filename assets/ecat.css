@@ -368,3 +368,7 @@ dl.sp dt{position:relative;display:flex;align-items:center;gap:5px}
 .pic.none{color:var(--bronze)}.pic.none .batico{width:42%;height:auto}
 @media (max-width:1050px){.gscroll .gmain{height:auto;display:block}.gscroll .gimg{height:52vh}.gtabs{padding:10px 12px 0}}
 @media (max-width:600px){.gtabs button{padding:12px 14px;font-size:12.5px}.gscroll .gimg{height:44vh}}
+
+/* the price column of the list view (hidden for visitors: .np on #out) */
+table.list .eprice{font-size:15px;white-space:nowrap}
+.np table.list th:nth-child(3),.np table.list td:nth-child(3){display:none}

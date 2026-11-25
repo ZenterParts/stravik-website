@@ -348,9 +348,9 @@ function card(r){
    <div class="kv"><span>Size</span><b>${r.L} × ${r.W} × ${r.H}</b><span>Layout</span><b>${esc(r.layout)}</b><span>SAB</span><b>${esc(r.sab||"–")}</b><span>Made in</span><b>${esc(ORG[r.origin])}</b></div>
    <div class="cfoot"><span>${(vByPn[r.pn]||[]).length} vehicle applications</span>${r.dwg?`<span class="dwb">Drawing ${esc(r.dwg)}</span>`:""}</div></div></button>`;
 }
-const COLS=[["","",null],["pn","Part no."],["type","Type"],["series","Series"],["box","Case"],["ah","Ah","n"],["cca","CCA","n"],["L","L × W × H"],["layout","Layout"],["hd","Hold-down"],["sab","SAB"],["origin","Made in"],["dwg","Drawing"]];
+const COLS=[["","",null],["pn","Part no."],["","Your price","n"],["type","Type"],["series","Series"],["box","Case"],["ah","Ah","n"],["cca","CCA","n"],["L","L × W × H"],["layout","Layout"],["hd","Hold-down"],["sab","SAB"],["origin","Made in"],["dwg","Drawing"]];
 function row(r){const p=photo(r)||dwthumb(r.dwg);
-  return `<tr data-pn="${esc(r.pn)}"><td><span class="th">${p?`<img src="${p}" alt="" loading="lazy">`:""}</span></td><td><span class="pnl">${esc(r.pn)}</span></td><td><span class="badge ${r.type.toLowerCase()}">${esc(r.type==="HDB"?"Heavy duty":r.type)}</span></td>
+  return `<tr data-pn="${esc(r.pn)}"><td><span class="th">${p?`<img src="${p}" alt="" loading="lazy">`:""}</span></td><td><span class="pnl">${esc(r.pn)}</span></td><td class="n"><span class="eprice" data-p="${esc(r.pn)}"></span></td><td><span class="badge ${r.type.toLowerCase()}">${esc(r.type==="HDB"?"Heavy duty":r.type)}</span></td>
   <td>${esc(r.series)}</td><td>${esc(r.box)}</td><td class="n">${esc(r.ah)}</td><td class="n">${esc(r.cca)}</td><td>${r.L} × ${r.W} × ${r.H}</td><td>${esc(r.layout)}</td><td>${esc(r.hd)}</td><td>${esc(r.sab||"–")}</td><td>${esc(ORG[r.origin])}</td>
   <td>${r.dwg?`<button type="button" class="dwl" data-dw="${esc(r.dwg)}" data-pn="${esc(r.pn)}">${esc(r.dwg)}</button>`:""}</td></tr>`;}
 function paint(){
@@ -602,7 +602,7 @@ function wireUpgrade(r){
 })();
 
 /* ---------- prices for signed-in customers (from dealer.js) ---------- */
-function prices(){const D=window.StravikDealer,t=D&&D.tag;$$("[data-p]").forEach(el=>{const v=t?t(el.dataset.p)||"":"";if(el.innerHTML!==v)el.innerHTML=v;});}
+function prices(){const D0=window.StravikDealer,has=!!(D0&&D0.state&&D0.state.prices&&D0.state.prices.map&&D0.state.prices.map.size);const o=$("#out");if(o)o.classList.toggle("np",!has);const D=window.StravikDealer,t=D&&D.tag;$$("[data-p]").forEach(el=>{const v=t?t(el.dataset.p)||"":"";if(el.innerHTML!==v)el.innerHTML=v;});}
 document.addEventListener("stravik-prices",prices);
 
 /* ---------- start: links from the rest of the website ---------- */

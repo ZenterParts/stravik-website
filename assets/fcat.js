@@ -67,7 +67,7 @@ const citem=p=>({key:p.pn,no:p.pn,cat:"Filters",desc:p.d,link:"/filter/"+p.pn+"/
 const cqty=pn=>{const C=window.STV&&STV.Cart;if(!C)return 0;const it=C.items().find(i=>i.key===pn);return it?it.qty||1:0;};
 const addLabel=pn=>{const n=cqty(pn);return n?"In cart ("+n+") · add 1":"Add to cart";};
 function cartAdd(p){if(!window.STV)return;STV.Cart.add(citem(p),1);STV.toast("1 × "+p.pn+" added to your cart");const a=root.getElementById("d-add");if(a)a.textContent=addLabel(p.pn);}
-function prices(){const D=window.StravikDealer,t=D&&D.tag;root.querySelectorAll("[data-p]").forEach(el=>{const v=t?t(el.dataset.p)||"":"";if(el.innerHTML!==v)el.innerHTML=v;});}
+function prices(){const D0=window.StravikDealer,has=!!(D0&&D0.state&&D0.state.prices&&D0.state.prices.map&&D0.state.prices.map.size);const g=root.getElementById("grid");if(g)g.classList.toggle("np",!has);const D=window.StravikDealer,t=D&&D.tag;root.querySelectorAll("[data-p]").forEach(el=>{const v=t?t(el.dataset.p)||"":"";if(el.innerHTML!==v)el.innerHTML=v;});}
 // filters.json -> the catalogue's own data shape: [pn, type code, description, {dimensions}, [OE], {brand: [numbers]}, [[make index, model, variant, engine, fuel, cc, years]]]
 const TCODE={OFL:"OR",AFL:"AP",CFL:"H",FFL:"DE",FKT:"J",CLF:"R"};
 // Priced-only (assets/dealer.js): an approved customer sees only the filters on their price list.
@@ -149,14 +149,14 @@ function card(p){
 const D=(p,k)=>esc((p.dims[k]||'').replace(' mm',''));
 const X=(p,b)=>p.xr[b]?esc(p.xr[b].slice(0,2).join(', '))+(p.xr[b].length>2?' …':''):'';
 function tableView(sl){
-  return `<table class="ptab"><thead><tr><th>Stravik PN</th><th>Description</th><th>H</th><th>OD</th><th>ID</th><th>L</th><th>W</th><th>Thread</th><th>OE</th><th>GUD</th><th>MANN</th><th>MAHLE</th><th>FRAM</th><th>Makes</th></tr></thead><tbody>`+
-  sl.map(p=>`<tr data-pn="${p.pn}" tabindex="0" class="prow"><td><span class="pnl" style="--fc:${col(p.code)}">${p.pn}</span></td><td>${esc(p.d.split('–')[0].trim())}</td>
+  return `<table class="ptab"><thead><tr><th>Stravik PN</th><th>Description</th><th class="num">Your price</th><th>H</th><th>OD</th><th>ID</th><th>L</th><th>W</th><th>Thread</th><th>OE</th><th>GUD</th><th>MANN</th><th>MAHLE</th><th>FRAM</th><th>Makes</th></tr></thead><tbody>`+
+  sl.map(p=>`<tr data-pn="${p.pn}" tabindex="0" class="prow"><td><span class="pnl" style="--fc:${col(p.code)}">${p.pn}</span></td><td>${esc(p.d.split('–')[0].trim())}</td><td class="num"><span class="eprice" data-p="${p.pn}"></span></td>
    <td class="num">${D(p,'Height')}</td><td class="num">${D(p,'Outer diameter')}</td><td class="num">${D(p,'Inside diameter')}</td><td class="num">${D(p,'Length')}</td><td class="num">${D(p,'Width')}</td><td class="num">${esc(p.dims.Thread||'')}</td>
    <td class="num">${esc(p.oe.slice(0,2).join(', '))}${p.oe.length>2?' …':''}</td><td class="num">${X(p,'GUD')}</td><td class="num">${X(p,'MANN')}</td><td class="num">${X(p,'MAHLE')}</td><td class="num">${X(p,'FRAM')}</td><td>${esc(p.makes.slice(0,3).join(', '))}${p.makes.length>3?' +'+(p.makes.length-3):''}</td></tr>`).join('')+'</tbody></table>';}
 function listRow(p){
   const refs=['GUD','MANN','MAHLE','FRAM'].filter(b=>p.xr[b]).map(b=>`${b} <b>${esc(p.xr[b][0])}</b>`).join(' · ');
   return `<div class="lrow" tabindex="0" role="button" data-pn="${p.pn}" style="--fc:${col(p.code)}"><span class="lpn">${p.pn}</span>
-   <span class="ld"><span>${esc(p.d)}</span><span class="lsub">${refs||'&nbsp;'}${p.makes.length?' — '+esc(p.makes.slice(0,4).join(', '))+(p.makes.length>4?' +'+(p.makes.length-4):''):''}</span></span></div>`;}
+   <span class="ld"><span>${esc(p.d)}</span><span class="lsub">${refs||'&nbsp;'}${p.makes.length?' — '+esc(p.makes.slice(0,4).join(', '))+(p.makes.length>4?' +'+(p.makes.length-4):''):''}</span></span><span class="eprice lprice" data-p="${p.pn}"></span></div>`;}
 function renderGrid(reset){
   if(reset){shown=48; list=P.filter(match); if(q) list.sort((a,b)=>rank(a)-rank(b));}
   const sl=list.slice(0,shown), g=$('grid');

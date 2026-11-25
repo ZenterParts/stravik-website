@@ -104,7 +104,7 @@ tr.model td{background:var(--soft);font:700 16px var(--display);color:var(--ink)
 .pnl:hover{border-color:var(--rule)}
 .fuel{font:600 12px var(--display);letter-spacing:.06em;padding:1px 6px;border-radius:3px;background:var(--bg);color:var(--muted)}
 .ptab td{font-size:13.5px}.ptab td,.ptab th{white-space:nowrap}.ptab td:nth-child(2){white-space:normal;min-width:240px}
-.ptab td:nth-child(9){max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.ptab td:nth-child(10){max-width:200px;overflow:hidden;text-overflow:ellipsis}
 .prow{cursor:pointer}.prow:hover td{background:var(--soft)}
 .plist{background:var(--surface);border:1px solid var(--line)}
 .lrow{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;border-left:3px solid var(--rule)}
@@ -151,3 +151,8 @@ h3{font:600 13px var(--display);letter-spacing:.15em;text-transform:uppercase;co
 .eprice:empty{display:none}
 .card .eprice{font-size:16px}
 .fload{max-width:1240px;margin:0 auto;padding:60px 16px;color:var(--steel);text-align:center}
+
+/* prices in the Table and List views (hidden for visitors: .np on #grid) */
+.ptab .eprice{font-size:15px}
+.np .ptab th:nth-child(3),.np .ptab td:nth-child(3){display:none}
+.lrow .lprice{grid-column:3;grid-row:1;font-size:16px;white-space:nowrap;text-align:right}
