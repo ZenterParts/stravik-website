@@ -581,7 +581,7 @@ async function account(app,c,me){
   try{
     const os=must(await c.rpc("stravik_dealer_orders"));
     box.innerHTML=!os.length?`<p class="dhint">No orders yet.</p>`:os.map(o=>`<details class="dorder"><summary><b>${esc(o.order_no)}</b><span>${esc(new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}))}</span><span>${o.lines} line${o.lines===1?"":"s"}, ${o.units} units</span><span>${o.total==null?"":esc(money(o.total,o.currency))}</span><span class="dbadge s">${esc(o.status==="With DPW"?"With fulfilment centre":o.status)}</span></summary>
-      <div class="dorder-b">${o.po_ref?`<p>Your PO: <b>${esc(o.po_ref)}</b></p>`:""}<p>Deliver to: ${esc(o.delivery_address||"")}</p>${o.invoice_no?`<p>Invoice: <b>${esc(o.invoice_no)}</b></p>`:""}${o.waybill_no?`<p>Waybill: <b>${esc(o.waybill_no)}</b></p>`:""}
+      <div class="dorder-b">${o.po_ref?`<p>Your PO: <b>${esc(o.po_ref)}</b></p>`:""}${o.requested_delivery?`<p>Requested delivery: <b>${esc((x=>x?new Date(x+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'')(o.requested_delivery))}</b></p>`:""}<p>Deliver to: ${esc(o.delivery_address||"")}</p>${o.invoice_no?`<p>Invoice: <b>${esc(o.invoice_no)}</b></p>`:""}${o.waybill_no?`<p>Waybill: <b>${esc(o.waybill_no)}</b></p>`:""}
       <table class="ctable"><thead><tr><th>Part</th><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td class="no"><a href="/part/${esc(i.pn)}/">${esc(i.pn)}</a></td><td class="dsc">${esc(i.description||"")}${i.cond==="R"?` <span class="dcond">Remanufactured</span>`:""}</td><td>${i.qty}</td><td>${i.price==null?"on request":esc(money(i.price,o.currency))}</td><td>${esc(money(i.total,o.currency))}</td></tr>`).join("")}</tbody>${o.vat_rate?`<tfoot><tr><td colspan="4">Subtotal</td><td>${esc(money(o.subtotal,o.currency))}</td></tr><tr><td colspan="4">VAT ${Math.round(o.vat_rate*100)}%</td><td>${esc(money(o.vat_amount,o.currency))}</td></tr><tr><td colspan="4"><b>Total</b></td><td><b>${esc(money(o.total,o.currency))}</b></td></tr></tfoot>`:""}</table></div></details>`).join("");
   }catch(e){box.innerHTML=`<p class="dnote bad">${esc(msg(e))}</p>`;}
 }
@@ -620,6 +620,7 @@ async function cart(app){
       :`<p class="dpad dnote">${no.length} part${no.length===1?" is":"s are"} not in your price list (${esc(no.map(l=>l.i.no+(l.cond==="R"?" reman":"")).join(", "))})${d.categories?`: your account orders ${esc(d.categories.join(", "))} only`:""}. Send ${no.length===1?"it":"them"} with the request for price form instead.</p>`}
     ${ok.length?`<form class="enq" id="dof" novalidate>
       <div><label for="o_po">Your order / PO reference</label><input id="o_po" maxlength="60"></div>
+      <div><label for="o_rd">Requested delivery date (optional)</label><input id="o_rd" type="date" min="${new Date(Date.now()+864e5).toISOString().slice(0,10)}"></div>
       <div><label for="o_cn">Contact name</label><input id="o_cn" value="${esc(d.contact_name)}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_ph">Contact phone</label><input id="o_ph" type="tel" value="${esc(d.mobile||d.phone||"")}" required><div class="err">Required.</div></div>
       <div class="full"><label for="o_as">Deliver to</label><select id="o_as">${ADDR.map((a,i)=>`<option value="${i}"${i===(first<0?0:first)?" selected":""}>${esc(a[0]+": "+a[1])}</option>`).join("")}<option value="other"${ADDR.length?"":" selected"}>Another address…</option></select></div>
@@ -649,7 +650,7 @@ async function cart(app){
     const lines=[];ok.forEach(l=>{const q=qty(l),ex=lines.find(x=>x.pn===l.i.no&&x.cond===l.cond);if(ex)ex.qty+=q;else lines.push({pn:l.i.no,qty:q,cond:l.cond});});
     btn.disabled=true;btn.textContent="Sending…";
     try{
-      const r=must(await c.rpc("stravik_place_order",{p:{items:lines,po_ref:f.querySelector("#o_po").value,contact_name:f.querySelector("#o_cn").value,contact_phone:f.querySelector("#o_ph").value,delivery_address:deliverTo(),notes:f.querySelector("#o_no").value}}));
+      const r=must(await c.rpc("stravik_place_order",{p:{items:lines,po_ref:f.querySelector("#o_po").value,requested_delivery:f.querySelector("#o_rd").value,contact_name:f.querySelector("#o_cn").value,contact_phone:f.querySelector("#o_ph").value,delivery_address:deliverTo(),notes:f.querySelector("#o_no").value}}));
       let mail=null;try{mail=(await c.functions.invoke("stravik-dealer-mail",{body:{action:"order",order_no:r.order_no}})).data;}catch(e){}
       ok.forEach(l=>STV.Cart.remove(l.i.key));
       done(app,r.order_no,mail);
@@ -659,7 +660,7 @@ async function cart(app){
 function done(app,no,mail){
   const sent=mail&&mail.status==="sent";
   app.innerHTML=`<div class="wrap"><section class="thanks" aria-labelledby="dty"><div class="tick" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-    <h1 id="dty" tabindex="-1">Order request sent</h1><p>${sent?"Your order request has gone to our fulfilment centre. You'll get a confirmation by email.":"Your order request is saved and we'll pass it to our fulfilment centre."}</p>
+    <h1 id="dty" tabindex="-1">Order request sent</h1><p>${sent?"Your order request has gone to our team. Once approved it goes to our fulfilment centre, and you'll get a confirmation by email.":"Your order request is saved. Once approved by our team it goes to our fulfilment centre."}</p>
     <div class="refbox"><span>Your order number</span><strong>${esc(no)}</strong></div>
     <p>The fulfilment centre will contact you to confirm delivery and invoicing. Quote this number in any correspondence.</p>
     <div class="row"><a class="btn gold" href="#/dealer">Your orders</a><a class="btn line" href="#/products">Back to the catalogue</a></div></section></div>`;
