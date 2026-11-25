@@ -196,6 +196,7 @@ function drawList(app,data){
 function home(app,redraw){
   const D=SD();if(!D||!hasSession())return false;
   if(D.pending&&D.pending()){wait(app);D.ready().then(()=>{if(!location.hash.replace(/^#\/?/,"")&&typeof redraw==="function")redraw();});return true;}
+  const hq=dealer();if(hq&&hq.status==="Approved"&&hq.account_type==="head_office"){wait(app);location.replace("/autobarn/");return true;}   // a head office's home is its dashboard
   const data=stock();if(!data)return false;
   if(inNetwork()&&listRows(data).length)drawList(app,data);else draw(app,data);return true;
 }

@@ -248,8 +248,8 @@ async function goHome(){S.loading=null;const me=await ensure();const to=homeFor(
 // the account menu behind the person icon: the signed-in account's own links
 function acctItems(me){
   const d=me.dealer,it=[],sa=d&&d.country==="South Africa"&&["T1","T2","T3","T4","T5","PREF"].indexOf(d.price_group)>=0;
-  if(d&&d.status==="Approved"){
-    if(d.account_type==="head_office")it.push(["/autobarn/","Head office dashboard"]);
+  if(d&&d.status==="Approved"&&d.account_type==="head_office")it.push(["/autobarn/","Head office dashboard"],["/#/dealer","Your account"]);
+  else if(d&&d.status==="Approved"){
     it.push(sa?["/","Your products and prices"]:["/#/products","Browse the catalogue"]);
     it.push(["/#/cart","Your cart"],["/#/dealer","Your orders and account"]);
   }else if(d)it.push(["/#/dealer",d.status==="Pending"?"Your registration":"Your account"]);
