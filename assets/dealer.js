@@ -228,12 +228,51 @@ function paintNav(){
   let a=nav.querySelector("a[data-nav=dealer]");
   if(!a){a=document.createElement("a");a.dataset.nav="dealer";a.href="/#/dealer";a.className="nav-ic nav-dealer";
     const ref=nav.querySelector('a[data-nav=contact]');nav.insertBefore(a,ref||null);}
-  let portal="";try{portal=localStorage.getItem("stravik-portal")||"";}catch(e){}
-  if((portal==="/autobarn/"||portal==="/insync/")&&!nav.querySelector("a[data-nav=portal]")){const p=document.createElement("a");p.dataset.nav="portal";p.href=portal;p.textContent=portal==="/insync/"?"DP World InSync portal":"Autobarn portal";nav.insertBefore(p,a);}
+  const old=nav.querySelector("a[data-nav=portal]");if(old)old.remove();
   const d=D();
   const label=d?(d.trading_name||d.company_name):S.me?"My account":"Customer login";
   a.title=d?"Your customer account":"Sign in for customer prices and ordering";
   a.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="nav-l">${esc(label.length>22?label.slice(0,21)+"…":label)}</span>`;
+  acctMenu(nav,a,label);
+}
+// where an account belongs after signing in: DP World InSync users to their portal, a head office to its dashboard,
+// a store of a group (Autobarn) to its product list on the home page; null = the account page
+function homeFor(me){
+  if(!me)return null;const d=me.dealer;
+  if(d&&d.status==="Approved"&&d.account_type==="head_office")return "/autobarn/";
+  if(!d&&me.partner&&!me.staff)return "/insync/";
+  if(d&&d.status==="Approved"&&d.network)return "/";
+  return null;
+}
+async function goHome(){S.loading=null;const me=await ensure();const to=homeFor(me);if(to==="/"){if(location.pathname==="/")location.hash="#/";else location.href="/";return true;}if(to){location.href=to;return true;}return false;}
+// the account menu behind the person icon: the signed-in account's own links
+function acctItems(me){
+  const d=me.dealer,it=[],sa=d&&d.country==="South Africa"&&["T1","T2","T3","T4","T5","PREF"].indexOf(d.price_group)>=0;
+  if(d&&d.status==="Approved"){
+    if(d.account_type==="head_office")it.push(["/autobarn/","Head office dashboard"]);
+    it.push(sa?["/","Your products and prices"]:["/#/products","Browse the catalogue"]);
+    it.push(["/#/cart","Your cart"],["/#/dealer","Your orders and account"]);
+  }else if(d)it.push(["/#/dealer",d.status==="Pending"?"Your registration":"Your account"]);
+  if(me.partner)it.push(["/insync/","DP World InSync portal"]);
+  if(me.staff)it.push(["/admin/","Admin site"]);
+  if(!d&&!me.partner&&!me.staff)it.push(["/#/dealer","Register your business"]);
+  return it;
+}
+let acctWired=false;
+function acctOpen(o){const m=document.getElementById("acctmenu"),a=document.querySelector("a[data-nav=dealer]");if(!m)return;m.hidden=!o;if(a)a.setAttribute("aria-expanded",String(!!o));}
+function acctMenu(nav,a,label){
+  let w=a.parentElement.classList.contains("acct-wrap")?a.parentElement:null,m=document.getElementById("acctmenu");
+  if(!S.me){if(m)m.remove();a.onclick=null;a.removeAttribute("aria-haspopup");a.removeAttribute("aria-expanded");return;}
+  if(!w){w=document.createElement("span");w.className="acct-wrap";a.parentElement.insertBefore(w,a);w.appendChild(a);}
+  if(!m){m=document.createElement("div");m.id="acctmenu";m.className="acct-menu";m.hidden=true;w.appendChild(m);}
+  a.setAttribute("aria-haspopup","true");a.setAttribute("aria-controls","acctmenu");a.setAttribute("aria-expanded",String(!m.hidden));
+  a.onclick=e=>{e.preventDefault();acctOpen(m.hidden);};
+  m.innerHTML=`<div class="acct-who"><b>${esc(label)}</b><span>${esc(S.me.email||"")}</span></div>`+acctItems(S.me).map(x=>`<a href="${x[0]}">${esc(x[1])}</a>`).join("")+`<button type="button" class="acct-out">Sign out</button>`;
+  m.querySelectorAll("a").forEach(x=>x.addEventListener("click",()=>acctOpen(false)));
+  m.querySelector(".acct-out").onclick=async()=>{acctOpen(false);try{const c=await client();await signOut(c);}catch(e){location.href="/#/dealer";}};
+  if(!acctWired){acctWired=true;
+    document.addEventListener("click",e=>{const mm=document.getElementById("acctmenu");if(mm&&!mm.hidden&&!e.target.closest(".acct-wrap"))acctOpen(false);});
+    document.addEventListener("keydown",e=>{const mm=document.getElementById("acctmenu");if(e.key==="Escape"&&mm&&!mm.hidden){acctOpen(false);const x=document.querySelector("a[data-nav=dealer]");if(x)x.focus();}});}
 }
 function tag(pn,cond){const m=S.prices&&(cond==="R"?S.prices.rmap:S.prices.map);if(!m||!m.has(pn))return null;return esc(money(m.get(pn).p,CUR()));}
 function paintPrices(root){
@@ -317,7 +356,8 @@ async function page(app,parts){
   if(!session)return signIn(app,c,/[?&]m=new\b/.test(location.hash)?"new":"in");
   S.loading=null;const me=await ensure();
   if(!me)return signIn(app,c);
-  if(me.staff&&!me.dealer){app.innerHTML=head("Customer account")+`<div class="wrap dwrap"><p class="dnote">You're signed in as <b>${esc(me.email)}</b>, a staff account. Customer accounts are for our trade customers; manage them in the <a href="/admin/#/dealers">admin site</a>.</p><p><button class="btn line" type="button" id="dout">Sign out</button></p></div>`;app.querySelector("#dout").onclick=()=>signOut(c);return;}
+  if(!me.dealer&&me.partner&&!me.staff){location.href="/insync/";return;}
+  if(me.staff&&!me.dealer){app.innerHTML=head("Customer account")+`<div class="wrap dwrap"><p class="dnote">You're signed in as <b>${esc(me.email)}</b>, a staff account. Customer accounts are for our trade customers; manage them in the <a href="/admin/#/dealers">admin site</a>.${me.partner?` You are also a DP World InSync user: <a href="/insync/">open the DP World InSync portal</a>.`:""}</p><p><button class="btn line" type="button" id="dout">Sign out</button></p></div>`;app.querySelector("#dout").onclick=()=>signOut(c);return;}
   if(!me.dealer||(parts[0]==="register"&&["Pending","Rejected"].includes(me.dealer.status)))return regForm(app,c,me);
   return account(app,c,me);
 }
@@ -357,7 +397,8 @@ function signIn(app,c,mode){
       }else{
         const r=await c.auth.signInWithPassword({email:e,password:p});
         if(r.error)throw r.error;
-        S.loading=null;page(app,[]);
+        if(await goHome())return;
+        page(app,[]);
       }
     }catch(err){say(/confirm/i.test(err.message)?"Please confirm your email first: open the link we sent to "+esc(e)+".":esc(msg(err)));btn.disabled=false;}
   });
@@ -374,7 +415,7 @@ function pwPage(app,c,session){
   f.addEventListener("submit",async ev=>{ev.preventDefault();const a=f.querySelector("#np1").value,b=f.querySelector("#np2").value,st=f.querySelector("#pst");
     if(a.length<8||a!==b){st.textContent=a.length<8?"At least 8 characters.":"The two passwords don't match.";st.classList.add("show");return;}
     const r=await c.auth.updateUser({password:a});if(r.error){st.textContent=msg(r.error);st.classList.add("show");return;}
-    toast("Password saved");let portal="";try{portal=localStorage.getItem("stravik-portal")||"";}catch(e){}if(portal==="/autobarn/"||portal==="/insync/"){location.href=portal;return;}go("#/dealer");});
+    toast("Password saved");if(await goHome())return;go("#/dealer");});
 }
 
 // ---------- registration form ----------

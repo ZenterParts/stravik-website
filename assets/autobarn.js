@@ -8,7 +8,6 @@
 // Nothing here is in a public file: every function answers only the signed-in account it is meant for.
 (function(){
 "use strict";
-try{localStorage.setItem("stravik-portal","/autobarn/");}catch(e){}   // the main site then shows a link back to this page
 const NET=document.body.dataset.network||"autobarn",NAME=document.body.dataset.networkName||"Autobarn";
 const app=document.getElementById("app");
 const SD=()=>window.StravikDealer;
@@ -327,6 +326,7 @@ async function start(){
   const me=await SD().refresh();
   if(!me)return signIn();
   const d=me.dealer;
+  if(!d&&me.partner&&!me.staff){location.href="/insync/";return;}   // a DP World InSync user belongs on its portal
   if(!d)return note(NAME,me.staff?`You are signed in as <b>${esc(me.email)}</b>, a staff account. Store networks are managed in the <a href="/admin/#/networks">admin site</a>.`:`You are signed in as <b>${esc(me.email)}</b>, but your store is not registered yet. <a href="/#/dealer/register">Register your store</a>.`);
   if(d.status!=="Approved")return note(d.trading_name||d.company_name,d.status==="Pending"?`Your registration is with our team. We will email <b>${esc(d.email)}</b> when your account is approved. <a href="/#/dealer">See your registration</a>.`:`Your account is not active at the moment. <a href="/#/dealer">See your account</a> or <a href="/#/contact">contact us</a>.`);
   if(d.account_type!=="head_office")return store(d);

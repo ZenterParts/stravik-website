@@ -1267,3 +1267,20 @@ form.enq input[type=date]::-webkit-date-and-time-value{text-align:left}
 main{overflow-x:clip}
 /* warranty form: the serial number from the QR code on the battery is locked */
 form.enq input.locked{cursor:not-allowed;opacity:.85;border-style:dashed}
+
+/* account menu behind the person icon (paintNav / acctMenu in dealer.js) */
+.acct-wrap{position:relative;display:inline-flex}
+.acct-menu{position:absolute;right:0;top:calc(100% + 10px);width:290px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 22px 44px -20px rgba(21,38,74,.4);padding:8px;z-index:60}
+.acct-menu[hidden]{display:none}
+.acct-menu .acct-who{display:grid;gap:2px;padding:8px 12px 10px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+.acct-menu .acct-who b{font-size:15px;color:var(--ink)}
+.acct-menu .acct-who span{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.acct-menu a,.acct-menu .acct-out{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font:inherit;font-weight:600;font-size:15px;color:var(--ink);text-decoration:none;background:none;border:0;cursor:pointer}
+.acct-menu a:hover,.acct-menu .acct-out:hover{background:var(--gold-tint)}
+.acct-menu .acct-out{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 8px 8px;color:var(--muted)}
+@media (max-width:860px){
+  .acct-wrap{display:block}
+  .acct-wrap > a{font-size:16px}
+  .acct-menu{position:static;width:auto;box-shadow:none;border:0;border-left:3px solid var(--gold);border-radius:0;margin:2px 0 8px 12px;padding:2px 0 2px 6px}
+  .acct-menu .acct-who b{display:none}
+}

@@ -8,7 +8,6 @@
 // Uses the same sign-in as customer accounts (assets/dealer.js); styles from assets/autobarn.css.
 (function(){
 "use strict";
-try{localStorage.setItem("stravik-portal","/insync/");}catch(e){}   // the main site then shows a link back to this page
 const app=document.getElementById("app"),NAME="DP World InSync";
 const SD=()=>window.StravikDealer;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -215,7 +214,7 @@ async function start(){
   if(!session)return signIn();
   try{
     H.data=must(await C.rpc("stravik_dpw_orders"));
-    if(!H.data)return note(`You are signed in as <b>${esc(session.user.email)}</b>, which is not on the ${esc(NAME)} list. Ask your Stravik contact to add this email address, then reload the page.`);
+    if(!H.data)return note(`You are signed in as <b>${esc(session.user.email)}</b>, which is not on the ${esc(NAME)} list. Ask your Stravik contact to add this email address, then reload the page. If you are a Stravik customer, <a href="/">go to your account on stravikparts.com</a>.`);
     portal(session.user.email);
   }catch(e){note(esc(msg(e)));}
 }
