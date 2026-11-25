@@ -91,7 +91,7 @@ function store(d){
 // head office dashboard
 // ---------------------------------------------------------------------------------------------------------------
 const H={data:null,sug:new Map(),dirty:new Map(),tab:"orders",period:"all",store:"",status:"",text:"",stores:"all",open:new Set(),ranges:new Set()};
-const TABS=[["orders","Orders"],["stores","Stores"],["products","Parts ordered"],["prices","Price list"],["launch","Launch dates"]];
+const TABS=[["orders","Orders"],["stores","Stores"],["products","Parts ordered"],["prices","Price list"],["launch","Launch dates"],["allstar","All Star"]];
 const PERIODS=[["all","All orders"],["month","This month"],["last","Last month"],["90","Last 90 days"]];
 
 function inPeriod(o){
@@ -133,7 +133,7 @@ function stats(reg){
     [num(os.reduce((a,o)=>a+(o.units||0),0)),"units ordered"],[money(os.reduce((a,o)=>a+Number(o.subtotal||0),0)),"order value excl. VAT"]];
   app.querySelector("#abstats").innerHTML=cells.map(c=>`<div class="ab-stat"><b>${esc(c[0])}</b><span>${esc(c[1])}</span></div>`).join("");
 }
-function pane(){({orders:paneOrders,stores:paneStores,products:paneProducts,prices:panePrices,launch:paneLaunch})[H.tab]();}
+function pane(){({orders:paneOrders,stores:paneStores,products:paneProducts,prices:panePrices,launch:paneLaunch,allstar:paneAllStar})[H.tab]();}
 const P=()=>app.querySelector("#abpane");
 
 // filters shared by Orders and Parts ordered
@@ -277,6 +277,24 @@ async function saveSug(){
 async function loadSug(){H.sug=new Map(must(await C.rpc("stravik_my_price_suggestions")).map(x=>[x[0],Number(x[1])]));}
 
 // ---- Launch dates: the ranges coming to South Africa and when
+// ---- All Star: each store's counter staff, monthly reports and the quarter against its target (no staff names or shares)
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const mName=p=>{const m=/^(\d{4})-(\d{2})/.exec(p||"");return m?MONTHS[+m[2]-1]+" "+m[1]:"";};
+function paneAllStar(){
+  if(!H.as){P().innerHTML=`<p class="loading">Loading…</p>`;C.rpc("stravik_as_hq").then(r=>{H.as=r.data||{stores:[]};if(H.tab==="allstar")paneAllStar();});return;}
+  const A=H.as,S=A.stores||[],n=new Date(),last=new Date(n.getFullYear(),n.getMonth()-1,1),lp=last.getFullYear()+"-"+String(last.getMonth()+1).padStart(2,"0");
+  const tier=p=>p>=150?"Gold":p>=100?"Silver":p>=60?"Bronze":"";
+  const rows=S.map(s=>{const v=Number(s.quarter_value||0),T=Number(s.quarterly_target||0),pct=T?v/T*100:0,rp=(s.reports||[]),lr=rp.find(r=>r.period.slice(0,7)===lp);return Object.assign({},s,{v,pct,lr,last:rp[0]});})
+    .sort((a,b)=>b.pct-a.pct||a.name.localeCompare(b.name));
+  const sent=rows.filter(r=>r.lr).length,staff=rows.filter(r=>r.counter_staff>0).length,tot=rows.reduce((a,r)=>a+r.v,0);
+  P().innerHTML=`<p class="ab-lead">Stravik All Star in your stores: counter staff registered, the monthly sales reports and each store's sales this quarter against its target. Sales count at the store's buy price, for the parts covered by its invoices.</p>
+    <div class="ab-bars" style="margin-bottom:18px"><div class="ab-bar"><span class="l">Reports for ${esc(mName(lp))}</span><span class="t"><i style="width:${rows.length?Math.round(sent/rows.length*100):0}%"></i></span><span class="v">${num(sent)} of ${num(rows.length)}</span></div>
+      <div class="ab-bar"><span class="l">Counter staff registered</span><span class="t"><i style="width:${rows.length?Math.round(staff/rows.length*100):0}%"></i></span><span class="v">${num(staff)} of ${num(rows.length)}</span></div></div>
+    <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Store</th><th>Class</th><th class="n">Counter staff</th><th class="n">This quarter</th><th class="n">% of target</th><th>Tier</th><th>${esc(mName(lp))}</th></tr></thead><tbody>${rows.map(r=>
+      `<tr><td><b>${esc(r.name)}</b>${r.town?`<div class="ab-dim">${esc(r.town)}</div>`:""}</td><td>${esc(r.class||"")}</td><td class="n">${r.registered?num(r.counter_staff):`<span class="ab-dim">Not registered</span>`}</td><td class="n">${r.v?esc(money(r.v)):""}</td><td class="n">${r.v?r.pct.toFixed(1)+"%":""}</td><td>${tier(r.pct)?`<span class="ab-pill ok">${tier(r.pct)}</span>`:""}</td><td>${r.lr?(r.lr.late?`<span class="ab-pill">Sent late</span>`:`<span class="ab-pill ok">Sent</span>`):(r.registered?`<span class="ab-dim">Not sent</span>`:"")}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td colspan="3"><b>All stores</b></td><td class="n"><b>${esc(money(tot))}</b></td><td colspan="3"></td></tr></tfoot></table></div>
+    <p class="dhint">Tiers: Bronze at 60% of the quarterly target (1% owner rebate), Silver at 100% (2%), Gold at 150% (3%), on all the store's Stravik sales of the quarter.</p>`;
+}
 function paneLaunch(){
   const rs=H.data.ranges;
   P().innerHTML=!rs.length?empty("No launch dates yet","The ranges for South Africa appear here once their stock is on order."):

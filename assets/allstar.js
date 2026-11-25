@@ -100,10 +100,14 @@ function counter(me){
   `<div class="wrap ab-note">
     <div class="ab-empty" style="text-align:left"><h3>Your All Star</h3>
       <p>Each month your store reports its Stravik sales. The counter team earns 2% of the store's Stravik sales, split by salesperson. Here you will see your Stravik sales, your share, the credit note it was paid in, and when your store paid you.</p>
-      <p>Nothing has been reported for your store yet. Your figures appear after the first monthly report.</p></div>
+      <div id="asmine"><p>Nothing has been reported for your store yet. Your figures appear after the first monthly report.</p></div></div>
     <p class="dhint">Signed in with ${esc(showMobile(me.mobile))}. <button type="button" class="linkbtn" id="asout">Sign out</button></p>
   </div>`;
   app.querySelector("#asout").onclick=signOut;
+  C.rpc("stravik_as_counter").then(r=>{const L=r.data||[],el=app.querySelector("#asmine");if(!el||!L.length)return;
+    el.innerHTML=`<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Your units</th><th class="n">Your Stravik sales</th><th class="n">Your share</th><th>Status</th></tr></thead><tbody>${L.map(m=>
+      `<tr><td><b>${esc(monthName(m.period))}</b></td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.value))}</td><td class="n"><b>${esc(rand(m.share))}</b>${m.booster?` <span class="ab-dim">4%</span>`:""}</td><td>${m.status==="Approved"?"Approved":"Being checked"}</td></tr>`).join("")}</tbody></table></div>
+      <p class="dhint">Your sales are counted at your store's buy price, for the parts covered by its invoices. Your share is paid by your store through payroll once the month is approved.</p>`;});
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -192,7 +196,23 @@ const monthName=p=>{const m=/^(\d{4})-(\d{2})/.exec(p||"");return m?MONTHS[+m[2]
 const rand=v=>v==null||v===""?"":"R"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const num=n=>Number(n||0).toLocaleString("en-US");
 const R={setup:null,draft:null,view:null,period:null};
-async function loadSetup(){R.setup=must(await C.rpc("stravik_sales_setup"));}
+async function loadSetup(){const r=await Promise.all([C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner")]);R.setup=must(r[0]);R.calc=must(r[1]);}
+const qName=d=>{const m=/^(\d{4})-(\d{2})/.exec(d||"");return m?"Q"+(Math.floor((+m[2]-1)/3)+1)+" "+m[1]:"";};
+const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
+// the quarter so far: checked sales against the quarterly target T, the tier reached and what the next one needs
+function rewards(){
+  const A=R.calc;if(!A||!A.quarterly_target)return "";
+  const n=new Date(),cq=n.getFullYear()+"-"+String(Math.floor(n.getMonth()/3)*3+1).padStart(2,"0")+"-01";
+  const q=(A.quarters||[]).find(x=>x.quarter===cq)||{value_checked:0,reports:0,reports_due:0,staff_ok:A.counter_staff>0,award:0};
+  const T=Number(A.quarterly_target),v=Number(q.value_checked||0),pct=T?v/T*100:0;
+  const tiers=[[60,"Bronze","1%"],[100,"Silver","2%"],[150,"Gold","3%"]],reached=tiers.filter(t=>pct>=t[0]).pop(),next=tiers.find(t=>pct<t[0]);
+  const pool=(A.months||[]).filter(m=>m.period>=cq&&m.period<new Date(n.getFullYear(),Math.floor(n.getMonth()/3)*3+3,1).toISOString().slice(0,10)).reduce((a,m)=>a+Number(m.pool||0),0);
+  return `<div class="as-q"><div class="as-qh"><h2 class="ab-h">${esc(qName(cq))} so far</h2><span>${reached?`<span class="ab-pill ok">${reached[1]}: ${reached[2]} owner rebate</span>`:`<span class="ab-pill">Not yet Bronze</span>`}</span></div>
+    <div class="as-bar" role="img" aria-label="${pct.toFixed(1)}% of the quarterly target"><i style="width:${Math.min(100,pct/150*100).toFixed(1)}%"></i>${tiers.map(t=>`<b style="left:${(t[0]/150*100).toFixed(1)}%"><span>${t[1]}</span></b>`).join("")}</div>
+    <p><b>${esc(rand(v))}</b> of your quarterly target ${esc(rand(T))} (${pct.toFixed(1)}%), counted at your buy price and covered by your invoices.${next?` ${esc(rand(next[0]/100*T-v))} more for ${next[1]} (${next[2]} on all your Stravik sales of the quarter).`:" You have reached Gold."}</p>
+    <p class="dhint">Counter pool so far this quarter: <b>${esc(rand(pool))}</b>. Rebate conditions: monthly reports ${q.reports_due?`${num(Math.min(q.reports,q.reports_due))} of ${num(q.reports_due)} sent`:"sent each month"} · counter staff registered: ${A.counter_staff?num(A.counter_staff):"none yet"} · core range on shelf and account in good standing are checked by your Stravik field team.${A.first_delivery?"":" Your first delivery has not arrived yet."}</p>
+    ${q.award?`<p class="dhint">You are leading your class for <b>Store of the Quarter</b> (R2,500 extra for your counter team), confirmed when the quarter ends.</p>`:""}</div>`;
+}
 // the months a report can be for: the last 12 ended months (a test store may also report the current month)
 function periods(){
   const n=new Date(),out=[];
@@ -279,9 +299,9 @@ function paneReports(){
       <button type="button" class="btn line small" id="rtpl">Download the template</button>
     </div>
     <p class="dhint">Excel (.xlsx) or CSV. Part numbers can be Stravik numbers or your own codes: your own codes are matched to Stravik numbers once, and remembered. Sending a month again replaces that month's report until it is approved.</p>
+    ${rewards()}
     <h2 class="ab-h">Your reports</h2>
-    ${S.reports.length?`<div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Lines</th><th class="n">Units</th><th class="n">Value at your buy price</th><th class="n">Value in your POS</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>
-      `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td><span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status)}</span>${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n">${num(r.lines)}</td><td class="n">${num(r.units)}</td><td class="n"><b>${esc(rand(r.value_credited))}</b></td><td class="n">${esc(rand(r.value_reported))}</td><td>${esc(day(r.submitted_at))}</td></tr>`).join("")}</tbody></table></div>`:
+    ${S.reports.length?`<div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Lines</th><th class="n">Units</th><th class="n">Value at your buy price</th><th class="n">Covered by your invoices</th><th class="n">Counter pool</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>{const c=calcOf(r.id)||{};return `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td><span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status)}</span>${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n">${num(r.lines)}</td><td class="n">${num(r.units)}</td><td class="n">${esc(rand(r.value_credited))}</td><td class="n"><b>${esc(rand(c.value_checked))}</b></td><td class="n">${esc(rand(c.pool))}${c.booster?` <span class="ab-dim">4%</span>`:""}</td><td>${esc(day(r.submitted_at))}</td></tr>`;}).join("")}</tbody></table></div>`:
       `<div class="ab-empty"><h3>No reports yet</h3><p>Your first report is due by the 5th of the month after your first Stravik delivery.</p></div>`}`;
   P.querySelector("#rper").onchange=e=>{R.period=e.target.value;};
   const file=P.querySelector("#rfile");P.querySelector("#rup").onclick=()=>{R.period=P.querySelector("#rper").value;file.click();};
@@ -340,7 +360,11 @@ function paneView(){
   P.innerHTML=`<p><button type="button" class="linkbtn" id="rback">← All reports</button></p>
     <h2 class="ab-h">${esc(monthName(r.period))} <span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status)}</span></h2>
     <p class="ab-lead">${esc(r.file_name||"")} · sent ${esc(day(r.submitted_at))}${r.late?" (after the 5th)":""} · ${num(r.lines)} ${r.lines===1?"line":"lines"}, ${num(r.units)} ${r.units===1?"unit":"units"}, <b>${esc(rand(r.value_credited))}</b> at your buy price excl. VAT (${esc(rand(r.value_reported))} in your POS).</p>
-    <h2 class="ab-h">By salesperson</h2><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Counter person</th><th class="n">Units</th><th class="n">Value at your buy price</th></tr></thead><tbody>${people.map(x=>`<tr><td>${esc(x.label)}</td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
+    ${(()=>{const c=calcOf(r.id);if(!c)return "";const nc=Number(c.not_covered||0);
+      return `<div class="as-q"><p>Covered by your invoices: <b>${esc(rand(c.value_checked))}</b>${nc>0.004?` · <span class="flag">${esc(rand(nc))} not covered</span>: more units reported than invoiced to your store for these parts, so they are not paid`:""}. Counter pool: <b>${esc(rand(c.pool))}</b> (${c.booster?"4% launch booster in your first 60 days":"2%"} of the covered value).</p>
+        <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Counter person</th><th class="n">Units</th><th class="n">Covered value</th><th class="n">Share of the pool</th></tr></thead><tbody>${(c.people||[]).map(p=>`<tr><td>${p.name?esc(p.name):`<span class="ab-dim">Not assigned: you split this by name</span>`}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td><td class="n"><b>${esc(rand(p.share))}</b></td></tr>`).join("")}</tbody></table></div>
+        ${c.award?`<p class="dhint">Your store leads its class for <b>Store of the Month</b> with ${esc(String(c.pct))}% of its monthly target: R1,000 extra for the counter team, confirmed when the month is approved.</p>`:""}</div>`;})()}
+    <h2 class="ab-h">By salesperson (as reported)</h2><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Counter person</th><th class="n">Units</th><th class="n">Value at your buy price</th></tr></thead><tbody>${people.map(x=>`<tr><td>${esc(x.label)}</td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
     <h2 class="ab-h">By part</h2><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th class="n">Units</th><th class="n">Value at your buy price</th></tr></thead><tbody>${parts.map(x=>`<tr><td>${esc(x.label)}</td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
     <p><button type="button" class="btn line small" id="rxls">Download the lines</button></p>`;
   P.querySelector("#rback").onclick=()=>{R.view=null;paneReports();};
