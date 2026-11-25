@@ -241,6 +241,7 @@ function homeFor(me){
   if(!me)return null;const d=me.dealer;
   if(d&&d.status==="Approved"&&d.account_type==="head_office")return "/autobarn/";
   if(!d&&me.partner&&!me.staff)return "/insync/";
+  if(!d&&me.counter&&!me.staff)return "/allstar/";
   if(d&&d.status==="Approved"&&d.network)return "/";
   return null;
 }
@@ -253,6 +254,8 @@ function acctItems(me){
     it.push(sa?["/","Your products and prices"]:["/#/products","Browse the catalogue"]);
     it.push(["/#/cart","Your cart"],["/#/dealer","Your orders and account"]);
   }else if(d)it.push(["/#/dealer",d.status==="Pending"?"Your registration":"Your account"]);
+  if(d&&d.status==="Approved"&&d.network&&d.account_type!=="head_office")it.push(["/allstar/","All Star"]);
+  if(!d&&me.counter)it.push(["/allstar/","Your All Star"]);
   if(me.partner)it.push(["/insync/","DP World InSync portal"]);
   if(me.staff)it.push(["/admin/","Admin site"]);
   if(!d&&!me.partner&&!me.staff)it.push(["/#/dealer","Register your business"]);
@@ -357,6 +360,7 @@ async function page(app,parts){
   S.loading=null;const me=await ensure();
   if(!me)return signIn(app,c);
   if(!me.dealer&&me.partner&&!me.staff){location.href="/insync/";return;}
+  if(!me.dealer&&me.counter&&!me.staff){location.href="/allstar/";return;}
   if(me.staff&&!me.dealer){app.innerHTML=head("Customer account")+`<div class="wrap dwrap"><p class="dnote">You're signed in as <b>${esc(me.email)}</b>, a staff account. Customer accounts are for our trade customers; manage them in the <a href="/admin/#/dealers">admin site</a>.${me.partner?` You are also a DP World InSync user: <a href="/insync/">open the DP World InSync portal</a>.`:""}</p><p><button class="btn line" type="button" id="dout">Sign out</button></p></div>`;app.querySelector("#dout").onclick=()=>signOut(c);return;}
   if(!me.dealer||(parts[0]==="register"&&["Pending","Rejected"].includes(me.dealer.status)))return regForm(app,c,me);
   return account(app,c,me);
@@ -375,7 +379,7 @@ function signIn(app,c,mode){
       <div class="full"><button class="btn gold" type="submit" id="dgo">${mode==="new"?"Create account":"Sign in"}</button>${mode==="in"?` <button type="button" class="linkbtn" id="dforgot">Forgot your password?</button>`:""}</div>
       <div class="status" id="dst" role="alert"></div>
     </form></div>
-    <aside class="dside"><h2>Why register?</h2><ul><li>See your prices on every catalogue page</li><li>Send order requests online; our fulfilment centre delivers and invoices</li><li>Track your orders and their invoices</li></ul><p class="dhint">Accounts are reviewed by our team before prices are shown.</p></aside></div>`;
+    <aside class="dside"><h2>Why register?</h2><ul><li>See your prices on every catalogue page</li><li>Send order requests online; our fulfilment centre delivers and invoices</li><li>Track your orders and their invoices</li></ul><p class="dhint">Accounts are reviewed by our team before prices are shown.</p><p class="dhint">Counter staff on Stravik All Star: <a href="/allstar/">sign in with your mobile number</a>.</p></aside></div>`;
   app.querySelectorAll(".dtabs button").forEach(b=>b.onclick=()=>signIn(app,c,b.dataset.m));
   const f=app.querySelector("#dauth"),st=f.querySelector("#dst"),btn=f.querySelector("#dgo");
   const say=(h,good)=>{st.innerHTML=h;st.classList.add("show");st.classList.toggle("ok",!!good);};

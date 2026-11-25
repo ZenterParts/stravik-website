@@ -133,6 +133,16 @@
 @media (max-width:900px){.is-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.is-grid{grid-template-columns:1fr}}
 @media (max-width:520px){.is-fields{grid-template-columns:1fr}}
 
+/* All Star page (assets/allstar.js) */
+.ab-switch{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.ab-switch button{font:inherit;font-weight:600;background:none;border:0;padding:10px 14px;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.ab-switch button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.as-form{padding:14px 16px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:6px}
+.ab-od .as-form{margin:6px 0}
+.as-form .dhint{margin:8px 0 10px}
+.as-acts{white-space:nowrap}
+.as-acts .linkbtn+.linkbtn{margin-left:14px}
+
 /* Portal pages (/autobarn/, /insync/): no public menu, cart button or footer links, so nobody leaves the portal by accident */
 body.portal header.site nav.main,body.portal header.site .menu-btn,body.portal #fcart,body.portal footer.site .cols > div:not(.about),body.portal footer.site .staff{display:none !important}
 body.portal footer.site .cols{display:block}
