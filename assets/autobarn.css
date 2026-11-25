@@ -146,3 +146,11 @@
 /* Portal pages (/autobarn/, /insync/): no public menu, cart button or footer links, so nobody leaves the portal by accident */
 body.portal header.site nav.main,body.portal header.site .menu-btn,body.portal #fcart,body.portal footer.site .cols > div:not(.about),body.portal footer.site .staff{display:none !important}
 body.portal footer.site .cols{display:block}
+
+/* All Star: monthly sales reports */
+.as-up{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 14px;margin:4px 0 8px}
+.as-up label{display:grid;gap:5px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.as-up select{font:inherit;font-size:15px;padding:9px 11px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.as-sel{font:inherit;font-size:14.5px;padding:7px 9px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);width:100%;max-width:440px}
+.ab-dash .dnote{margin:14px 0}
+.ab-save button:disabled{opacity:.5;cursor:default}
