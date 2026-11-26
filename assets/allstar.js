@@ -264,8 +264,8 @@ function owner(email){
   </div>`;
   app.querySelector("#asout").onclick=signOut;
   app.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{
-    if(R.draft&&!confirm("Leave this report without sending it?"))return;
-    const p=b.dataset.open;O.panel=O.panel===p&&b.classList.contains("as-act")?null:p;R.draft=null;R.view=null;owner(email);
+    if((R.draft||(R.quick&&R.quick.dirty))&&!confirm("Leave this report without sending it?"))return;
+    const p=b.dataset.open;O.panel=O.panel===p&&b.classList.contains("as-act")?null:p;R.draft=null;R.view=null;R.quick=null;owner(email);
     const el=app.querySelector("#aspanel");if(el&&O.panel)el.scrollIntoView({behavior:"smooth",block:"start"});});
   countUp(app);
   panel();
@@ -399,18 +399,20 @@ function personOf(name){
 }
 function paneReports(){
   const P=app.querySelector("#aspanel"),S=R.setup;
+  if(R.quick)return paneQuick();
   if(R.draft)return paneDraft();
   if(R.view)return paneView();
   const ps=periods();if(!R.period||ps.indexOf(R.period)<0)R.period=ps[0];
   const done=new Map(S.reports.map(r=>[r.period.slice(0,7),r]));
   P.innerHTML=`<section class="as-panel"><h2 class="ab-h">Send your monthly sales report</h2>
-    <p class="ab-lead">By the 5th, upload last month's Stravik sales exported from your POS: invoice date, invoice number, part number, quantity, value and salesperson. Your own part codes are matched to Stravik numbers once, and remembered.</p>
-    <div class="as-up">
-      <label>Month<select id="rper">${ps.map(p=>`<option value="${p}"${p===R.period?" selected":""}>${monthName(p)}${done.has(p)?" (sent)":""}</option>`).join("")}</select></label>
-      <button type="button" class="btn gold" id="rup">Upload the sales report</button><input type="file" id="rfile" accept=".xlsx,.csv,.txt" hidden>
-      <button type="button" class="btn line small" id="rtpl">Download the template</button>
+    <p class="ab-lead">By the 5th, tell us how many Stravik parts you sold last month, and which Hero sold them.</p>
+    <div class="as-up"><label>Month<select id="rper">${ps.map(p=>`<option value="${p}"${p===R.period?" selected":""}>${monthName(p)}${done.has(p)?" (sent)":""}</option>`).join("")}</select></label></div>
+    <div class="qk-ways">
+      <button type="button" class="qk-way main" id="rquick"><b>Enter your sales</b><span>We list the Stravik parts invoiced to your store. Type how many you sold. No file needed.</span><em>Easiest</em></button>
+      <button type="button" class="qk-way" id="rup"><b>Upload your POS export</b><span>Export last month's sales from your POS and drop the file here (Excel or CSV). Your own codes are matched once and remembered.</span></button>
+      <input type="file" id="rfile" accept=".xlsx,.csv,.txt" hidden>
     </div>
-    <p class="dhint">Excel (.xlsx) or CSV. Sending a month again replaces that month's report until it is approved.</p>
+    <p class="dhint">Sending a month again replaces that month's report until it is approved. <button type="button" class="linkbtn" id="rtpl">Download an empty template</button></p>
     ${S.reports.length?`<h2 class="ab-h">Reports sent</h2><div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Product value</th><th class="n">Heroes' rewards</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>{const c=calcOf(r.id)||{};return `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td><span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status==="Submitted"?"Being checked":r.status)}</span>${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n"><b>${esc(rand(c.value_checked))}</b></td><td class="n">${esc(rand(c.pool))}</td><td>${esc(day(r.submitted_at))}</td></tr>`;}).join("")}</tbody></table></div>`:""}
   </section>`;
   P.querySelector("#rper").onchange=e=>{R.period=e.target.value;};
@@ -419,7 +421,109 @@ function paneReports(){
     try{toast("Reading "+f.name+"…");const {lines,cols}=parse(await readRows(f));if(!lines.length)throw new Error("No lines with a part number were found in the file.");
       R.draft={file:f.name,period:R.period,lines,cols,map:{},people:{}};paneDraft();}catch(e){toast(msg(e));}};
   P.querySelector("#rtpl").onclick=template;
+  P.querySelector("#rquick").onclick=()=>{R.period=P.querySelector("#rper").value;openQuick(R.period);};
+  // drop a file on the upload button
+  const up=P.querySelector("#rup");
+  up.addEventListener("dragover",e=>{e.preventDefault();up.classList.add("drag");});
+  up.addEventListener("dragleave",()=>up.classList.remove("drag"));
+  up.addEventListener("drop",async e=>{e.preventDefault();up.classList.remove("drag");const f=e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;
+    R.period=P.querySelector("#rper").value;
+    try{toast("Reading "+f.name+"…");const {lines,cols}=parse(await readRows(f));if(!lines.length)throw new Error("No lines with a part number were found in the file.");
+      R.draft={file:f.name,period:R.period,lines,cols,map:{},people:{}};paneDraft();}catch(x){toast(msg(x));}});
   const tb=P.querySelector("#rtab");if(tb){const open=id=>openReport(id);tb.onclick=e=>{const tr=e.target.closest("tr[data-r]");if(tr)open(tr.dataset.r);};tb.onkeydown=e=>{if(e.key==="Enter"){const tr=e.target.closest("tr[data-r]");if(tr)open(tr.dataset.r);}};}
+}
+// ---- quick entry: the parts invoiced to the store, how many it sold, and which Hero sold them
+async function openQuick(period){
+  try{
+    const q=must(await C.rpc("stravik_sales_quick",{p_period:period}));
+    const rows=new Map();
+    (q.lines||[]).forEach(l=>{const a=rows.get(l.pn)||[];a.push({staff:l.staff_id||"",qty:Number(l.qty)||0});rows.set(l.pn,a);});
+    const parts=q.parts||[],known=new Set(parts.map(p=>p.pn));
+    // parts in an earlier report of this month that are not invoiced (any more) stay on the list
+    (q.lines||[]).forEach(l=>{if(!known.has(l.pn)){const sp=R.setup.parts.find(x=>x[0]===l.pn);parts.push({pn:l.pn,desc:sp?sp[2]:"",range:sp?sp[3]:"",invoiced:0,reported_before:0,available:0,price:sp?sp[1]:0,extra:true});known.add(l.pn);}});
+    parts.forEach(p=>{if(!rows.has(p.pn))rows.set(p.pn,[{staff:"",qty:0}]);});
+    R.quick={period,parts,rows,filter:"",dirty:false,sent:(R.setup.reports||[]).find(r=>r.period.slice(0,7)===period)};
+    paneQuick();
+  }catch(e){toast(msg(e));}
+}
+function qkTotals(){
+  const Q=R.quick,price=new Map(Q.parts.map(p=>[p.pn,Number(p.price||0)]));let u=0,v=0;
+  Q.rows.forEach((a,pn)=>a.forEach(x=>{u+=x.qty;v+=x.qty*(price.get(pn)||0);}));
+  const A=R.calc||{},boost=A.first_delivery&&new Date(new Date(A.first_delivery).getTime()+60*864e5)>new Date(Q.period+"-01");
+  return {u,v,pool:v*(boost?0.04:0.02),boost};
+}
+function qkBar(){
+  const t=qkTotals(),el=app.querySelector("#qksave");if(!el)return;
+  el.querySelector("span").innerHTML=t.u?`<b>${num(t.u)}</b> ${t.u===1?"part":"parts"} sold · <b>${esc(rand(t.v))}</b> product value · about <b>${esc(rand(t.pool))}</b> for your Heroes`:"Enter what you sold";
+  el.querySelector("#qkgo").disabled=!t.u;
+}
+function qkWarn(pn){
+  const Q=R.quick,p=Q.parts.find(x=>x.pn===pn),row=app.querySelector(`.qk-row[data-pn="${CSS.escape(pn)}"]`);if(!p||!row)return;
+  const tot=Q.rows.get(pn).reduce((a,x)=>a+x.qty,0),w=row.querySelector(".qk-warn");
+  row.classList.toggle("has",tot>0);
+  w.textContent=tot>p.available?`More than was invoiced to your store: only ${num(p.available)} can count.`:"";
+}
+function paneQuick(){
+  const P=app.querySelector("#aspanel"),Q=R.quick,heroes=(O.staff||[]).filter(s=>s.active);
+  const f=Q.filter.trim().toLowerCase();
+  const list=Q.parts.filter(p=>!f||(p.pn+" "+(p.desc||"")+" "+(p.range||"")).toLowerCase().indexOf(f)>=0);
+  const opts=sel=>`<option value="">Who sold it?</option>${heroes.map(h=>`<option value="${h.id}"${h.id===sel?" selected":""}>${esc(h.name)}</option>`).join("")}`;
+  P.innerHTML=`<section class="as-panel"><p><button type="button" class="linkbtn" id="qkback">← Back</button></p>
+    <h2 class="ab-h">${esc(monthName(Q.period))}: what did you sell?</h2>
+    <p class="ab-lead">These are the Stravik parts invoiced to your store. Enter how many you sold in ${esc(monthName(Q.period).split(" ")[0])} and who sold them.${Q.sent?` You sent this month on ${esc(day(Q.sent.submitted_at))}: your figures are filled in, and sending again replaces them.`:""}</p>
+    ${Q.parts.length>8?`<label class="qk-find">Find a part<input id="qkf" type="search" value="${esc(Q.filter)}" placeholder="Part number or description"></label>`:""}
+    ${Q.parts.length?`<div class="qk-list">${list.map(p=>{const a=Q.rows.get(p.pn),tot=a.reduce((x,y)=>x+y.qty,0);
+      return `<div class="qk-row${tot>0?" has":""}" data-pn="${esc(p.pn)}">
+        <div class="qk-part"><b>${esc(p.pn)}</b><span>${esc(p.desc||"")}</span><small>${p.extra?"Not invoiced to your store":`${num(p.available)} to report · ${esc(rand(p.price))} each`}</small></div>
+        <div class="qk-splits">${a.map((x,i)=>`<div class="qk-split" data-i="${i}">
+            <div class="qk-step"><button type="button" data-d="-1" aria-label="One less">−</button><input type="number" inputmode="numeric" min="0" step="1" value="${x.qty||""}" placeholder="0" aria-label="${esc(p.pn)} sold"><button type="button" data-d="1" aria-label="One more">+</button></div>
+            ${heroes.length?`<select class="as-sel qk-hero" aria-label="Who sold it">${opts(x.staff)}</select>`:""}
+            ${i>0?`<button type="button" class="linkbtn qk-del" aria-label="Remove this line">Remove</button>`:""}</div>`).join("")}
+          ${heroes.length>1?`<button type="button" class="linkbtn qk-more">+ Another Hero sold some too</button>`:""}
+          <p class="qk-warn" role="status"></p></div>
+      </div>`;}).join("")}</div>`:
+      `<div class="ab-empty"><h3>No Stravik parts invoiced to your store yet</h3><p>Once DP World InSync invoices your first order, its parts appear here.</p></div>`}
+    <p><button type="button" class="linkbtn" id="qkadd">+ Add a part that is not on this list</button></p>
+    <div class="ab-save" id="qksave"><span></span><button type="button" class="btn gold" id="qkgo" disabled>Send ${esc(monthName(Q.period))}</button></div>
+  </section>`;
+  const fi=P.querySelector("#qkf");if(fi)fi.oninput=e=>{Q.filter=e.target.value;const pos=e.target.selectionStart;paneQuick();const n=app.querySelector("#qkf");n.focus();try{n.setSelectionRange(pos,pos);}catch(x){}};
+  P.querySelector("#qkback").onclick=()=>{if(Q.dirty&&!confirm("Leave without sending?"))return;R.quick=null;paneReports();};
+  P.querySelectorAll(".qk-row").forEach(row=>{
+    const pn=row.dataset.pn,a=Q.rows.get(pn);
+    row.querySelectorAll(".qk-split").forEach(sp=>{
+      const i=+sp.dataset.i,inp=sp.querySelector("input");
+      const set=v=>{a[i].qty=Math.max(0,Math.round(Number(v)||0));inp.value=a[i].qty||"";Q.dirty=true;qkWarn(pn);qkBar();};
+      sp.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>set((a[i].qty||0)+Number(b.dataset.d)));
+      inp.oninput=()=>set(inp.value);
+      const hs=sp.querySelector(".qk-hero");if(hs)hs.onchange=()=>{a[i].staff=hs.value;Q.dirty=true;};
+      const del=sp.querySelector(".qk-del");if(del)del.onclick=()=>{a.splice(i,1);Q.dirty=true;paneQuick();};
+    });
+    const more=row.querySelector(".qk-more");if(more)more.onclick=()=>{a.push({staff:"",qty:0});paneQuick();const r2=app.querySelector(`.qk-row[data-pn="${CSS.escape(pn)}"] .qk-split:last-of-type input`);if(r2)r2.focus();};
+    qkWarn(pn);
+  });
+  P.querySelector("#qkadd").onclick=()=>{
+    const have=new Set(Q.parts.map(p=>p.pn)),free=R.setup.parts.filter(p=>!have.has(p[0]));
+    const box=document.createElement("div");box.className="qk-addbox";
+    box.innerHTML=`<label>Part<select class="as-sel"><option value="">Choose a Stravik part…</option>${free.map(p=>`<option value="${esc(p[0])}">${esc(p[0]+" – "+(p[2]||"").slice(0,70))}</option>`).join("")}</select></label><p class="dhint">Only parts invoiced to your store count for rewards.</p>`;
+    P.querySelector("#qkadd").replaceWith(box);
+    box.querySelector("select").onchange=e=>{const sp=R.setup.parts.find(x=>x[0]===e.target.value);if(!sp)return;
+      Q.parts.push({pn:sp[0],desc:sp[2],range:sp[3],invoiced:0,reported_before:0,available:0,price:sp[1],extra:true});Q.rows.set(sp[0],[{staff:"",qty:1}]);Q.dirty=true;paneQuick();};
+  };
+  P.querySelector("#qkgo").onclick=sendQuick;
+  qkBar();
+}
+async function sendQuick(){
+  const Q=R.quick,btn=app.querySelector("#qkgo"),heroes=new Map((O.staff||[]).map(h=>[h.id,h.name]));
+  // the sale date: the last day of the month (today, for the month we are in)
+  const e=new Date(+Q.period.slice(0,4),+Q.period.slice(5,7),0),t=new Date(),d=e>t?t:e;
+  const date=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const lines=[];Q.rows.forEach((a,pn)=>a.forEach(x=>{if(x.qty>0)lines.push({invoice_date:date,invoice_no:"",code:pn,pn,qty:x.qty,value:"",salesperson:x.staff?heroes.get(x.staff)||"":"",staff_id:x.staff||null});}));
+  if(!lines.length){toast("Enter at least one part you sold.");return;}
+  btn.disabled=true;btn.textContent="Sending…";
+  try{const r=must(await C.rpc("stravik_sales_submit",{p:{period:Q.period,file_name:"Entered on the portal",lines}}));
+    R.quick=null;await refreshOwner();
+    toast(`${monthName(Q.period)} sent.${r.replaced?" It replaces the report sent before.":""}${r.late?" It was sent after the 5th.":""} Your rewards are updated.`);
+  }catch(x){toast(msg(x));btn.disabled=false;btn.textContent="Send "+monthName(Q.period);}
 }
 // the uploaded file before it is sent: codes and salespeople to match, problems, product value
 function paneDraft(){
