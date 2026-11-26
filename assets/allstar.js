@@ -168,6 +168,18 @@ function pickPhoto(staffId,done){
 const initials=n=>String(n||"?").split(" ").filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();
 const avatar=(name,url,cls)=>`<span class="hz-av ${cls||""}">${url?`<img src="${esc(url)}" alt="">`:`<span>${esc(initials(name))}</span>`}</span>`;
 
+// ---- medals (SVG): ribbon and coin with a star, in bronze, silver or gold; "none" is a grey outline
+const MEDAL={bronze:["#e0a068","#b8733a","#7a4417"],silver:["#ffffff","#9ea9b3","#5d6874"],gold:["#f6dc7a","#c99a1c","#7a5a00"],none:["#f1f1ef","#d5d8dc","#9aa1a8"]};
+function medal(k,size,title){
+  const c=MEDAL[k]||MEDAL.none,id="md"+k,s=size||40;
+  return `<svg class="md md-${k}" width="${s}" height="${Math.round(s*1.25)}" viewBox="0 0 40 50" role="img" aria-label="${esc(title||k)}"><title>${esc(title||k)}</title>
+    <defs><radialGradient id="${id}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></radialGradient></defs>
+    <path d="M10 2h8l5 15h-8z" fill="${k==="none"?"#c9cdd2":"#0b203d"}"/><path d="M30 2h-8l-5 15h8z" fill="${k==="none"?"#b7bcc2":"#c99a1c"}"/>
+    <circle cx="20" cy="31" r="15" fill="url(#${id})" stroke="${c[2]}" stroke-width="1.6"/>
+    <circle cx="20" cy="31" r="11" fill="none" stroke="${c[2]}" stroke-opacity=".45" stroke-width="1"/>
+    <path d="M20 23.6l2.2 4.6 5 .6-3.7 3.4 1 5-4.5-2.5-4.5 2.5 1-5-3.7-3.4 5-.6z" fill="${c[2]}" fill-opacity="${k==="none"?".5":".85"}"/></svg>`;
+}
+
 // ---- charts (plain SVG): a donut for "how the total is split", columns for the quarter month by month
 const PALETTE=["#c99a1c","#0b203d","#b8733a","#8e9aa6","#e0a068","#3d5a80","#6b5000","#d5dde4"];
 // items: [{label, value, sub}]; centre: what the middle says when nothing is picked
@@ -271,7 +283,7 @@ async function hero(cm){
 // ---------------------------------------------------------------------------------------------------------------
 // store owner: the store's reward on top, the report and the Heroes' management, then the Heroes' cards
 // ---------------------------------------------------------------------------------------------------------------
-const O={staff:null,store:"",panel:null,edit:null,how:false,hzp:"quarter",hzOpen:null,pics:{}};
+const O={staff:null,store:"",panel:null,edit:null,how:false,allParts:false,hzp:"quarter",hzOpen:null,pics:{}};
 const R={setup:null,calc:null,draft:null,view:null,period:null};
 async function call(body){
   const r=await C.functions.invoke("stravik-staff",{body});
@@ -311,10 +323,10 @@ function storeCard(){
   // month by month: what each month added, and where the quarter stood after it
   let run=0;
   const months=(B.months||[]).map(m=>{run+=Number(m.value||0);return Object.assign({},m,{cum:run,cpct:T?run/T*100:0});});
-  const tierAt=p=>{const t=TIERS.filter(x=>p>=x.at).pop();return t?`<span class="hz-tier ${t.k}">${t.name}</span>`:`<span class="ab-dim">–</span>`;};
+  const tierAt=p=>{const t=TIERS.filter(x=>p>=x.at).pop();return t?`<span class="hz-tier ${t.k}">${medal(t.k,18,t.name)}${t.name}</span>`:`<span class="ab-dim">–</span>`;};
   const notCov=(B.months||[]).reduce((a,m)=>a+Number(m.reported||0)-Number(m.value||0),0);
   return `<section class="as-card as-store ${reached?"t-"+reached.k:"t-none"}">
-    <div class="as-cardh"><span class="as-kicker">Your store · ${esc(qName(Q.start))}</span><span class="as-tier">${reached?`<i class="as-medal ${reached.k}"></i>${reached.name}`:"Not yet Bronze"}</span></div>
+    <div class="as-cardh"><span class="as-kicker">Your store · ${esc(qName(Q.start))}</span><span class="as-tier md-pill${reached?"":" none"}">${reached?medal(reached.k,46,reached.name+" tier reached"):`${medal("none",34,"Not yet Bronze")}<span>Not yet Bronze</span>`}</span></div>
     <div class="hz-top">
       <div>
         <div class="as-label">Your reward so far</div>
@@ -327,7 +339,7 @@ function storeCard(){
           <span class="z bronze"></span><span class="z silver"></span><span class="z gold"></span>
           <i class="fill" data-w="${Math.min(100,pct/150*100).toFixed(1)}%"></i>
         </div>
-        <div class="as-steps">${TIERS.map(t=>`<div class="as-step ${pct>=t.at?"on":""} ${t.k}"><i class="as-medal ${t.k}"></i><b>${t.name}</b><span>${esc(rand0(t.at/100*T))}</span><span>${Math.round(t.rate*100)}% reward</span></div>`).join("")}</div>
+        <div class="as-steps">${TIERS.map(t=>`<div class="as-step ${pct>=t.at?"on":""} ${t.k}">${medal(t.k,30,t.name)}<b>${t.name}</b><span>${esc(rand0(t.at/100*T))}</span><span>${Math.round(t.rate*100)}% reward</span></div>`).join("")}</div>
         <p class="as-fine">${pct.toFixed(0)}% of your quarterly target of ${esc(rand0(T))} · ${num(Q.left)} days left in ${esc(qName(Q.start))}.${lastM&&lastM.award?` Your store is leading its class for <b>Store of the Month</b>.`:""}${q.award?` And for <b>Store of the Quarter</b>.`:""}</p>
       </div>
     </div>
@@ -336,8 +348,9 @@ function storeCard(){
       ${months.length?`<h3 class="as-h3">Month by month</h3>${monthColumns(B.months||[],T,Q.start)}<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Quarter so far</th><th class="n">% of target</th><th>Tier reached</th><th>Report</th></tr></thead><tbody>${months.map(m=>
         `<tr><td><b>${esc(monthName(m.period))}</b></td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.value))}</td><td class="n">${esc(rand(m.cum))}</td><td class="n">${m.cpct.toFixed(0)}%</td><td>${tierAt(m.cpct)}</td><td>${statPill(m)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="dhint">No reports for this quarter yet.</p>`}
       ${(B.ranges||[]).length?`<h3 class="as-h3">By range</h3>${donut(B.ranges.map(r=>({label:r.range,value:Number(r.value),sub:num(r.units)+" parts · "+rand(r.value)})),rand0(v),"")}`:""}
-      ${(B.parts||[]).length?`<h3 class="as-h3">By part</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th>Range</th><th class="n">Units</th><th class="n">Product value</th></tr></thead><tbody>${B.parts.map(p=>
-        `<tr><td><b>${esc(p.pn)}</b> <span class="ab-dim">${esc((p.desc||"").slice(0,60))}</span></td><td>${esc(p.range||"")}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td></tr>`).join("")}</tbody></table></div>`:""}
+      ${(B.parts||[]).length?`<h3 class="as-h3">${O.allParts||B.parts.length<=5?"Your Stravik products":"Your top products"}</h3><div class="ab-scroll"><table class="ab-table hz-top5"><thead><tr><th class="n">#</th><th>Part</th><th>Range</th><th class="n">Units</th><th class="n">Product value</th><th class="n">Share</th></tr></thead><tbody>${(O.allParts?B.parts:B.parts.slice(0,5)).map((p,i)=>
+        `<tr class="${i<3?"t"+(i+1):""}"><td class="n">${i<3?medal(["gold","silver","bronze"][i],20,"No. "+(i+1)):i+1}</td><td><b>${esc(p.pn)}</b> <span class="ab-dim">${esc((p.desc||"").slice(0,60))}</span></td><td>${esc(p.range||"")}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td><td class="n">${v?(Number(p.value)/v*100<0.5&&Number(p.value)>0?"<1%":(Number(p.value)/v*100).toFixed(0)+"%"):""}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hz-more">${B.parts.length>5?`<button type="button" class="linkbtn" id="hzall">${O.allParts?"Show the top 5 only":`See all ${num(B.parts.length)} products`}</button>`:""}<button type="button" class="linkbtn" id="hzxls2">Download in detail (Excel)</button></p>`:""}
       <p class="dhint">Product value is the units you reported at your buy price, for the parts invoiced to your store.${notCov>0.004?` ${esc(rand(notCov))} you reported this quarter is more than was invoiced to you, so it does not count.`:""}</p>
     </div>
   </section>`;
@@ -415,6 +428,8 @@ function owner(email){
     const el=app.querySelector("#aspanel");if(el&&O.panel)el.scrollIntoView({behavior:"smooth",block:"start"});});
   app.querySelector("#hzhow").onclick=()=>{O.how=!O.how;const br=app.querySelector(".hz-break"),b=app.querySelector("#hzhow");br.hidden=!O.how;b.textContent=O.how?"Hide the breakdown":"See how you got here";b.setAttribute("aria-expanded",O.how);if(O.how){countUp(br);br.querySelectorAll(".dn-seg,.mc-col").forEach(e=>{e.style.animation="none";void e.getBoundingClientRect();e.style.animation="";});}};
   app.querySelector("#hzxls").onclick=downloadBreakdown;
+  const x2=app.querySelector("#hzxls2");if(x2)x2.onclick=downloadBreakdown;
+  const al=app.querySelector("#hzall");if(al)al.onclick=()=>{O.allParts=!O.allParts;owner(email);const h=app.querySelector(".hz-top5");if(h)h.scrollIntoView({block:"nearest"});};
   app.querySelectorAll("[data-hzp]").forEach(b=>b.onclick=()=>{O.hzp=b.dataset.hzp;O.hzOpen=null;owner(email);});
   app.querySelectorAll("[data-hzhow]").forEach(b=>b.onclick=()=>{O.hzOpen=O.hzOpen===b.dataset.hzhow?null:b.dataset.hzhow;owner(email);});
   app.querySelectorAll("[data-hzpic]").forEach(b=>b.onclick=()=>{const id=b.dataset.hzpic;

@@ -241,3 +241,18 @@
 @media (max-width:900px){.hz-sum{grid-template-columns:1fr}}
 @media (max-width:520px){.dn,.hz-sum .dn{grid-template-columns:1fr;justify-items:center}.dn-legend{width:100%}}
 @media (prefers-reduced-motion:reduce){.dn-seg,.mc-col{animation:none}}
+
+/* ---- medals instead of words, and the top products */
+.md{display:inline-block;vertical-align:middle;flex:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18))}
+.as-tier.md-pill{padding:0;border:0;background:none;gap:8px;font-weight:600;color:var(--muted)}
+.as-tier.md-pill .md{animation:md-in .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes md-in{0%{transform:scale(.4) rotate(-20deg);opacity:0}70%{transform:scale(1.1) rotate(4deg)}100%{transform:none}}
+.as-step .md{margin-bottom:4px;opacity:.4;filter:grayscale(.6)}
+.as-step.on .md{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18));animation:as-shine 2.4s ease-in-out infinite}
+.hz-tier{display:inline-flex;align-items:center;gap:5px}
+.hz-tier .md{filter:none}
+.hz-top5 td:first-child{width:42px}
+.hz-top5 tr.t1 td{background:rgba(201,154,28,.08)}
+.hz-top5 .md{filter:none}
+.hz-more{display:flex;flex-wrap:wrap;gap:6px 20px;margin:8px 0 4px}
+@media (prefers-reduced-motion:reduce){.as-tier.md-pill .md,.as-step.on .md{animation:none}}
