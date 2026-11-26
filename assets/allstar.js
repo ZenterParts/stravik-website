@@ -195,6 +195,8 @@ async function loadAll(){
   const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);
 }
 const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
+// tell the Stravik team by email (stravik-dealer-mail): a report sent or changed, or a correction asked; it never blocks the store
+const notify=(action,id)=>{try{C.functions.invoke("stravik-dealer-mail",{body:{action,report_id:id}}).catch(()=>{});}catch(e){}};
 // how a report's status reads for the store
 const STAT={Submitted:"Being checked",Checked:"Checked, waiting for approval",Returned:"Sent back to you",Approved:"Approved",Rejected:"Not accepted"};
 const statPill=r=>`<span class="ab-pill ${r.status==="Approved"?"ok":r.status==="Returned"||r.status==="Rejected"?"bad":""}">${esc(STAT[r.status]||r.status)}</span>`;
@@ -530,6 +532,7 @@ async function sendQuick(){
   if(!lines.length){toast("Enter at least one part you sold.");return;}
   btn.disabled=true;btn.textContent="Sending…";
   try{const r=must(await C.rpc("stravik_sales_submit",{p:{period:Q.period,file_name:"Entered on the portal",lines}}));
+    notify("allstar-report",r.id);
     R.quick=null;await refreshOwner();
     toast(`${monthName(Q.period)} sent.${r.replaced?" It replaces the report sent before.":""}${r.late?" It was sent after the 5th.":""} Your rewards are updated.`);
   }catch(x){toast(msg(x));btn.disabled=false;btn.textContent="Send "+monthName(Q.period);}
@@ -570,6 +573,7 @@ async function send(){
   const lines=D.lines.map(l=>{const pn=partOf(l.code),pid=l.person?personOf(l.person):"";
     return {invoice_date:l.date,invoice_no:l.invoice,code:l.code,pn:pn==null?null:pn,qty:l.qty,value:l.value==null?"":String(l.value),salesperson:l.person,staff_id:pid||null};});
   try{const r=must(await C.rpc("stravik_sales_submit",{p:{period:D.period,file_name:D.file,lines}}));
+    notify("allstar-report",r.id);
     R.draft=null;await refreshOwner();
     toast(`${monthName(D.period)} sent.${r.replaced?" It replaces the report sent before.":""}${r.late?" It was sent after the 5th.":""} Your rewards are updated.`);
   }catch(e){toast(msg(e));btn.disabled=false;btn.textContent="Send "+monthName(D.period);}
@@ -604,7 +608,7 @@ function paneView(){
     box.querySelector("textarea").focus();box.querySelector("#raskx").onclick=()=>{box.innerHTML="";};
     box.querySelector("#raskf").addEventListener("submit",async ev=>{ev.preventDefault();const note=box.querySelector("textarea").value.trim();if(!note){toast("Say what needs to change.");return;}
       const b=box.querySelector("button[type=submit]");b.disabled=true;
-      try{must(await C.rpc("stravik_sales_correction",{p_id:r.id,p_note:note}));await loadAll();toast("Sent. Your Stravik sales manager will look at it.");paneView();}catch(e){toast(msg(e));b.disabled=false;}});
+      try{must(await C.rpc("stravik_sales_correction",{p_id:r.id,p_note:note}));notify("allstar-correction",r.id);await loadAll();toast("Sent. Your Stravik sales manager will look at it.");paneView();}catch(e){toast(msg(e));b.disabled=false;}});
   };
   P.querySelector("#rxls").onclick=()=>xlsx([{name:"Lines",head:["Invoice date","Invoice","Your code","Stravik PN","Description","Quantity","Value in your POS","Salesperson","Hero","Your buy price","At your buy price"],
     widths:[12,14,14,12,46,9,14,18,20,12,16],rows:L.map(l=>[l.date||"",l.invoice||"",l.code,l.pn,l.desc||"",l.qty,l.value==null?"":Number(l.value),l.salesperson||"",l.staff||"",Number(l.price||0),Number(l.credited||0)])}],

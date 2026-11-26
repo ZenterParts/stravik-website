@@ -503,8 +503,15 @@ window.LS = (function () {
     var h = new Date().getHours(), hello = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     L.content('<div class="o-launcher"><div class="o-launcher-head"><img src="/assets/img/logo-wordmark.webp" alt="Stravik" width="600" height="62"><p>' + hello + '. ' + (L.isEditor() ? 'Data team access: you can view and edit.' : 'View-only access: you can view and download.') + '</p></div>' +
       '<div class="o-apps">' + L.apps.filter(function (a) { return (!a.hidden || listed(a)) && allowed(a); }).map(function (a) {
-        return '<a class="o-app" href="' + L.href(a.key) + '"><span class="o-app-icon" style="background:' + a.color + '">' + icon(a, 40) + '</span><span class="o-app-name">' + esc(a.name) + '</span></a>';
+        return '<a class="o-app" data-app="' + esc(a.key) + '" href="' + L.href(a.key) + '"><span class="o-app-icon" style="background:' + a.color + '">' + icon(a, 40) + '</span><span class="o-app-name">' + esc(a.name) + '</span></a>';
       }).join('') + '</div></div>');
+    // a count of what waits for this person, on the apps that give one (badge: async function returning {n, title})
+    L.apps.filter(function (a) { return a.badge && allowed(a); }).forEach(function (a) {
+      Promise.resolve().then(a.badge).then(function (b) {
+        var t = document.querySelector('.o-app[data-app="' + a.key + '"] .o-app-icon');
+        if (t && b && b.n > 0) t.insertAdjacentHTML('beforeend', '<span class="o-badge" title="' + esc(b.title || '') + '">' + (b.n > 99 ? '99+' : b.n) + '</span>');
+      }).catch(function () { /* a badge is only a hint */ });
+    });
   }
 
   function render() {

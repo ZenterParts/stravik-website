@@ -228,3 +228,7 @@ b.vat{cursor:help;text-decoration:underline dotted rgba(0,0,0,.35);text-underlin
 .colpick-menu{position:absolute; right:0; top:calc(100% + 4px); z-index:20; min-width:220px; background:#fff; border:1px solid #d5d9d5; border-radius:8px; box-shadow:0 8px 24px rgba(11,32,61,.14); padding:8px 10px; display:flex; flex-direction:column; gap:2px;}
 .colpick-menu label{display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:.86rem; cursor:pointer; white-space:nowrap;}
 .colpick-menu .btn{margin-top:6px; align-self:flex-start;}
+
+/* a count on an app tile (core.js home: app.badge) */
+.o-app-icon{position:relative;}
+.o-badge{position:absolute; top:-6px; right:-8px; min-width:24px; height:24px; padding:0 7px; border-radius:12px; background:#b42318; color:#fff; font:700 .8rem/24px inherit; text-align:center; box-shadow:0 0 0 3px #fff;}

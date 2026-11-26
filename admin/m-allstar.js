@@ -34,6 +34,24 @@
     return f;
   }
 
+  // ---------- what waits for the signed-in person
+  async function todo() { return L.must(await sb.rpc('stravik_as_admin_todo')); }
+  function todoParts(t, test) {
+    var p = test ? 'test_' : '', out = [];
+    if (t.can_check && t[p + 'to_check']) out.push(t[p + 'to_check'] + ' to check');
+    if (t.can_check && t[p + 'corrections']) out.push(t[p + 'corrections'] + ' correction request' + (t[p + 'corrections'] === 1 ? '' : 's'));
+    if (t.can_approve && t[p + 'to_approve']) out.push(t[p + 'to_approve'] + ' to approve');
+    return out;
+  }
+  async function notice() {
+    try {
+      var t = await todo(), el = $('asTodo'); if (!t || !el) return;
+      var a = todoParts(t, false), b = todoParts(t, true);
+      el.innerHTML = a.length || b.length ? '<div class="notice"><b>Waiting for you:</b> ' + esc(a.length ? a.join(', ') : 'nothing in the stores') + (b.length ? ' <span class="small muted">· test stores: ' + esc(b.join(', ')) + '</span>' : '') +
+        (t.oldest ? ' <span class="small muted">· oldest: ' + esc(monthName(t.oldest)) + '</span>' : '') + '</div>' : '';
+    } catch (e) { /* only a hint */ }
+  }
+
   // ---------- the month: every store of the programme
   async function home(r) {
     if (r.q.m && /^\d{4}-\d{2}$/.test(r.q.m)) S.period = r.q.m;
@@ -45,7 +63,8 @@
     $('cpSearch').innerHTML = '';
     $('asMonth').onchange = function () { L.go(L.href('allstar') + '?m=' + this.value + '&test=' + (S.test ? 1 : 0)); };
     $('asTest').onchange = function () { L.go(L.href('allstar') + '?m=' + S.period + '&test=' + this.value); };
-    L.content('<div class="cards" id="asStats" style="margin-bottom:14px"></div><div id="asList"><p class="muted">Loading…</p></div>');
+    L.content('<div id="asTodo"></div><div class="cards" id="asStats" style="margin-bottom:14px"></div><div id="asList"><p class="muted">Loading…</p></div>');
+    notice();
     try {
       var d = L.must(await sb.rpc('stravik_as_admin_month', { p_period: S.period, p_test: S.test })), st = d.stores || [];
       var rep = st.filter(function (s) { return s.report; }), c = function (x) { return rep.filter(function (s) { return s.report.status === x; }).length; };
@@ -174,6 +193,12 @@
     key: 'allstar', name: 'All Star', color: '#c99a1c',
     icon: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/>',
     menus: [{ label: 'Monthly reports', href: BASE }],
+    // the count on the app's tile: what this person has to check or approve (test stores included)
+    badge: async function () {
+      var t = await todo(); if (!t) return null;
+      var n = (t.can_check ? t.to_check + t.corrections + t.test_to_check + t.test_corrections : 0) + (t.can_approve ? t.to_approve + t.test_to_approve : 0);
+      return { n: n, title: todoParts(t, false).concat(todoParts(t, true).map(function (x) { return x + ' (test)'; })).join(', ') };
+    },
     route: function (r) { if (r.parts[0] === 'r' && r.parts[1]) return report(r.parts[1]); return home(r); }
   });
 })(window.LS);
