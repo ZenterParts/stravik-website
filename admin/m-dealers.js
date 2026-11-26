@@ -344,9 +344,11 @@
       var by = {}; gp.forEach(function (x) { (by[x.sv_pn] = by[x.sv_pn] || {})[x.group_code] = Number(x.price_usd); });
       var lc = {}; (await L.fetchAll(function () { return sb.from('stravik_price_list').select('sv_pn,fob_usd,landed_cost').eq('cond', 'N').order('sv_pn'); })).forEach(function (x) { lc[x.sv_pn] = x; });
       var head = ['Stravik PN', 'Description', 'Range', 'Type', 'FOB USD', 'Landed cost USD'].concat(GROUPS.map(function (g) { return g.name + ' USD'; }));
-      await L.saveXlsx([{ name: 'Prices', widths: [14, 50, 18, 8, 10, 14].concat(GROUPS.map(function () { return 14; })), head: head,
-        rows: parts.map(function (p) { var b = by[p.sv_pn] || {}, c = lc[p.sv_pn] || {}; return [p.sv_pn, p.short_desc, p.subcategory, p.part_type, c.fob_usd == null ? '' : Number(c.fob_usd), c.landed_cost == null ? '' : Number(c.landed_cost)].concat(GROUPS.map(function (g) { return b[g.code] == null ? '' : b[g.code]; })); }) }],
-        'Stravik_customer_prices' + (range ? '_' + range.replace(/\W+/g, '_') : '') + '_' + L.today() + '.xlsx');
+      var sheets = [{ name: 'Prices', widths: [14, 50, 18, 8, 10, 14].concat(GROUPS.map(function () { return 14; })), head: head,
+        rows: parts.map(function (p) { var b = by[p.sv_pn] || {}, c = lc[p.sv_pn] || {}; return [p.sv_pn, p.short_desc, p.subcategory, p.part_type, c.fob_usd == null ? '' : Number(c.fob_usd), c.landed_cost == null ? '' : Number(c.landed_cost)].concat(GROUPS.map(function (g) { return b[g.code] == null ? '' : b[g.code]; })); }) }];
+      // the technical information too (specifications, cross references, OE numbers; vehicles for one range)
+      if (L.addTech) sheets = await L.addTech(sheets, !!range);
+      await L.saveXlsx(sheets, 'Stravik_customer_prices' + (range ? '_' + range.replace(/\W+/g, '_') : '') + '_' + L.today() + '.xlsx');
     } catch (e) { L.fail(e); }
   }
   async function priceUpload(f) {

@@ -570,9 +570,72 @@
       put('A' + (last + 3), 'stravikparts.com', { color: { argb: GOLD } });
     });
     if (!wb.worksheets.length) throw new Error('Nothing to download');
+    // the technical information on its own sheets, so the costing sheets keep their layout and formulas
+    var tpns = [];
+    views.forEach(function (v) { (v.rows || []).forEach(function (x) { if (!keep || keep(x, v)) tpns.push(x.sv_pn); }); });
+    var T = await L.techFor(tpns, views.length === 1), th = L.techHead(T);
+    var addSheet = function (title, head, rows, widths) {
+      var ws = wb.addWorksheet(title); ws.addRow(head).eachCell(function (c) { c.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; });
+      rows.forEach(function (r) { ws.addRow(r).eachCell(function (c) { c.font = font; }); });
+      widths.forEach(function (w, i) { ws.getColumn(i + 1).width = w; }); ws.views = [{ state: 'frozen', ySplit: 1, xSplit: 1 }];
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: rows.length + 1, column: head.length } };
+    };
+    if (th.length > 1 || Object.keys(T.oe).length) addSheet('Technical info', ['Stravik PN'].concat(th), Array.from(new Set(tpns)).map(function (pn) { return [pn].concat(L.techCells(T, pn)); }),
+      [14].concat(th.map(function (h) { return / code$|OE numbers/.test(h) ? 28 : Math.max(10, Math.min(18, h.length + 4)); })));
+    if (T.apps.length) addSheet('Vehicles', ['Stravik PN', 'Make', 'Model', 'Model code', 'Engine', 'Fuel', 'cc', 'kW', 'Years', 'Position'],
+      T.apps.map(function (a) { var e = function (y) { return y == null ? '' : y; }; return [a.sv_pn, e(a.make), e(a.model), e(a.model_code), e(a.engine_code), e(a.fuel), e(a.cc), e(a.kw), e(a.years), e(a.position)]; }), [14, 16, 28, 14, 16, 10, 8, 8, 14, 12]);
     var buf = await wb.xlsx.writeBuffer();
     L.download(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name);
   }
+
+  // ======================================================================== technical information in the downloads
+  // Every price list download also carries the parts' technical information: the specifications (for batteries e.g.
+  // capacity, CCA, layout, case), the cross references by brand (e.g. SAB for batteries, GUD for filters) and the OE
+  // numbers; a one-range download also gets a Vehicles sheet. Tables: stravik_specs, stravik_cross_refs,
+  // stravik_oe_numbers, stravik_applications (staff can read them).
+  var TECH_SKIP = ['Drawing'];   // internal file references, not information for a customer
+  L.techFor = async function (pns, withVehicles) {
+    pns = Array.from(new Set((pns || []).filter(Boolean)));
+    var T = { specs: {}, attrs: [], xref: {}, brands: [], oe: {}, apps: [] }, ac = {}, bc = {};
+    for (var ch of L.chunks(pns, 150)) {
+      var r = await Promise.all([
+        L.fetchAll(function () { return sb.from('stravik_specs').select('sv_pn,attribute,value,id').in('sv_pn', ch).order('id'); }),
+        L.fetchAll(function () { return sb.from('stravik_cross_refs').select('sv_pn,comp_brand,comp_number,seq,id').in('sv_pn', ch).order('seq').order('id'); }),
+        L.fetchAll(function () { return sb.from('stravik_oe_numbers').select('sv_pn,oe_brand,oe_number,seq,id').in('sv_pn', ch).order('seq').order('id'); }),
+        withVehicles ? L.fetchAll(function () { return sb.from('stravik_applications').select('sv_pn,make,model,model_code,engine_code,fuel,cc,kw,years,position,seq,id').in('sv_pn', ch).order('sv_pn').order('seq').order('id'); }) : Promise.resolve([])]);
+      r[0].forEach(function (x) { if (!x.attribute || TECH_SKIP.indexOf(x.attribute) >= 0 || x.value == null || x.value === '') return; var o = T.specs[x.sv_pn] = T.specs[x.sv_pn] || {};
+        o[x.attribute] = o[x.attribute] ? o[x.attribute] + '; ' + x.value : String(x.value); ac[x.attribute] = (ac[x.attribute] || 0) + 1; });
+      r[1].forEach(function (x) { var b = String(x.comp_brand || 'Other').trim(), o = T.xref[x.sv_pn] = T.xref[x.sv_pn] || {}; (o[b] = o[b] || []).push(x.comp_number); bc[b] = (bc[b] || 0) + 1; });
+      r[2].forEach(function (x) { (T.oe[x.sv_pn] = T.oe[x.sv_pn] || []).push((x.oe_brand ? x.oe_brand + ' ' : '') + x.oe_number); });
+      T.apps = T.apps.concat(r[3]);
+    }
+    T.attrs = Object.keys(ac).sort(function (a, b) { return ac[b] - ac[a] || a.localeCompare(b); });
+    T.brands = Object.keys(bc).sort(function (a, b) { return bc[b] - bc[a] || a.localeCompare(b); });
+    return T;
+  };
+  var cut = function (t) { t = String(t || ''); return t.length > 3000 ? t.slice(0, 2990) + ' …' : t; };   // Excel cells hold 32,767 characters; keep them readable
+  L.techCells = function (T, pn) {
+    var sp = T.specs[pn] || {}, xr = T.xref[pn] || {};
+    return T.attrs.map(function (a) { return sp[a] == null ? '' : sp[a]; })
+      .concat(T.brands.map(function (b) { return xr[b] ? cut(Array.from(new Set(xr[b])).join(', ')) : ''; }))
+      .concat([T.oe[pn] ? cut(Array.from(new Set(T.oe[pn])).join(', ')) : '']);
+  };
+  L.techHead = function (T) { return T.attrs.concat(T.brands.map(function (b) { return b + ' code'; })).concat(['OE numbers']); };
+  // add the technical columns to every sheet whose first column is the Stravik PN, and a Vehicles sheet
+  L.addTech = async function (sheets, withVehicles) {
+    var pns = [];
+    sheets.forEach(function (sh) { if (sh.head && sh.head[0] === 'Stravik PN') (sh.rows || []).forEach(function (r) { pns.push(r[0]); }); });
+    if (!pns.length) return sheets;
+    var T = await L.techFor(pns, withVehicles), th = L.techHead(T);
+    sheets.forEach(function (sh) {
+      if (!(sh.head && sh.head[0] === 'Stravik PN') || sh.name === 'Costing') return;
+      sh.head = sh.head.concat(th); sh.widths = (sh.widths || []).concat(th.map(function (h) { return / code$|OE numbers/.test(h) ? 28 : Math.max(10, Math.min(18, h.length + 4)); }));
+      sh.rows = sh.rows.map(function (r) { return r.concat(L.techCells(T, r[0])); });
+    });
+    if (withVehicles && T.apps.length) sheets.push({ name: 'Vehicles', head: ['Stravik PN', 'Make', 'Model', 'Model code', 'Engine', 'Fuel', 'cc', 'kW', 'Years', 'Position'], widths: [14, 16, 28, 14, 16, 10, 8, 8, 14, 12],
+      rows: T.apps.map(function (a) { var e = function (y) { return y == null ? '' : y; }; return [a.sv_pn, e(a.make), e(a.model), e(a.model_code), e(a.engine_code), e(a.fuel), e(a.cc), e(a.kw), e(a.years), e(a.position)]; }) });
+    return sheets;
+  };
   // Download for other apps (Customers > pricing approval): every range (or the ones given) of a region, filtered by keep(row, view).
   // Pricing team: the costing-sheet layout (opts.highlight = tier column to mark, opts.note = line under the range name); others: prices only.
   L.pricingDownload = async function (regionCode, ranges, keep, extraFirst, name, opts) {
@@ -581,7 +644,7 @@
     var subs = (ranges && ranges.length ? ranges : me_.ranges.map(function (r) { return r.subcategory; }));
     var views = await Promise.all(subs.map(function (sub) { return sb.rpc('stravik_price_view', { p_sub: sub, p_region: regionCode }).then(L.must); }));
     if (views.length && views.every(function (v) { return v.costs && !single(v.region); })) return costingXlsx(views, keep, opts, name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
-    await L.saveXlsx((extraFirst || []).concat(exportSheets(views, keep)), name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
+    await L.saveXlsx(await L.addTech((extraFirst || []).concat(exportSheets(views, keep)), subs.length === 1), name || ('Stravik_prices_' + regionCode + '_' + L.today() + '.xlsx'));
   };
   async function excel() {
     try {
@@ -590,11 +653,11 @@
       var keep = {}; rows().forEach(function (x) { keep[mk(x)] = 1; });
       if (S.data.all) {
         var v = Object.assign({}, S.data, { rows: (S.data.rows || []).filter(function (x) { return keep[mk(x)]; }) });
-        return await L.saveXlsx(exportAllRegions([v]), 'Stravik_prices_all_regions_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx');
+        return await L.saveXlsx(await L.addTech(exportAllRegions([v]), true), 'Stravik_prices_all_regions_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx');
       }
       var name = 'Stravik_prices_' + S.data.region.name.replace(/\W+/g, '_') + '_' + S.range.replace(/\W+/g, '_') + '_' + L.today() + '.xlsx';
       if (S.data.costs && !single(S.data.region)) await costingXlsx([S.data], function (x) { return keep[mk(x)]; }, null, name);
-      else await L.saveXlsx(exportSheets([S.data], function (x) { return keep[mk(x)]; }), name);
+      else await L.saveXlsx(await L.addTech(exportSheets([S.data], function (x) { return keep[mk(x)]; }), true), name);
     } catch (e) { L.fail(e); }
   }
   async function excelAll() {
@@ -602,7 +665,7 @@
       L.toast('Preparing all ranges…');
       if (S.allReg) {
         var views = await Promise.all(ME.ranges.map(function (x) { return sb.rpc('stravik_price_view_all', { p_sub: x.subcategory }).then(L.must); }));
-        return await L.saveXlsx(exportAllRegions(views), 'Stravik_prices_all_regions_all_ranges_' + L.today() + '.xlsx');
+        return await L.saveXlsx(await L.addTech(exportAllRegions(views), false), 'Stravik_prices_all_regions_all_ranges_' + L.today() + '.xlsx');
       }
       var reg = region();
       await L.pricingDownload(reg.code, null, null, null, 'Stravik_prices_' + reg.name.replace(/\W+/g, '_') + '_all_ranges_' + L.today() + '.xlsx');
