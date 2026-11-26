@@ -195,6 +195,13 @@ async function loadAll(){
   const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);
 }
 const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
+// how a report's status reads for the store
+const STAT={Submitted:"Being checked",Checked:"Checked, waiting for approval",Returned:"Sent back to you",Approved:"Approved",Rejected:"Not accepted"};
+const statPill=r=>`<span class="ab-pill ${r.status==="Approved"?"ok":r.status==="Returned"||r.status==="Rejected"?"bad":""}">${esc(STAT[r.status]||r.status)}</span>`;
+const sentOf=period=>R.setup&&(R.setup.reports||[]).find(r=>r.period.slice(0,7)===period);
+// a month that is locked cannot be sent again: say why
+function locked(period){const r=sentOf(period);if(!r||r.editable)return false;
+  toast(r.status==="Approved"?monthName(period)+" is approved and final.":r.status==="Rejected"?monthName(period)+" was not accepted. Please contact your Stravik sales manager.":monthName(period)+" is locked. Open it under Reports sent to ask for a correction.");return true;}
 
 // left half: the store's reward this quarter
 function storeCard(){
@@ -404,7 +411,8 @@ function paneReports(){
   if(R.view)return paneView();
   const ps=periods();if(!R.period||ps.indexOf(R.period)<0)R.period=ps[0];
   const done=new Map(S.reports.map(r=>[r.period.slice(0,7),r]));
-  P.innerHTML=`<section class="as-panel"><h2 class="ab-h">Send your monthly sales report</h2>
+  const backs=S.reports.filter(r=>r.status==="Returned");
+  P.innerHTML=`<section class="as-panel">${backs.map(r=>`<div class="dnote bad as-back"><b>${esc(monthName(r.period))} was sent back to you.</b> ${esc(r.return_note||"")} <button type="button" class="btn gold small" data-fix="${r.period.slice(0,7)}">Correct it</button></div>`).join("")}<h2 class="ab-h">Send your monthly sales report</h2>
     <p class="ab-lead">By the 5th, tell us how many Stravik parts you sold last month, and which Hero sold them.</p>
     <div class="as-up"><label>Month<select id="rper">${ps.map(p=>`<option value="${p}"${p===R.period?" selected":""}>${monthName(p)}${done.has(p)?" (sent)":""}</option>`).join("")}</select></label></div>
     <div class="qk-ways">
@@ -413,21 +421,22 @@ function paneReports(){
       <input type="file" id="rfile" accept=".xlsx,.csv,.txt" hidden>
     </div>
     <p class="dhint">Sending a month again replaces that month's report until it is approved. <button type="button" class="linkbtn" id="rtpl">Download an empty template</button></p>
-    ${S.reports.length?`<h2 class="ab-h">Reports sent</h2><div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Product value</th><th class="n">Heroes' rewards</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>{const c=calcOf(r.id)||{};return `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td><span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status==="Submitted"?"Being checked":r.status)}</span>${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n"><b>${esc(rand(c.value_checked))}</b></td><td class="n">${esc(rand(c.pool))}</td><td>${esc(day(r.submitted_at))}</td></tr>`;}).join("")}</tbody></table></div>`:""}
+    ${S.reports.length?`<h2 class="ab-h">Reports sent</h2><div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Product value</th><th class="n">Heroes' rewards</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>{const c=calcOf(r.id)||{};return `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td>${statPill(r)}${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n"><b>${esc(rand(c.value_checked))}</b></td><td class="n">${esc(rand(c.pool))}</td><td>${esc(day(r.submitted_at))}</td></tr>`;}).join("")}</tbody></table></div>`:""}
   </section>`;
   P.querySelector("#rper").onchange=e=>{R.period=e.target.value;};
-  const file=P.querySelector("#rfile");P.querySelector("#rup").onclick=()=>{R.period=P.querySelector("#rper").value;file.click();};
+  const file=P.querySelector("#rfile");P.querySelector("#rup").onclick=()=>{R.period=P.querySelector("#rper").value;if(locked(R.period))return;file.click();};
   file.onchange=async()=>{const f=file.files[0];file.value="";if(!f)return;
     try{toast("Reading "+f.name+"…");const {lines,cols}=parse(await readRows(f));if(!lines.length)throw new Error("No lines with a part number were found in the file.");
       R.draft={file:f.name,period:R.period,lines,cols,map:{},people:{}};paneDraft();}catch(e){toast(msg(e));}};
   P.querySelector("#rtpl").onclick=template;
-  P.querySelector("#rquick").onclick=()=>{R.period=P.querySelector("#rper").value;openQuick(R.period);};
+  P.querySelectorAll("[data-fix]").forEach(b=>b.onclick=()=>{R.period=b.dataset.fix;openQuick(R.period);});
+  P.querySelector("#rquick").onclick=()=>{R.period=P.querySelector("#rper").value;if(locked(R.period))return;openQuick(R.period);};
   // drop a file on the upload button
   const up=P.querySelector("#rup");
   up.addEventListener("dragover",e=>{e.preventDefault();up.classList.add("drag");});
   up.addEventListener("dragleave",()=>up.classList.remove("drag"));
   up.addEventListener("drop",async e=>{e.preventDefault();up.classList.remove("drag");const f=e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;
-    R.period=P.querySelector("#rper").value;
+    R.period=P.querySelector("#rper").value;if(locked(R.period))return;
     try{toast("Reading "+f.name+"…");const {lines,cols}=parse(await readRows(f));if(!lines.length)throw new Error("No lines with a part number were found in the file.");
       R.draft={file:f.name,period:R.period,lines,cols,map:{},people:{}};paneDraft();}catch(x){toast(msg(x));}});
   const tb=P.querySelector("#rtab");if(tb){const open=id=>openReport(id);tb.onclick=e=>{const tr=e.target.closest("tr[data-r]");if(tr)open(tr.dataset.r);};tb.onkeydown=e=>{if(e.key==="Enter"){const tr=e.target.closest("tr[data-r]");if(tr)open(tr.dataset.r);}};}
@@ -573,12 +582,30 @@ function paneView(){
   const P=app.querySelector("#aspanel"),V=R.view,r=V.report,L=V.lines,c=calcOf(r.id)||{people:[]};
   const parts=new Map();L.forEach(l=>{let x=parts.get(l.pn);if(!x)parts.set(l.pn,x={pn:l.pn,d:l.desc,u:0,v:0});x.u+=l.qty;x.v+=Number(l.credited||0);});
   P.innerHTML=`<section class="as-panel"><p><button type="button" class="linkbtn" id="rback">← All reports</button></p>
-    <h2 class="ab-h">${esc(monthName(r.period))} <span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status==="Submitted"?"Being checked":r.status)}</span></h2>
+    <h2 class="ab-h">${esc(monthName(r.period))} ${statPill(r)}</h2>
     <p class="ab-lead">Product value <b>${esc(rand(c.value_checked))}</b> · rewards for your Heroes <b>${esc(rand(c.pool))}</b> (${c.booster?"4% launch booster":"2%"}).${Number(c.not_covered||0)>0.004?` <span class="ab-dim">${esc(rand(c.not_covered))} of what you reported is more than was invoiced to your store, so it does not count.</span>`:""}</p>
     <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Hero</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Reward</th></tr></thead><tbody>${(c.people||[]).map(p=>`<tr><td>${p.name?`<b>${esc(p.name)}</b>`:`<span class="ab-dim">Not linked to a Hero</span>`}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td><td class="n"><b>${esc(rand(p.share))}</b></td></tr>`).join("")}</tbody></table></div>
     <h3 class="as-h3">Parts reported</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th class="n">Units</th><th class="n">At your buy price</th></tr></thead><tbody>${Array.from(parts.values()).sort((a,b)=>b.v-a.v).map(x=>`<tr><td><b>${esc(x.pn)}</b> <span class="ab-dim">${esc(x.d||"")}</span></td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
-    <p><button type="button" class="btn line small" id="rxls">Download the lines</button></p></section>`;
+    ${(()=>{const rs=sentOf(r.period.slice(0,7))||{};
+      if(r.status==="Returned")return `<div class="dnote bad"><b>Sent back to you.</b> ${esc(rs.return_note||"")}</div>`;
+      if(r.status==="Rejected")return `<div class="dnote bad"><b>Not accepted.</b> ${esc(rs.reject_note||"")}</div>`;
+      if(r.status==="Approved")return `<p class="dhint">This month is approved and final. If something was wrong, put the correction in your next monthly report.</p>`;
+      if(rs.editable)return `<p class="dhint">You can change this report until the 5th, as long as it has not been checked yet.</p>`;
+      return `<p class="dhint">${r.status==="Checked"?"This report has been checked and is waiting for approval.":"The 5th has passed, so this report is locked."} ${rs.correction_request?`You asked for a correction: “${esc(rs.correction_request)}”.`:"If something is wrong, ask for a correction."}</p>`;})()}
+    <div class="ab-row as-ract">${(()=>{const rs=sentOf(r.period.slice(0,7))||{};
+      return (rs.editable?`<button type="button" class="btn gold" id="redit">${r.status==="Returned"?"Correct this report":"Edit this report"}</button>`:r.status==="Submitted"||r.status==="Checked"?`<button type="button" class="btn line" id="rask">Ask for a correction</button>`:"");})()}
+      <button type="button" class="btn line small" id="rxls">Download the lines</button></div>
+    <div id="raskbox"></div></section>`;
   P.querySelector("#rback").onclick=()=>{R.view=null;paneReports();};
+  const ed=P.querySelector("#redit");if(ed)ed.onclick=()=>{R.view=null;R.period=r.period.slice(0,7);openQuick(R.period);};
+  const ak=P.querySelector("#rask");if(ak)ak.onclick=()=>{
+    const box=P.querySelector("#raskbox");
+    box.innerHTML=`<form class="as-form" id="raskf" novalidate><div class="is-fields"><label class="wide">What needs to change?<textarea name="note" rows="3" maxlength="1000" placeholder="For example: 2 of the ignition coils were sold by Nadia, not Sipho"></textarea></label></div><p class="dhint">Your Stravik sales manager reads this. If they agree, the report is sent back to you to change.</p><div class="ab-row"><button class="btn gold" type="submit">Send</button><button type="button" class="linkbtn" id="raskx">Cancel</button></div></form>`;
+    box.querySelector("textarea").focus();box.querySelector("#raskx").onclick=()=>{box.innerHTML="";};
+    box.querySelector("#raskf").addEventListener("submit",async ev=>{ev.preventDefault();const note=box.querySelector("textarea").value.trim();if(!note){toast("Say what needs to change.");return;}
+      const b=box.querySelector("button[type=submit]");b.disabled=true;
+      try{must(await C.rpc("stravik_sales_correction",{p_id:r.id,p_note:note}));await loadAll();toast("Sent. Your Stravik sales manager will look at it.");paneView();}catch(e){toast(msg(e));b.disabled=false;}});
+  };
   P.querySelector("#rxls").onclick=()=>xlsx([{name:"Lines",head:["Invoice date","Invoice","Your code","Stravik PN","Description","Quantity","Value in your POS","Salesperson","Hero","Your buy price","At your buy price"],
     widths:[12,14,14,12,46,9,14,18,20,12,16],rows:L.map(l=>[l.date||"",l.invoice||"",l.code,l.pn,l.desc||"",l.qty,l.value==null?"":Number(l.value),l.salesperson||"",l.staff||"",Number(l.price||0),Number(l.credited||0)])}],
     "Stravik_sales_report_"+r.period.slice(0,7)+".xlsx");
