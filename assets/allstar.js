@@ -168,6 +168,49 @@ function pickPhoto(staffId,done){
 const initials=n=>String(n||"?").split(" ").filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();
 const avatar=(name,url,cls)=>`<span class="hz-av ${cls||""}">${url?`<img src="${esc(url)}" alt="">`:`<span>${esc(initials(name))}</span>`}</span>`;
 
+// ---- charts (plain SVG): a donut for "how the total is split", columns for the quarter month by month
+const PALETTE=["#c99a1c","#0b203d","#b8733a","#8e9aa6","#e0a068","#3d5a80","#6b5000","#d5dde4"];
+// items: [{label, value, sub}]; centre: what the middle says when nothing is picked
+function donut(items,centre,unit){
+  const tot=items.reduce((a,x)=>a+Math.max(0,Number(x.value)||0),0),C=2*Math.PI*42;
+  if(!tot)return "";
+  let at=0;
+  const segs=items.map((x,i)=>{const v=Math.max(0,Number(x.value)||0),len=v/tot*C,s=`<circle class="dn-seg" data-i="${i}" cx="60" cy="60" r="42" stroke="${PALETTE[i%PALETTE.length]}" style="--len:${len.toFixed(2)};--gap:${(C-len).toFixed(2)};--c:${C.toFixed(2)};stroke-dashoffset:${(-at).toFixed(2)};animation-delay:${(i*0.08).toFixed(2)}s" tabindex="0" role="img" aria-label="${esc(x.label)}: ${(v/tot*100).toFixed(0)}%"></circle>`;at+=len;return s;}).join("");
+  return `<div class="dn" data-centre="${esc(centre)}" data-unit="${esc(unit||"")}" data-items='${esc(JSON.stringify(items.map(x=>({l:x.label,v:Number(x.value)||0,s:x.sub||""}))))}' data-tot="${tot}">
+    <div class="dn-c"><svg viewBox="0 0 120 120" class="dn-svg"><circle cx="60" cy="60" r="42" class="dn-bg"></circle><g transform="rotate(-90 60 60)">${segs}</g></svg>
+    <div class="dn-mid"><b>${esc(centre)}</b><span></span></div></div>
+    <ul class="dn-legend">${items.map((x,i)=>`<li data-i="${i}" tabindex="0"><i style="background:${PALETTE[i%PALETTE.length]}"></i><b>${esc(x.label)}</b><span>${(Number(x.value)/tot*100).toFixed(0)}%</span><em>${esc(x.sub||"")}</em></li>`).join("")}</ul></div>`;
+}
+// hover, focus or tap a slice or a legend line: it stands out and the middle says what it is
+function wireDonuts(root){
+  root.querySelectorAll(".dn").forEach(d=>{
+    const items=JSON.parse(d.dataset.items||"[]"),tot=Number(d.dataset.tot)||1,mid=d.querySelector(".dn-mid");
+    const show=i=>{d.querySelectorAll("[data-i]").forEach(e=>e.classList.toggle("on",i!=null&&e.dataset.i===String(i)));d.classList.toggle("pick",i!=null);
+      if(i==null){mid.innerHTML=`<b>${esc(d.dataset.centre)}</b><span></span>`;return;}
+      const x=items[i];mid.innerHTML=`<b>${(x.v/tot*100).toFixed(0)}%</b><span>${esc(x.l)}</span>`;};
+    d.querySelectorAll("[data-i]").forEach(e=>{const i=+e.dataset.i;e.addEventListener("mouseenter",()=>show(i));e.addEventListener("focus",()=>show(i));e.addEventListener("click",()=>show(i));});
+    d.addEventListener("mouseleave",()=>show(null));
+  });
+}
+// the quarter so far after each month, as columns rising towards the Bronze, Silver and Gold lines
+function monthColumns(months,T,qStart){
+  if(!T)return "";
+  const y0=+qStart.slice(0,4),m0=+qStart.slice(5,7)-1,slots=[0,1,2].map(k=>{const d=new Date(y0,m0+k,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");});
+  let run=0;const cols=slots.map(p=>{const m=months.find(x=>x.period.slice(0,7)===p);const before=run;if(m)run+=Number(m.value||0);return {p,m,before,after:run};});
+  const top=Math.max(T*1.65,run*1.08),W=600,H=250,L=8,R=86,B=34,Tp=14,ch=H-B-Tp,cw=(W-L-R)/3,bw=cw*0.46;
+  const y=v=>Tp+ch-(v/top)*ch;
+  const lines=TIERS.map(t=>{const v=t.at/100*T,yy=y(v).toFixed(1);return `<line x1="${L}" x2="${W-R+6}" y1="${yy}" y2="${yy}" class="mc-line ${t.k}"></line><text x="${W-R+10}" y="${(+yy+4).toFixed(1)}" class="mc-tl ${t.k}">${t.name}</text>`;}).join("");
+  const bars=cols.map((c,i)=>{const x=(L+cw*i+(cw-bw)/2).toFixed(1),base=Tp+ch;
+    const hb=(c.before/top*ch),ha=((c.after-c.before)/top*ch);
+    return `<g class="mc-col" style="animation-delay:${(i*0.12).toFixed(2)}s">
+      ${c.m&&c.before>0?`<rect x="${x}" y="${(base-hb).toFixed(1)}" width="${bw.toFixed(1)}" height="${hb.toFixed(1)}" rx="3" class="mc-before"></rect>`:""}
+      ${c.m?`<rect x="${x}" y="${(base-hb-ha).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(ha,0).toFixed(1)}" rx="3" class="mc-add"><title>${esc(monthName(c.p))}: +${esc(rand(c.m.value))}</title></rect>
+        <text x="${(+x+bw/2).toFixed(1)}" y="${(base-hb-ha-6).toFixed(1)}" class="mc-v">${Math.round(c.after/T*100)}%</text>`:`<text x="${(+x+bw/2).toFixed(1)}" y="${(base-6).toFixed(1)}" class="mc-v dim">${c.p<new Date().toISOString().slice(0,7)?"no report":"to come"}</text>`}
+      <text x="${(+x+bw/2).toFixed(1)}" y="${H-12}" class="mc-x">${esc(MONTHS[+c.p.slice(5,7)-1].slice(0,3))}</text></g>`;}).join("");
+  return `<div class="mc"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="The quarter so far after each month, against the Bronze, Silver and Gold targets">${lines}<line x1="${L}" x2="${W-R+6}" y1="${Tp+ch}" y2="${Tp+ch}" class="mc-axis"></line>${bars}</svg>
+    <p class="mc-key"><span><i class="mc-before"></i>Before the month</span><span><i class="mc-add"></i>Added that month</span></p></div>`;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // an All Stars Hero: only their own rewards (parts and units, never the store's prices or product values)
 // ---------------------------------------------------------------------------------------------------------------
@@ -290,9 +333,9 @@ function storeCard(){
     </div>
     <div class="hz-acts"><button type="button" class="btn line small" id="hzhow" aria-expanded="${O.how?"true":"false"}">${O.how?"Hide the breakdown":"See how you got here"}</button><button type="button" class="btn line small" id="hzxls">Download the breakdown</button></div>
     <div class="hz-break"${O.how?"":" hidden"}>
-      ${months.length?`<h3 class="as-h3">Month by month</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Quarter so far</th><th class="n">% of target</th><th>Tier reached</th><th>Report</th></tr></thead><tbody>${months.map(m=>
+      ${months.length?`<h3 class="as-h3">Month by month</h3>${monthColumns(B.months||[],T,Q.start)}<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Quarter so far</th><th class="n">% of target</th><th>Tier reached</th><th>Report</th></tr></thead><tbody>${months.map(m=>
         `<tr><td><b>${esc(monthName(m.period))}</b></td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.value))}</td><td class="n">${esc(rand(m.cum))}</td><td class="n">${m.cpct.toFixed(0)}%</td><td>${tierAt(m.cpct)}</td><td>${statPill(m)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="dhint">No reports for this quarter yet.</p>`}
-      ${(B.ranges||[]).length?`<h3 class="as-h3">By range</h3><div class="hz-ranges">${B.ranges.map(r=>`<div><b>${esc(r.range)}</b><span class="hz-rbar"><i data-w="${v?(Number(r.value)/v*100).toFixed(1):0}%"></i></span><span>${num(r.units)} parts · ${esc(rand(r.value))}</span></div>`).join("")}</div>`:""}
+      ${(B.ranges||[]).length?`<h3 class="as-h3">By range</h3>${donut(B.ranges.map(r=>({label:r.range,value:Number(r.value),sub:num(r.units)+" parts · "+rand(r.value)})),rand0(v),"")}`:""}
       ${(B.parts||[]).length?`<h3 class="as-h3">By part</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th>Range</th><th class="n">Units</th><th class="n">Product value</th></tr></thead><tbody>${B.parts.map(p=>
         `<tr><td><b>${esc(p.pn)}</b> <span class="ab-dim">${esc((p.desc||"").slice(0,60))}</span></td><td>${esc(p.range||"")}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td></tr>`).join("")}</tbody></table></div>`:""}
       <p class="dhint">Product value is the units you reported at your buy price, for the parts invoiced to your store.${notCov>0.004?` ${esc(rand(notCov))} you reported this quarter is more than was invoiced to you, so it does not count.`:""}</p>
@@ -328,8 +371,9 @@ function heroesSection(){
   return `<section class="as-card hz-heroes">
     <div class="as-cardh"><span class="as-kicker">All Stars Heroes · ${esc(label)}</span>
       <span class="hz-switch" role="group" aria-label="Period"><button type="button" data-hzp="quarter" aria-pressed="${quarter}">This quarter</button><button type="button" data-hzp="month" aria-pressed="${!quarter}">${lastM?esc(monthName(lastM.period).split(" ")[0]):"Latest month"}</button></span></div>
-    <div class="hz-sum"><div><div class="as-label">Rewards for your Heroes</div><div class="as-amount" data-count="${total}">R0.00</div></div>
+    <div class="hz-sum"><div><div class="as-label">Rewards for your Heroes</div><div class="as-amount" data-count="${total}">R0.00</div>
       <p class="as-sub">${boost?"4% launch booster":"2%"} of the product value they sold${!quarter&&lastM&&lastM.award?" · <b>+R1,000</b> if you stay Store of the Month":""}. You pay your Heroes through payroll once the month is approved. Each Hero sees only their own rewards, never your prices.</p></div>
+      ${donut(rows.filter(r=>r.units>0).map(r=>({label:r.s.name,value:r.units,sub:num(r.units)+" parts"})).concat(unUnits>0?[{label:"Not linked to a Hero",value:unUnits,sub:num(unUnits)+" parts"}]:[]),num(rows.reduce((a,r)=>a+r.units,0)+unUnits)+" parts","parts")}</div>
     ${staff.length?`<div class="hz-grid">${rows.map(card).join("")}
       ${unShare>0?`<article class="hz-card un"><div class="hz-head">${avatar("?",null,"")}<div class="hz-name"><b>Not linked to a Hero</b><span>${num(unUnits)} parts without a Hero's name</span></div></div><div class="hz-amt">${esc(rand(unShare))}</div><p class="dhint">Choose the Hero for these sales when you next send or correct a report.</p></article>`:""}
       <button type="button" class="hz-card hz-add" data-open="heroes"><span class="hz-av"><span>+</span></span><b>Add a Hero</b><span class="dhint">Each person who sells at your counter</span></button></div>`:
@@ -369,7 +413,7 @@ function owner(email){
     if((R.draft||(R.quick&&R.quick.dirty))&&!confirm("Leave this report without sending it?"))return;
     const p=b.dataset.open;O.panel=O.panel===p&&b.classList.contains("as-act")?null:p;R.draft=null;R.view=null;R.quick=null;owner(email);
     const el=app.querySelector("#aspanel");if(el&&O.panel)el.scrollIntoView({behavior:"smooth",block:"start"});});
-  app.querySelector("#hzhow").onclick=()=>{O.how=!O.how;const br=app.querySelector(".hz-break"),b=app.querySelector("#hzhow");br.hidden=!O.how;b.textContent=O.how?"Hide the breakdown":"See how you got here";b.setAttribute("aria-expanded",O.how);if(O.how)countUp(br);};
+  app.querySelector("#hzhow").onclick=()=>{O.how=!O.how;const br=app.querySelector(".hz-break"),b=app.querySelector("#hzhow");br.hidden=!O.how;b.textContent=O.how?"Hide the breakdown":"See how you got here";b.setAttribute("aria-expanded",O.how);if(O.how){countUp(br);br.querySelectorAll(".dn-seg,.mc-col").forEach(e=>{e.style.animation="none";void e.getBoundingClientRect();e.style.animation="";});}};
   app.querySelector("#hzxls").onclick=downloadBreakdown;
   app.querySelectorAll("[data-hzp]").forEach(b=>b.onclick=()=>{O.hzp=b.dataset.hzp;O.hzOpen=null;owner(email);});
   app.querySelectorAll("[data-hzhow]").forEach(b=>b.onclick=()=>{O.hzOpen=O.hzOpen===b.dataset.hzhow?null:b.dataset.hzhow;owner(email);});
@@ -377,6 +421,7 @@ function owner(email){
     if(O.pics[id]&&confirm("Remove this photo? Press Cancel to choose a new one instead.")){removePhoto(id).then(async()=>{toast("Photo removed.");await refreshOwner();}).catch(e=>toast(msg(e)));return;}
     pickPhoto(id,()=>refreshOwner());});
   countUp(app);
+  wireDonuts(app);
   panel();
 }
 function panel(){const P=app.querySelector("#aspanel");if(!P)return;if(O.panel==="report")paneReports();else if(O.panel==="heroes")paneHeroes();else P.innerHTML="";}
