@@ -1,11 +1,13 @@
 // The All Star page (/allstar/): Stravik All Star for the stores of a group (Autobarn).
 //   - not signed in: All Stars Heroes (counter staff) sign in with their mobile number and the 6-digit PIN their store
 //     owner set; store owners sign in with their email and password
-//   - an All Stars Hero: only their own rewards (stravik_as_counter): this month's reward, their product sales, their rank
-//     among the store's Heroes, badges and the store's race for Store of the Month
-//   - store owner (an approved store account on a group's store list): one screen in two halves, the store's reward on
-//     the left (product value this quarter against Bronze, Silver and Gold) and the Heroes' rewards on the right; below,
-//     sending the monthly sales report and managing the Heroes (stravik_as_owner, stravik_sales_setup, stravik_my_staff)
+//   - an All Stars Hero: only their own rewards (stravik_as_counter): their photo, this month's reward, the parts they sold,
+//     their rank among the store's Heroes, badges and the store's race for Store of the Month. A Hero never sees the
+//     store's buy prices or product values: only parts, units and their reward.
+//   - store owner (an approved store account on a group's store list): the store's reward on top (product value this
+//     quarter against Bronze, Silver and Gold) with its breakdown and an Excel download; sending the monthly sales report
+//     and managing the Heroes; then a card per Hero with photo, reward and how it adds up (stravik_as_owner,
+//     stravik_as_owner_breakdown, stravik_sales_setup, stravik_my_staff). Photos: private bucket stravik-hero-photos.
 // Rewards follow the Stravik All Star Reward Plan: owner 1%, 2% or 3% at 60%, 100% or 150% of the quarterly target;
 // Heroes share 2% of the store's product value every month (4% in the first 60 days after the first delivery), split by
 // salesperson; Store of the Month and Store of the Quarter per class add R1,000 and R2,500 for the Heroes.
@@ -54,8 +56,6 @@ function quarterNow(){
 }
 // owner tiers (Reward Plan, All Star Store)
 const TIERS=[{k:"bronze",name:"Bronze",at:60,rate:0.01},{k:"silver",name:"Silver",at:100,rate:0.02},{k:"gold",name:"Gold",at:150,rate:0.03}];
-// Hero badges: milestones on the Hero's product sales of the quarter (for fun: they do not change the reward)
-const BADGES=[{at:0.01,name:"First Stravik sale",icon:"★"},{at:1000,name:"R1,000 club",icon:"1K"},{at:5000,name:"R5,000 club",icon:"5K"},{at:10000,name:"R10,000 club",icon:"10K"},{at:25000,name:"R25,000 legend",icon:"25K"}];
 // a number that counts up when it appears
 function countUp(root){
   const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -129,21 +129,59 @@ function note(title,html){
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// an All Stars Hero: only their own rewards
+// photos of the Heroes: private bucket, one file per Hero (<staff id>.jpg), shown through short-lived signed links
 // ---------------------------------------------------------------------------------------------------------------
-function badgeState(total){
-  const got=BADGES.filter(b=>total>=b.at),next=BADGES.find(b=>total<b.at);
-  return {got,next};
+const PHOTOS="stravik-hero-photos";
+async function photoUrls(ids){
+  const out={};if(!ids.length)return out;
+  try{const r=await C.storage.from(PHOTOS).createSignedUrls(ids.map(i=>i+".jpg"),3600);(r.data||[]).forEach(x=>{if(x.signedUrl&&!x.error)out[x.path.replace(/\.jpg$/,"")]=x.signedUrl;});}catch(e){}
+  return out;
 }
-function badgesHtml(total){
-  const {got,next}=badgeState(total);
-  let line="";
-  if(next){const gap=next.at-total,k=total/next.at;
-    line=k>=0.85?`<b>You're almost there!</b> Only ${esc(rand(gap))} more Stravik sales for the <b>${esc(next.name)}</b>.`:
-      total>0?`${esc(rand(gap))} more Stravik sales this quarter for the <b>${esc(next.name)}</b>.`:"Sell your first Stravik part this quarter to earn your first badge.";}
+// a picture chosen on the phone or computer: cropped square, 320 x 320, saved as JPEG (no location or camera data)
+function squareJpeg(file){
+  return new Promise((res,rej)=>{
+    if(!/^image\//.test(file.type||"image/")){rej(new Error("Choose a photo."));return;}
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{const s=Math.min(img.naturalWidth,img.naturalHeight),c=document.createElement("canvas");c.width=c.height=320;
+      c.getContext("2d").drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/2,s,s,0,0,320,320);URL.revokeObjectURL(url);
+      c.toBlob(b=>b?res(b):rej(new Error("The photo could not be read.")),"image/jpeg",0.86);};
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("The photo could not be read. Try a JPEG or PNG."));};
+    img.src=url;
+  });
+}
+async function savePhoto(staffId,file){
+  const blob=await squareJpeg(file);
+  const up=await C.storage.from(PHOTOS).upload(staffId+".jpg",blob,{upsert:true,contentType:"image/jpeg",cacheControl:"60"});
+  if(up.error)throw up.error;
+  must(await C.rpc("stravik_hero_photo_set",{p_staff:staffId,p_has:true}));
+}
+async function removePhoto(staffId){
+  const r=await C.storage.from(PHOTOS).remove([staffId+".jpg"]);if(r.error)throw r.error;
+  must(await C.rpc("stravik_hero_photo_set",{p_staff:staffId,p_has:false}));
+}
+// a hidden file picker for one Hero; done() runs after a change
+function pickPhoto(staffId,done){
+  const i=document.createElement("input");i.type="file";i.accept="image/*";
+  i.onchange=async()=>{const f=i.files[0];if(!f)return;toast("Saving the photo…");try{await savePhoto(staffId,f);toast("Photo saved.");done();}catch(e){toast(msg(e));}};
+  i.click();
+}
+const initials=n=>String(n||"?").split(" ").filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();
+const avatar=(name,url,cls)=>`<span class="hz-av ${cls||""}">${url?`<img src="${esc(url)}" alt="">`:`<span>${esc(initials(name))}</span>`}</span>`;
+
+// ---------------------------------------------------------------------------------------------------------------
+// an All Stars Hero: only their own rewards (parts and units, never the store's prices or product values)
+// ---------------------------------------------------------------------------------------------------------------
+// Hero badges: milestones on the parts sold in the quarter (for fun: they do not change the reward)
+const BADGES=[{at:1,name:"First Stravik sale",icon:"★"},{at:10,name:"10 parts",icon:"10"},{at:50,name:"50 parts",icon:"50"},{at:100,name:"100 parts",icon:"100"},{at:250,name:"250 parts legend",icon:"250"}];
+function badgesHtml(units){
+  const next=BADGES.find(b=>units<b.at);
+  let line;
+  if(next){const gap=next.at-units,k=units/next.at;
+    line=k>=0.85?`<b>You're almost there!</b> Only ${num(gap)} more ${gap===1?"part":"parts"} for the <b>${esc(next.name)}</b> badge.`:
+      units>0?`${num(gap)} more Stravik ${gap===1?"part":"parts"} this quarter for the <b>${esc(next.name)}</b> badge.`:"Sell your first Stravik part this quarter to earn your first badge.";}
   else line="<b>Legend!</b> You have every badge this quarter.";
-  return `<div class="as-badges">${BADGES.map(b=>`<span class="as-badge${total>=b.at?" on":""}" title="${esc(b.name)}"><i>${esc(b.icon)}</i><span>${esc(b.name)}</span></span>`).join("")}</div>
-    ${next?`<div class="as-mini"><i data-w="${Math.min(100,total/next.at*100).toFixed(1)}%"></i></div>`:""}<p class="as-say">${line}</p>`;
+  return `<div class="as-badges">${BADGES.map(b=>`<span class="as-badge${units>=b.at?" on":""}" title="${esc(b.name)}"><i>${esc(b.icon)}</i><span>${esc(b.name)}</span></span>`).join("")}</div>
+    ${next?`<div class="as-mini"><i data-w="${Math.min(100,units/next.at*100).toFixed(1)}%"></i></div>`:""}<p class="as-say">${line}</p>`;
 }
 async function hero(cm){
   siteMenu(false);
@@ -152,37 +190,45 @@ async function hero(cm){
   app.innerHTML=head("Hi, "+first(cm.name)+"!",`${esc(cm.store)}${cm.town?", "+esc(cm.town):""} · All Stars Hero`,"Stravik All Star")+`<div class="wrap ab-note"><p class="loading">Loading your rewards…</p></div>`;
   let D=null;try{D=must(await C.rpc("stravik_as_counter"));}catch(e){}
   const M=(D&&D.months)||[],last=M[0],Q=quarterNow();
-  const qTotal=M.filter(m=>m.period>=Q.start&&m.period<Q.end).reduce((a,m)=>a+Number(m.value||0),0);
-  const qShare=M.filter(m=>m.period>=Q.start&&m.period<Q.end).reduce((a,m)=>a+Number(m.share||0),0);
+  const inQ=M.filter(m=>m.period>=Q.start&&m.period<Q.end);
+  const qUnits=inQ.reduce((a,m)=>a+Number(m.units||0),0),qShare=inQ.reduce((a,m)=>a+Number(m.share||0),0);
   const boost=D&&D.booster_until&&new Date(D.booster_until)>new Date();
+  const pic=D&&D.photo_at?(await photoUrls([D.id]))[D.id]:null;
   app.querySelector(".ab-note").outerHTML=`<div class="wrap as-hero">
     ${boost?`<div class="as-boost"><b>Launch booster:</b> you earn 4% on your Stravik sales until ${esc(day(D.booster_until))}.</div>`:""}
     <section class="as-card as-big">
+      <div class="hz-me">${avatar(cm.name,pic,"big"+(last&&last.heroes>1&&last.rank<=3?" r"+last.rank:""))}
+        <button type="button" class="linkbtn" id="hzpic">${pic?"Change your photo":"Add your photo"}</button>${pic?` · <button type="button" class="linkbtn" id="hzdel">Remove</button>`:""}</div>
       ${last?`<div class="as-label">Your reward for ${esc(monthName(last.period))}</div>
       <div class="as-amount" data-count="${Number(last.share||0)}">R0.00</div>
-      <p>From <b>${esc(rand(last.value))}</b> of Stravik products you sold (${num(last.units)} ${last.units===1?"part":"parts"}), at ${last.booster?"4% launch booster":"2%"}. ${last.status==="Approved"?"Approved: your store pays you through payroll.":"Being checked: approved by the 10th, then your store pays you through payroll."}</p>
-      ${last.heroes>1&&last.rank<=3?`<div class="as-rank r${last.rank}"><span>${last.rank===1?"1st":last.rank===2?"2nd":"3rd"}</span>${last.rank===1?`Top Hero at your store in ${esc(monthName(last.period).split(" ")[0])}!`:`${last.rank===2?"Second":"Third"} of ${num(last.heroes)} Heroes at your store in ${esc(monthName(last.period).split(" ")[0])}`}</div>`:""}`:
+      <p>For the <b>${num(last.units)}</b> Stravik ${last.units===1?"part":"parts"} you sold${last.booster?", with the 4% launch booster":""}. ${last.status==="Approved"?"Approved: your store pays you through payroll.":"Being checked: approved by the 10th, then your store pays you through payroll."}</p>
+      ${last.heroes>1&&last.rank<=3?`<div class="as-rank r${last.rank}"><span>${last.rank===1?"1st":last.rank===2?"2nd":"3rd"}</span>${last.rank===1?`Top Hero at your store in ${esc(monthName(last.period).split(" ")[0])}!`:`${last.rank===2?"Second":"Third"} of ${num(last.heroes)} Heroes at your store in ${esc(monthName(last.period).split(" ")[0])}`}</div>`:""}
+      ${(last.parts||[]).length?`<details class="hz-how"><summary>How you got here</summary><ul class="hz-parts">${last.parts.map(p=>`<li><b>${esc(p.pn)}</b><span>${esc((p.desc||"").slice(0,60))}</span><em>${num(p.units)} ${p.units===1?"part":"parts"}</em></li>`).join("")}</ul>
+        <p class="dhint">Your reward is ${last.booster?"4%":"2%"} of what these parts are worth to your store.</p></details>`:""}`:
       `<div class="as-label">Your rewards</div><div class="as-amount">R0.00</div><p>Nothing has been reported for you yet. Your rewards appear after your store sends its monthly Stravik sales report.</p>`}
     </section>
     <section class="as-card">
       <h2 class="ab-h">Your badges in ${esc(qName(Q.start))}</h2>
-      <p class="as-sub">${esc(rand(qTotal))} of Stravik sales this quarter · ${esc(rand(qShare))} in rewards so far</p>
-      ${badgesHtml(qTotal)}
+      <p class="as-sub">${num(qUnits)} Stravik ${qUnits===1?"part":"parts"} sold this quarter · ${esc(rand(qShare))} in rewards so far</p>
+      ${badgesHtml(qUnits)}
     </section>
     ${last&&last.store_pct!=null?`<section class="as-card"><h2 class="ab-h">Store of the Month race</h2>
       <p>Your store reached <b>${esc(String(last.store_pct))}%</b> of its target for ${esc(monthName(last.period).split(" ")[0])}. ${last.store_award?"It is <b>leading its class</b>: R1,000 extra for its Heroes if it stays on top.":"The store with the highest % in its class wins R1,000 extra for its Heroes."}</p></section>`:""}
     ${M.length>1?`<section class="as-card"><h2 class="ab-h">Your months</h2><div class="as-hist">${M.map(m=>
-      `<div><b>${esc(monthName(m.period))}</b><span>${esc(rand(m.value))} sold</span><span class="as-hist-r">${esc(rand(m.share))}</span></div>`).join("")}</div></section>`:""}
+      `<div><b>${esc(monthName(m.period))}</b><span>${num(m.units)} ${m.units===1?"part":"parts"}</span><span class="as-hist-r">${esc(rand(m.share))}</span></div>`).join("")}</div></section>`:""}
     <p class="dhint">Signed in with ${esc(showMobile(cm.mobile))}. <button type="button" class="linkbtn" id="asout">Sign out</button></p>
   </div>`;
   app.querySelector("#asout").onclick=signOut;
+  const again=()=>start();
+  app.querySelector("#hzpic").onclick=()=>pickPhoto(D?D.id:cm.id,again);
+  const del=app.querySelector("#hzdel");if(del)del.onclick=async()=>{if(!confirm("Remove your photo?"))return;try{await removePhoto(D.id);toast("Photo removed.");again();}catch(e){toast(msg(e));}};
   countUp(app);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// store owner: the dashboard in two halves, then the report and the Heroes below
+// store owner: the store's reward on top, the report and the Heroes' management, then the Heroes' cards
 // ---------------------------------------------------------------------------------------------------------------
-const O={staff:null,store:"",panel:null,edit:null};
+const O={staff:null,store:"",panel:null,edit:null,how:false,hzp:"quarter",hzOpen:null,pics:{}};
 const R={setup:null,calc:null,draft:null,view:null,period:null};
 async function call(body){
   const r=await C.functions.invoke("stravik-staff",{body});
@@ -191,8 +237,9 @@ async function call(body){
   return r.data;
 }
 async function loadAll(){
-  const r=await Promise.all([C.rpc("stravik_my_staff"),C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner")]);
-  const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);
+  const r=await Promise.all([C.rpc("stravik_my_staff"),C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner"),C.rpc("stravik_as_owner_breakdown")]);
+  const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);R.bd=must(r[3]);
+  O.pics=await photoUrls((O.staff||[]).filter(x=>x.photo_at).map(x=>x.id));
 }
 const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
 // tell the Stravik team by email (stravik-dealer-mail): a report sent or changed, or a correction asked; it never blocks the store
@@ -205,9 +252,9 @@ const sentOf=period=>R.setup&&(R.setup.reports||[]).find(r=>r.period.slice(0,7)=
 function locked(period){const r=sentOf(period);if(!r||r.editable)return false;
   toast(r.status==="Approved"?monthName(period)+" is approved and final.":r.status==="Rejected"?monthName(period)+" was not accepted. Please contact your Stravik sales manager.":monthName(period)+" is locked. Open it under Reports sent to ask for a correction.");return true;}
 
-// left half: the store's reward this quarter
+// ---- top: the store's reward this quarter, and how it got there
 function storeCard(){
-  const A=R.calc||{},Q=quarterNow(),T=Number(A.quarterly_target||0);
+  const A=R.calc||{},B=R.bd||{months:[],ranges:[],parts:[]},Q=quarterNow(),T=Number(A.quarterly_target||0);
   const q=(A.quarters||[]).find(x=>x.quarter===Q.start)||{value_checked:0,reports:0,reports_due:0,award:0};
   const v=Number(q.value_checked||0),pct=T?v/T*100:0,reached=TIERS.filter(t=>pct>=t.at).pop(),next=TIERS.find(t=>pct<t.at);
   const reward=reached?v*reached.rate:0;
@@ -218,55 +265,101 @@ function storeCard(){
       k>=0.5?`Halfway to <b>${next.name}</b>: ${esc(rand0(gap))} to go.`:
       v>0?`On your way to <b>${next.name}</b>: ${esc(rand0(gap))} to go.`:`Your climb to <b>Bronze</b> starts with your first Stravik sale this quarter.`;}
   const lastM=(A.months||[])[0];
+  // month by month: what each month added, and where the quarter stood after it
+  let run=0;
+  const months=(B.months||[]).map(m=>{run+=Number(m.value||0);return Object.assign({},m,{cum:run,cpct:T?run/T*100:0});});
+  const tierAt=p=>{const t=TIERS.filter(x=>p>=x.at).pop();return t?`<span class="hz-tier ${t.k}">${t.name}</span>`:`<span class="ab-dim">–</span>`;};
+  const notCov=(B.months||[]).reduce((a,m)=>a+Number(m.reported||0)-Number(m.value||0),0);
   return `<section class="as-card as-store ${reached?"t-"+reached.k:"t-none"}">
     <div class="as-cardh"><span class="as-kicker">Your store · ${esc(qName(Q.start))}</span><span class="as-tier">${reached?`<i class="as-medal ${reached.k}"></i>${reached.name}`:"Not yet Bronze"}</span></div>
-    <div class="as-label">Your reward so far</div>
-    <div class="as-amount" data-count="${reward}">R0.00</div>
-    <p class="as-sub">${reached?`${Math.round(reached.rate*100)}% of ${esc(rand(v))} product value this quarter`:`Product value this quarter: <b>${esc(rand(v))}</b>`}</p>
-    <div class="as-track" role="img" aria-label="${pct.toFixed(0)}% of your quarterly target">
-      <span class="z bronze"></span><span class="z silver"></span><span class="z gold"></span>
-      <i class="fill" data-w="${Math.min(100,pct/150*100).toFixed(1)}%"></i>
+    <div class="hz-top">
+      <div>
+        <div class="as-label">Your reward so far</div>
+        <div class="as-amount" data-count="${reward}">R0.00</div>
+        <p class="as-sub">${reached?`${Math.round(reached.rate*100)}% of ${esc(rand(v))} product value this quarter`:`Product value this quarter: <b>${esc(rand(v))}</b>`}</p>
+        <p class="as-say">${say}</p>
+      </div>
+      <div>
+        <div class="as-track" role="img" aria-label="${pct.toFixed(0)}% of your quarterly target">
+          <span class="z bronze"></span><span class="z silver"></span><span class="z gold"></span>
+          <i class="fill" data-w="${Math.min(100,pct/150*100).toFixed(1)}%"></i>
+        </div>
+        <div class="as-steps">${TIERS.map(t=>`<div class="as-step ${pct>=t.at?"on":""} ${t.k}"><i class="as-medal ${t.k}"></i><b>${t.name}</b><span>${esc(rand0(t.at/100*T))}</span><span>${Math.round(t.rate*100)}% reward</span></div>`).join("")}</div>
+        <p class="as-fine">${pct.toFixed(0)}% of your quarterly target of ${esc(rand0(T))} · ${num(Q.left)} days left in ${esc(qName(Q.start))}.${lastM&&lastM.award?` Your store is leading its class for <b>Store of the Month</b>.`:""}${q.award?` And for <b>Store of the Quarter</b>.`:""}</p>
+      </div>
     </div>
-    <div class="as-steps">${TIERS.map(t=>`<div class="as-step ${pct>=t.at?"on":""} ${t.k}"><i class="as-medal ${t.k}"></i><b>${t.name}</b><span>${esc(rand0(t.at/100*T))}</span><span>${Math.round(t.rate*100)}% reward</span></div>`).join("")}</div>
-    <p class="as-say">${say}</p>
-    <p class="as-fine">${pct.toFixed(0)}% of your quarterly target of ${esc(rand0(T))} · ${num(Q.left)} days left in ${esc(qName(Q.start))}.${lastM&&lastM.award?` Your store is leading its class for <b>Store of the Month</b>.`:""}${q.award?` And for <b>Store of the Quarter</b>.`:""}</p>
+    <div class="hz-acts"><button type="button" class="btn line small" id="hzhow" aria-expanded="${O.how?"true":"false"}">${O.how?"Hide the breakdown":"See how you got here"}</button><button type="button" class="btn line small" id="hzxls">Download the breakdown</button></div>
+    <div class="hz-break"${O.how?"":" hidden"}>
+      ${months.length?`<h3 class="as-h3">Month by month</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Quarter so far</th><th class="n">% of target</th><th>Tier reached</th><th>Report</th></tr></thead><tbody>${months.map(m=>
+        `<tr><td><b>${esc(monthName(m.period))}</b></td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.value))}</td><td class="n">${esc(rand(m.cum))}</td><td class="n">${m.cpct.toFixed(0)}%</td><td>${tierAt(m.cpct)}</td><td>${statPill(m)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="dhint">No reports for this quarter yet.</p>`}
+      ${(B.ranges||[]).length?`<h3 class="as-h3">By range</h3><div class="hz-ranges">${B.ranges.map(r=>`<div><b>${esc(r.range)}</b><span class="hz-rbar"><i data-w="${v?(Number(r.value)/v*100).toFixed(1):0}%"></i></span><span>${num(r.units)} parts · ${esc(rand(r.value))}</span></div>`).join("")}</div>`:""}
+      ${(B.parts||[]).length?`<h3 class="as-h3">By part</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th>Range</th><th class="n">Units</th><th class="n">Product value</th></tr></thead><tbody>${B.parts.map(p=>
+        `<tr><td><b>${esc(p.pn)}</b> <span class="ab-dim">${esc((p.desc||"").slice(0,60))}</span></td><td>${esc(p.range||"")}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td></tr>`).join("")}</tbody></table></div>`:""}
+      <p class="dhint">Product value is the units you reported at your buy price, for the parts invoiced to your store.${notCov>0.004?` ${esc(rand(notCov))} you reported this quarter is more than was invoiced to you, so it does not count.`:""}</p>
+    </div>
   </section>`;
 }
-// right half: the Heroes' rewards in the latest month reported
-function heroesCard(){
-  const A=R.calc||{},m=(A.months||[])[0],staff=(O.staff||[]).filter(s=>s.active);
+// ---- bottom: a card for each Hero
+function heroesSection(){
+  const B=R.bd||{heroes:[]},A=R.calc||{},staff=(O.staff||[]).filter(s=>s.active),lastM=(A.months||[])[0];
+  const quarter=O.hzp!=="month";
+  // the figures per Hero: the whole quarter, or the latest month reported
+  const rows=staff.map(s=>{const h=(B.heroes||[]).find(x=>x.staff_id===s.id)||{};
+      let units=Number(h.units||0),share=Number(h.share||0);
+      if(!quarter){const mm=(h.months||[]).find(x=>lastM&&x.period===lastM.period)||{};units=Number(mm.units||0);share=Number(mm.share||0);}
+      return {s,h,units,share};});
+  const un=(B.heroes||[]).find(x=>!x.staff_id);
+  let unUnits=0,unShare=0;if(un){if(quarter){unUnits=Number(un.units||0);unShare=Number(un.share||0);}else{const mm=(un.months||[]).find(x=>lastM&&x.period===lastM.period)||{};unUnits=Number(mm.units||0);unShare=Number(mm.share||0);}}
+  rows.sort((a,b)=>b.share-a.share||a.s.name.localeCompare(b.s.name));
+  const top=Math.max(1,...rows.map(r=>r.units)),total=rows.reduce((a,r)=>a+r.share,0)+unShare;
   const boost=A.first_delivery&&new Date(new Date(A.first_delivery).getTime()+60*864e5)>new Date();
-  if(!m)return `<section class="as-card as-heroes"><div class="as-cardh"><span class="as-kicker">All Stars Heroes</span></div>
-    <div class="as-label">Your Heroes' rewards</div><div class="as-amount">R0.00</div>
-    <p class="as-sub">Send your first monthly sales report to see what each Hero earned.</p>
-    ${staff.length?`<ul class="as-heroes-l">${staff.map(s=>`<li><span class="as-av">${esc(first(s.name).slice(0,1))}</span><b>${esc(s.name)}</b><span class="as-hv">R0.00</span></li>`).join("")}</ul>`:`<p class="as-say">Add your counter team as Heroes, so each one sees their own rewards.</p>`}
-    <p><button type="button" class="btn line small" data-open="heroes">${staff.length?"Manage your Heroes":"Add your Heroes"}</button></p></section>`;
-  const P=(m.people||[]),top=Math.max(1,...P.map(p=>Number(p.value||0)));
-  const named=P.filter(p=>p.staff_id).sort((a,b)=>b.value-a.value),un=P.find(p=>!p.staff_id);
-  const quiet=staff.filter(s=>!P.some(p=>p.staff_id===s.id));
-  return `<section class="as-card as-heroes">
-    <div class="as-cardh"><span class="as-kicker">All Stars Heroes · ${esc(monthName(m.period))}</span>${boost||m.booster?`<span class="as-pill-boost">4% booster</span>`:""}</div>
-    <div class="as-label">Rewards for your Heroes</div>
-    <div class="as-amount" data-count="${Number(m.pool||0)}">R0.00</div>
-    <p class="as-sub">${m.booster?"4%":"2%"} of ${esc(rand(m.value_checked))} product value, by who sold it${m.award?" · <b>+R1,000</b> if you stay Store of the Month":""}</p>
-    <ul class="as-heroes-l">${named.map((p,i)=>`<li class="${i<3?"r"+(i+1):""}"><span class="as-av">${i<3?["1","2","3"][i]:esc(first(p.name).slice(0,1))}</span><b>${esc(p.name)}</b>
-        <span class="as-hbar"><i data-w="${(Number(p.value||0)/top*100).toFixed(1)}%"></i></span><span class="as-hv">${esc(rand(p.share))}</span><span class="as-hs">${esc(rand(p.value))} sold</span></li>`).join("")}
-      ${quiet.map(s=>`<li class="quiet"><span class="as-av">${esc(first(s.name).slice(0,1))}</span><b>${esc(s.name)}</b><span class="as-hbar"></span><span class="as-hv">R0.00</span><span class="as-hs">no Stravik sales</span></li>`).join("")}
-      ${un?`<li class="un"><span class="as-av">?</span><b>Not linked to a Hero</b><span class="as-hbar"><i data-w="${(Number(un.value||0)/top*100).toFixed(1)}%"></i></span><span class="as-hv">${esc(rand(un.share))}</span><span class="as-hs">sales without a Hero's name</span></li>`:""}</ul>
-    ${named[0]&&named.length>1?`<p class="as-say"><b>${esc(first(named[0].name))}</b> is your top Hero this month!</p>`:""}
-    <p class="as-fine">You pay your Heroes through payroll once the month is approved. Each Hero sees only their own rewards.</p>
-    <p><button type="button" class="btn line small" data-open="heroes">Manage your Heroes</button></p>
+  const label=quarter?qName(quarterNow().start)+" so far":(lastM?monthName(lastM.period):"Latest month");
+  const card=(r,i)=>{const rank=r.share>0&&i<3?i+1:0,open=O.hzOpen===r.s.id,parts=r.h.parts||[],ms=r.h.months||[];
+    return `<article class="hz-card${rank?" r"+rank:""}${r.share>0?"":" quiet"}">
+      <div class="hz-head">${avatar(r.s.name,O.pics[r.s.id],rank?"r"+rank:"")}${rank?`<span class="hz-rank">${rank}</span>`:""}
+        <div class="hz-name"><b>${esc(r.s.name)}</b><span>${r.units?`${num(r.units)} ${r.units===1?"part":"parts"} sold`:"No Stravik sales yet"}</span></div></div>
+      <div class="hz-amt" data-count="${r.share}">R0.00</div>
+      <span class="hz-bar"><i data-w="${(r.units/top*100).toFixed(1)}%"></i></span>
+      <div class="hz-cacts"><button type="button" class="linkbtn" data-hzhow="${r.s.id}">${open?"Hide":"How it adds up"}</button><button type="button" class="linkbtn" data-hzpic="${r.s.id}">${O.pics[r.s.id]?"Change photo":"Add photo"}</button></div>
+      ${open?`<div class="hz-detail">${ms.length?`<table><thead><tr><th>Month</th><th class="n">Parts</th><th class="n">Reward</th></tr></thead><tbody>${ms.map(m=>`<tr><td>${esc(monthName(m.period))}</td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.share))}</td></tr>`).join("")}</tbody></table>`:""}
+        ${parts.length?`<ul class="hz-parts">${parts.map(p=>`<li><b>${esc(p.pn)}</b><span>${esc((p.desc||"").slice(0,48))}</span><em>${num(p.units)}</em></li>`).join("")}</ul>`:`<p class="dhint">No Stravik sales this quarter.</p>`}
+        <p class="dhint">${quarter?"This quarter.":"The cards show "+esc(label)+"; this is the whole quarter."} ${boost?"4% launch booster":"2%"} of the product value of these parts.</p></div>`:""}
+    </article>`;};
+  return `<section class="as-card hz-heroes">
+    <div class="as-cardh"><span class="as-kicker">All Stars Heroes · ${esc(label)}</span>
+      <span class="hz-switch" role="group" aria-label="Period"><button type="button" data-hzp="quarter" aria-pressed="${quarter}">This quarter</button><button type="button" data-hzp="month" aria-pressed="${!quarter}">${lastM?esc(monthName(lastM.period).split(" ")[0]):"Latest month"}</button></span></div>
+    <div class="hz-sum"><div><div class="as-label">Rewards for your Heroes</div><div class="as-amount" data-count="${total}">R0.00</div></div>
+      <p class="as-sub">${boost?"4% launch booster":"2%"} of the product value they sold${!quarter&&lastM&&lastM.award?" · <b>+R1,000</b> if you stay Store of the Month":""}. You pay your Heroes through payroll once the month is approved. Each Hero sees only their own rewards, never your prices.</p></div>
+    ${staff.length?`<div class="hz-grid">${rows.map(card).join("")}
+      ${unShare>0?`<article class="hz-card un"><div class="hz-head">${avatar("?",null,"")}<div class="hz-name"><b>Not linked to a Hero</b><span>${num(unUnits)} parts without a Hero's name</span></div></div><div class="hz-amt">${esc(rand(unShare))}</div><p class="dhint">Choose the Hero for these sales when you next send or correct a report.</p></article>`:""}
+      <button type="button" class="hz-card hz-add" data-open="heroes"><span class="hz-av"><span>+</span></span><b>Add a Hero</b><span class="dhint">Each person who sells at your counter</span></button></div>`:
+    `<div class="ab-empty"><h3>No Heroes yet</h3><p>Add the people who sell at your counter. Each one signs in with their mobile number and sees their own rewards.</p><p><button type="button" class="btn gold" data-open="heroes">Add your Heroes</button></p></div>`}
   </section>`;
+}
+// the breakdown as an Excel file
+function downloadBreakdown(){
+  const A=R.calc||{},B=R.bd||{},Q=quarterNow(),T=Number(A.quarterly_target||0),names={};(O.staff||[]).forEach(s=>{names[s.id]=s.name;});
+  const v=(B.months||[]).reduce((a,m)=>a+Number(m.value||0),0),pct=T?v/T*100:0,reached=TIERS.filter(t=>pct>=t.at).pop();
+  let run=0;
+  xlsx([{name:"Summary",head:["",""],widths:[32,24],rows:[["Store",O.store],["Quarter",qName(Q.start)],["Quarterly target",T],["Product value so far",Number(v.toFixed(2))],["% of target",Number(pct.toFixed(1))],["Tier",reached?reached.name:"Not yet Bronze"],["Reward rate",reached?reached.rate:0],["Your reward so far",Number((reached?v*reached.rate:0).toFixed(2))],
+      ["Bronze at",T*0.6],["Silver at",T],["Gold at",T*1.5],["Rewards for your Heroes",Number((B.heroes||[]).reduce((a,h)=>a+Number(h.share||0),0).toFixed(2))]]},
+    {name:"Months",head:["Month","Parts","Reported at your buy price","Product value","Quarter so far","% of target","Heroes' rewards","Report"],widths:[16,8,16,14,14,10,14,26],
+      rows:(B.months||[]).map(m=>{run+=Number(m.value||0);return [monthName(m.period),Number(m.units),Number(m.reported),Number(m.value),Number(run.toFixed(2)),T?Number((run/T*100).toFixed(1)):"",Number(m.pool),STAT[m.status]||m.status];})},
+    {name:"Ranges",head:["Range","Units","Product value"],widths:[24,10,16],rows:(B.ranges||[]).map(r=>[r.range,Number(r.units),Number(r.value)])},
+    {name:"Parts",head:["Stravik PN","Description","Range","Units","Product value"],widths:[14,60,18,10,16],rows:(B.parts||[]).map(p=>[p.pn,p.desc||"",p.range||"",Number(p.units),Number(p.value)])},
+    {name:"Heroes",head:["Hero","Parts","Product value","Reward"],widths:[28,10,16,12],rows:(B.heroes||[]).map(h=>[h.staff_id?names[h.staff_id]||"":"Not linked to a Hero",Number(h.units),Number(h.value),Number(h.share)])}],
+    "Stravik_All_Star_"+O.store.replace(/[^A-Za-z0-9]+/g,"_")+"_"+qName(Q.start).replace(" ","_")+".xlsx");
 }
 function owner(email){
   siteMenu(true);
   document.title="Stravik All Star | "+O.store;
-  app.innerHTML=head(O.store,"Stravik All Star: your store's reward on the left, your All Stars Heroes' rewards on the right.","Stravik All Star").replace("</h1>","</h1><p><a class=\"btn line small\" href=\"/\">← Back to your products and prices</a></p>")+
+  app.innerHTML=head(O.store,"Stravik All Star: your store's reward, and your All Stars Heroes' rewards.","Stravik All Star").replace("</h1>","</h1><p><a class=\"btn line small\" href=\"/\">← Back to your products and prices</a></p>")+
   `<div class="wrap as-dash">
-    <div class="as-split">${storeCard()}${heroesCard()}</div>
+    ${storeCard()}
+    ${heroesSection()}
     <div class="as-actions">
-      <button type="button" class="as-act${O.panel==="report"?" on":""}" data-open="report"><b>Send your monthly sales report</b><span>By the 5th: last month's Stravik sales from your POS</span></button>
-      <button type="button" class="as-act${O.panel==="heroes"?" on":""}" data-open="heroes"><b>Your All Stars Heroes</b><span>${num((O.staff||[]).filter(s=>s.active).length)} registered · add, new PIN, switch off</span></button>
+      <button type="button" class="as-act${O.panel==="report"?" on":""}" data-open="report"><b>Send your monthly sales report</b><span>By the 5th: last month's Stravik sales</span></button>
+      <button type="button" class="as-act${O.panel==="heroes"?" on":""}" data-open="heroes"><b>Manage your Heroes</b><span>${num((O.staff||[]).filter(s=>s.active).length)} registered · add, new PIN, switch off</span></button>
     </div>
     <div id="aspanel"></div>
     <p class="dhint ab-foot">Signed in as ${esc(email)}. <a class="linkbtn" href="/">Your products and prices</a> · <button type="button" class="linkbtn" id="asout">Sign out</button></p>
@@ -276,6 +369,13 @@ function owner(email){
     if((R.draft||(R.quick&&R.quick.dirty))&&!confirm("Leave this report without sending it?"))return;
     const p=b.dataset.open;O.panel=O.panel===p&&b.classList.contains("as-act")?null:p;R.draft=null;R.view=null;R.quick=null;owner(email);
     const el=app.querySelector("#aspanel");if(el&&O.panel)el.scrollIntoView({behavior:"smooth",block:"start"});});
+  app.querySelector("#hzhow").onclick=()=>{O.how=!O.how;const br=app.querySelector(".hz-break"),b=app.querySelector("#hzhow");br.hidden=!O.how;b.textContent=O.how?"Hide the breakdown":"See how you got here";b.setAttribute("aria-expanded",O.how);if(O.how)countUp(br);};
+  app.querySelector("#hzxls").onclick=downloadBreakdown;
+  app.querySelectorAll("[data-hzp]").forEach(b=>b.onclick=()=>{O.hzp=b.dataset.hzp;O.hzOpen=null;owner(email);});
+  app.querySelectorAll("[data-hzhow]").forEach(b=>b.onclick=()=>{O.hzOpen=O.hzOpen===b.dataset.hzhow?null:b.dataset.hzhow;owner(email);});
+  app.querySelectorAll("[data-hzpic]").forEach(b=>b.onclick=()=>{const id=b.dataset.hzpic;
+    if(O.pics[id]&&confirm("Remove this photo? Press Cancel to choose a new one instead.")){removePhoto(id).then(async()=>{toast("Photo removed.");await refreshOwner();}).catch(e=>toast(msg(e)));return;}
+    pickPhoto(id,()=>refreshOwner());});
   countUp(app);
   panel();
 }
