@@ -232,9 +232,12 @@ function badgesHtml(units){
   const next=BADGES.find(b=>units<b.at);
   let line;
   if(next){const gap=next.at-units,k=units/next.at;
-    line=k>=0.85?`<b>You're almost there!</b> Only ${num(gap)} more ${gap===1?"part":"parts"} for the <b>${esc(next.name)}</b> badge.`:
-      units>0?`${num(gap)} more Stravik ${gap===1?"part":"parts"} this quarter for the <b>${esc(next.name)}</b> badge.`:"Sell your first Stravik part this quarter to earn your first badge.";}
-  else line="<b>Legend!</b> You have every badge this quarter.";
+    const more=`${num(gap)} more ${gap===1?"part":"parts"}`;
+    line=units<=0?`<b>Your first badge is waiting! ⭐</b> Sell one Stravik part to grab it.`:
+      k>=0.85?`<b>Almost there! 🔥</b> Just ${more} for the <b>${esc(next.name)}</b> badge.`:
+      k>=0.5?`<b>You're on fire!</b> ${more} for the <b>${esc(next.name)}</b> badge.`:
+      `<b>Nice start!</b> ${more} for the <b>${esc(next.name)}</b> badge.`;}
+  else line="<b>Legend! 🏆</b> Every badge this quarter. The counter is yours.";
   return `<div class="as-badges">${BADGES.map(b=>`<span class="as-badge${units>=b.at?" on":""}" title="${esc(b.name)}"><i>${esc(b.icon)}</i><span>${esc(b.name)}</span></span>`).join("")}</div>
     ${next?`<div class="as-mini"><i data-w="${Math.min(100,units/next.at*100).toFixed(1)}%"></i></div>`:""}<p class="as-say">${line}</p>`;
 }
@@ -257,7 +260,7 @@ async function hero(cm){
       ${last?`<div class="as-label">Your reward for ${esc(monthName(last.period))}</div>
       <div class="as-amount" data-count="${Number(last.share||0)}">R0.00</div>
       <p>For the <b>${num(last.units)}</b> Stravik ${last.units===1?"part":"parts"} you sold${last.booster?", with the 4% launch booster":""}. ${last.status==="Approved"?"Approved: your store pays you through payroll.":"Being checked: approved by the 10th, then your store pays you through payroll."}</p>
-      ${last.heroes>1&&last.rank<=3?`<div class="as-rank r${last.rank}"><span>${last.rank===1?"1st":last.rank===2?"2nd":"3rd"}</span>${last.rank===1?`Top Hero at your store in ${esc(monthName(last.period).split(" ")[0])}!`:`${last.rank===2?"Second":"Third"} of ${num(last.heroes)} Heroes at your store in ${esc(monthName(last.period).split(" ")[0])}`}</div>`:""}
+      ${last.heroes>1&&last.rank<=3?`<div class="as-rank r${last.rank}"><span>${last.rank===1?"1st":last.rank===2?"2nd":"3rd"}</span>${last.rank===1?`Top Hero at your store in ${esc(monthName(last.period).split(" ")[0])}! Take a bow 👏`:`${last.rank===2?"Second":"Third"} of ${num(last.heroes)} Heroes in ${esc(monthName(last.period).split(" ")[0])}. The top spot is in sight!`}</div>`:""}
       ${(last.parts||[]).length?`<details class="hz-how"><summary>How you got here</summary><ul class="hz-parts">${last.parts.map(p=>`<li><b>${esc(p.pn)}</b><span>${esc((p.desc||"").slice(0,60))}</span><em>${num(p.units)} ${p.units===1?"part":"parts"}</em></li>`).join("")}</ul>
         <p class="dhint">Your reward is ${last.booster?"4%":"2%"} of what these parts are worth to your store.</p></details>`:""}`:
       `<div class="as-label">Your rewards</div><div class="as-amount">R0.00</div><p>Nothing has been reported for you yet. Your rewards appear after your store sends its monthly Stravik sales report.</p>`}
@@ -307,18 +310,28 @@ const sentOf=period=>R.setup&&(R.setup.reports||[]).find(r=>r.period.slice(0,7)=
 function locked(period){const r=sentOf(period);if(!r||r.editable)return false;
   toast(r.status==="Approved"?monthName(period)+" is approved and final.":r.status==="Rejected"?monthName(period)+" was not accepted. Please contact your Stravik sales manager.":monthName(period)+" is locked. Open it under Reports sent to ask for a correction.");return true;}
 
+// the store's milestone message: cheeky, by where it stands between two medals (and a nudge in the last two weeks)
+function cheer(v,T,pct,left){
+  const reached=TIERS.filter(t=>pct>=t.at).pop(),next=TIERS.find(t=>pct<t.at),R=x=>esc(rand0(x));
+  if(!next)return pct>=200?`<b>Unstoppable! 🚀</b> Double your target and still going. Gold all the way: 3% on every Stravik sale this quarter.`:
+    `<b>WOW, Gold! 🥇</b> You're a true All Star. 3% on every Stravik sale this quarter, so keep that till ringing!`;
+  const from=reached?reached.at:0,gap=next.at/100*T-v,k=(pct-from)/(next.at-from),m={bronze:"🥉",silver:"🥈",gold:"🥇"}[next.k];
+  const hurry=left<=14?` <span class="as-hurry">⏱ ${num(left)} ${left===1?"day":"days"} left in the quarter: sprint!</span>`:"";
+  let t;
+  if(v<=0)t=`<b>Ready, set, sell!</b> Your first Stravik sale starts the climb to Bronze ${m}.`;
+  else if(k>=0.85)t=`<b>So close you can taste it!</b> Just ${R(gap)} more and ${next.name} ${m} is yours.`;
+  else if(reached&&k<0.25)t=reached.k==="bronze"?`<b>Bronze in the bag! 🥉</b> Nice one. Silver is next: ${R(gap)} to go.`:`<b>Silver unlocked! 🥈</b> Look at you go. Gold is ${R(gap)} away. Go get it!`;
+  else if(k>=0.5)t=`<b>Look at you go!</b> More than halfway to ${next.name} ${m}: ${R(gap)} to go.`;
+  else t=reached?`<b>Keep those parts moving!</b> ${R(gap)} more for ${next.name} ${m}.`:`<b>Off the starting line!</b> ${R(gap)} more for Bronze ${m}. Every part counts.`;
+  return t+hurry;
+}
 // ---- top: the store's reward this quarter, and how it got there
 function storeCard(){
   const A=R.calc||{},B=R.bd||{months:[],ranges:[],parts:[]},Q=quarterNow(),T=Number(A.quarterly_target||0);
   const q=(A.quarters||[]).find(x=>x.quarter===Q.start)||{value_checked:0,reports:0,reports_due:0,award:0};
   const v=Number(q.value_checked||0),pct=T?v/T*100:0,reached=TIERS.filter(t=>pct>=t.at).pop(),next=TIERS.find(t=>pct<t.at);
   const reward=reached?v*reached.rate:0;
-  let say;
-  if(!next)say=`<b>Gold!</b> The top tier: 3% on every Stravik sale this quarter. Keep going, every sale adds to your reward.`;
-  else{const gap=next.at/100*T-v,k=pct/next.at;
-    say=k>=0.85?`<b>You're almost there!</b> Only ${esc(rand0(gap))} more product value for <b>${next.name}</b>.`:
-      k>=0.5?`Halfway to <b>${next.name}</b>: ${esc(rand0(gap))} to go.`:
-      v>0?`On your way to <b>${next.name}</b>: ${esc(rand0(gap))} to go.`:`Your climb to <b>Bronze</b> starts with your first Stravik sale this quarter.`;}
+  const say=cheer(v,T,pct,Q.left);
   const lastM=(A.months||[])[0];
   // month by month: what each month added, and where the quarter stood after it
   let run=0;
