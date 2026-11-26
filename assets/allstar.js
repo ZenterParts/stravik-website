@@ -1,14 +1,17 @@
-// The All Star page (/allstar/): the Stravik All Star programme for the stores of a group (Autobarn).
-//   - not signed in: counter staff sign in with their mobile number and the 6-digit PIN their store owner set;
-//     store owners sign in with their email and password
-//   - counter staff: their own page (their Stravik sales and share are added with the monthly sales reports)
-//   - store owner (an approved store account on a group's store list): the store's counter staff, with add, change name,
-//     new PIN and switch off/on
-//     and the monthly sales report: upload the POS export, match the store's own part codes and salespeople once
-//     (remembered), send; and the reports sent, by salesperson and by part (stravik_sales_setup/_submit/_report)
-// Data: stravik_counter_me(), stravik_my_staff() and the edge function stravik-staff (creates and changes the logins).
-// A counter login is a user with the email m<mobile digits>@counter.stravikparts.com and a password built from the PIN
-// and the mobile number (the edge function builds it the same way). Styles: assets/autobarn.css.
+// The All Star page (/allstar/): Stravik All Star for the stores of a group (Autobarn).
+//   - not signed in: All Stars Heroes (counter staff) sign in with their mobile number and the 6-digit PIN their store
+//     owner set; store owners sign in with their email and password
+//   - an All Stars Hero: only their own rewards (stravik_as_counter): this month's reward, their product sales, their rank
+//     among the store's Heroes, badges and the store's race for Store of the Month
+//   - store owner (an approved store account on a group's store list): one screen in two halves, the store's reward on
+//     the left (product value this quarter against Bronze, Silver and Gold) and the Heroes' rewards on the right; below,
+//     sending the monthly sales report and managing the Heroes (stravik_as_owner, stravik_sales_setup, stravik_my_staff)
+// Rewards follow the Stravik All Star Reward Plan: owner 1%, 2% or 3% at 60%, 100% or 150% of the quarterly target;
+// Heroes share 2% of the store's product value every month (4% in the first 60 days after the first delivery), split by
+// salesperson; Store of the Month and Store of the Quarter per class add R1,000 and R2,500 for the Heroes.
+// "Product value" = units reported x the store's buy price, for the units invoiced to the store.
+// A Hero's login is a user with the email m<mobile digits>@counter.stravikparts.com and a password built from the PIN and
+// the mobile number (the edge function stravik-staff builds it the same way). Styles: assets/autobarn.css, assets/allstar.css.
 (function(){
 "use strict";
 const app=document.getElementById("app");
@@ -22,7 +25,13 @@ const msg=e=>{const m=String(e&&(e.message||e.error_description)||e);
   if(/banned/i.test(m))return "Your access is switched off. Please speak to your store owner.";
   if(/rate limit|too many/i.test(m))return "Too many attempts. Wait a few minutes and try again.";
   return m;};
-const head=(title,lead,eyebrow)=>`<div class="pagehead ab-head"><div class="wrap"><div class="eyebrow-d">${esc(eyebrow||"Stravik All Star")}</div><h1>${esc(title)}</h1>${lead?`<p>${lead}</p>`:""}</div></div>`;
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const monthName=p=>{const m=/^(\d{4})-(\d{2})/.exec(p||"");return m?MONTHS[+m[2]-1]+" "+m[1]:"";};
+const qName=d=>{const m=/^(\d{4})-(\d{2})/.exec(d||"");return m?"Q"+(Math.floor((+m[2]-1)/3)+1)+" "+m[1]:"";};
+const rand=v=>v==null||v===""?"":"R"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const rand0=v=>"R"+Math.round(Number(v||0)).toLocaleString("en-US");
+const num=n=>Number(n||0).toLocaleString("en-US");
+const first=n=>String(n||"").split(" ")[0];
 let C=null;
 
 // a mobile number as E.164; South African numbers may be typed as 082 123 4567
@@ -37,18 +46,48 @@ const showMobile=m=>/^\+27\d{9}$/.test(m||"")?"0"+m.slice(3,5)+" "+m.slice(5,8)+
 const loginEmail=m=>"m"+m.replace(/\D/g,"")+"@counter.stravikparts.com";
 const loginPassword=(m,pin)=>"stravik-allstar:"+pin+":"+m.replace(/\D/g,"");
 
+// the quarter we are in, and how many days are left of it
+function quarterNow(){
+  const n=new Date(),q0=new Date(n.getFullYear(),Math.floor(n.getMonth()/3)*3,1),q1=new Date(q0.getFullYear(),q0.getMonth()+3,1);
+  const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01";
+  return {start:iso(q0),end:iso(q1),left:Math.max(0,Math.ceil((q1-n)/864e5))};
+}
+// owner tiers (Reward Plan, All Star Store)
+const TIERS=[{k:"bronze",name:"Bronze",at:60,rate:0.01},{k:"silver",name:"Silver",at:100,rate:0.02},{k:"gold",name:"Gold",at:150,rate:0.03}];
+// Hero badges: milestones on the Hero's product sales of the quarter (for fun: they do not change the reward)
+const BADGES=[{at:0.01,name:"First Stravik sale",icon:"★"},{at:1000,name:"R1,000 club",icon:"1K"},{at:5000,name:"R5,000 club",icon:"5K"},{at:10000,name:"R10,000 club",icon:"10K"},{at:25000,name:"R25,000 legend",icon:"25K"}];
+// a number that counts up when it appears
+function countUp(root){
+  const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  root.querySelectorAll("[data-count]").forEach(el=>{
+    const to=Number(el.dataset.count)||0,fmt=el.dataset.fmt==="0"?rand0:rand;
+    if(reduce||!to){el.textContent=fmt(to);return;}
+    const t0=performance.now(),dur=900;
+    const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=fmt(to*e);if(k<1)requestAnimationFrame(step);};
+    requestAnimationFrame(step);
+  });
+  // bars grow from zero
+  requestAnimationFrame(()=>requestAnimationFrame(()=>root.querySelectorAll("[data-w]").forEach(el=>{el.style.width=el.dataset.w;})));
+}
+
 // ---------------------------------------------------------------------------------------------------------------
-// sign in: counter staff (mobile + PIN) or store owner (email + password)
+// the site menu: shown to everyone except a signed-in Hero, who only needs their own page
+// ---------------------------------------------------------------------------------------------------------------
+function siteMenu(on){document.body.classList.toggle("portal",!on);const b=document.querySelector("a.brand");if(b)b.href=on?"/":"/allstar/";}
+const head=(title,lead,eyebrow)=>`<div class="pagehead ab-head as-head"><div class="wrap"><div class="eyebrow-d">${esc(eyebrow||"Stravik All Star")}</div><h1>${esc(title)}</h1>${lead?`<p>${lead}</p>`:""}</div></div>`;
+
+// ---------------------------------------------------------------------------------------------------------------
+// sign in: All Stars Heroes (mobile + PIN) or store owner (email + password)
 // ---------------------------------------------------------------------------------------------------------------
 function signIn(mode){
   siteMenu(true);
-  mode=mode||"staff";
+  mode=mode||"hero";
   document.title="Stravik All Star | Sign in";
-  app.innerHTML=head("All Star","Rewards for the stores that sell Stravik and the counter teams who recommend it.")+
+  app.innerHTML=head("All Star","Rewards for the stores that sell Stravik, and for the All Stars Heroes behind the counter.")+
   `<div class="wrap ab-in">
     <form class="enq ab-card" id="asf" novalidate>
-      <div class="full ab-switch" role="tablist"><button type="button" data-m="staff" aria-selected="${mode==="staff"}">Counter staff</button><button type="button" data-m="owner" aria-selected="${mode==="owner"}">Store owner</button></div>
-      ${mode==="staff"?`
+      <div class="full ab-switch" role="tablist"><button type="button" data-m="hero" aria-selected="${mode==="hero"}">All Stars Hero</button><button type="button" data-m="owner" aria-selected="${mode==="owner"}">Store owner</button></div>
+      ${mode==="hero"?`
       <div class="full"><label for="asm">Mobile number</label><input id="asm" type="tel" inputmode="tel" autocomplete="tel" placeholder="082 123 4567" required></div>
       <div class="full"><label for="asp">PIN</label><input id="asp" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" placeholder="6 digits" required><small class="dhint">Your store owner gives you your PIN. Forgotten it? Ask your store owner to set a new one.</small></div>`:`
       <div class="full"><label for="ase">Email</label><input id="ase" type="email" autocomplete="email" required></div>
@@ -58,8 +97,8 @@ function signIn(mode){
     </form>
     <aside class="ab-side">
       <h2>How All Star works</h2>
-      <ul><li>Each month your store reports its Stravik sales here.</li><li>The counter team earns 2% of the store's Stravik sales, split by salesperson, paid by your store through payroll.</li><li>The store owner earns a quarterly rebate of 1%, 2% or 3%, depending on the store's sales against its target.</li></ul>
-      <p>Counter staff: you can see your Stravik sales, your share and when it was paid. Your store owner adds you and sets your PIN.</p>
+      <ul><li><b>Your store</b> earns 1% at Bronze, 2% at Silver or 3% at Gold, on all its Stravik sales of the quarter.</li><li><b>All Stars Heroes</b>, the counter team, share 2% of the store's Stravik sales every month, by who sold what. 4% in the first 60 days.</li><li>The best store of each class wins Store of the Month and Store of the Quarter: extra rewards for its Heroes.</li></ul>
+      <p>Heroes: sign in with your mobile number to see your own rewards. Your store owner adds you and sets your PIN.</p>
     </aside>
   </div>`;
   app.querySelectorAll(".ab-switch button").forEach(b=>b.onclick=()=>signIn(b.dataset.m));
@@ -68,7 +107,7 @@ function signIn(mode){
   f.addEventListener("submit",async ev=>{
     ev.preventDefault();stE.classList.remove("show");
     let email,pw;
-    if(mode==="staff"){
+    if(mode==="hero"){
       const m=e164(f.querySelector("#asm").value),pin=f.querySelector("#asp").value.trim();
       if(!m){say("Enter your mobile number, such as 082 123 4567.");return;}
       if(!/^\d{6}$/.test(pin)){say("The PIN has 6 digits.");return;}
@@ -90,84 +129,180 @@ function note(title,html){
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// counter staff: their own page
+// an All Stars Hero: only their own rewards
 // ---------------------------------------------------------------------------------------------------------------
-function counter(me){
+function badgeState(total){
+  const got=BADGES.filter(b=>total>=b.at),next=BADGES.find(b=>total<b.at);
+  return {got,next};
+}
+function badgesHtml(total){
+  const {got,next}=badgeState(total);
+  let line="";
+  if(next){const gap=next.at-total,k=total/next.at;
+    line=k>=0.85?`<b>You're almost there!</b> Only ${esc(rand(gap))} more Stravik sales for the <b>${esc(next.name)}</b>.`:
+      total>0?`${esc(rand(gap))} more Stravik sales this quarter for the <b>${esc(next.name)}</b>.`:"Sell your first Stravik part this quarter to earn your first badge.";}
+  else line="<b>Legend!</b> You have every badge this quarter.";
+  return `<div class="as-badges">${BADGES.map(b=>`<span class="as-badge${total>=b.at?" on":""}" title="${esc(b.name)}"><i>${esc(b.icon)}</i><span>${esc(b.name)}</span></span>`).join("")}</div>
+    ${next?`<div class="as-mini"><i data-w="${Math.min(100,total/next.at*100).toFixed(1)}%"></i></div>`:""}<p class="as-say">${line}</p>`;
+}
+async function hero(cm){
   siteMenu(false);
-  document.title="Stravik All Star | "+me.name;
-  if(!me.active)return note(me.name,"Your All Star access is switched off. Please speak to your store owner.");
-  app.innerHTML=head("Hello, "+me.name.split(" ")[0],`${esc(me.store)}${me.town?", "+esc(me.town):""}${me.is_test?" (test store)":""}`)+
-  `<div class="wrap ab-note">
-    <div class="ab-empty" style="text-align:left"><h3>Your All Star</h3>
-      <p>Each month your store reports its Stravik sales. The counter team earns 2% of the store's Stravik sales, split by salesperson. Here you will see your Stravik sales, your share, the credit note it was paid in, and when your store paid you.</p>
-      <div id="asmine"><p>Nothing has been reported for your store yet. Your figures appear after the first monthly report.</p></div></div>
-    <p class="dhint">Signed in with ${esc(showMobile(me.mobile))}. <button type="button" class="linkbtn" id="asout">Sign out</button></p>
+  document.title="Stravik All Star | "+cm.name;
+  if(!cm.active)return note(cm.name,"Your All Stars Hero access is switched off. Please speak to your store owner.");
+  app.innerHTML=head("Hi, "+first(cm.name)+"!",`${esc(cm.store)}${cm.town?", "+esc(cm.town):""} · All Stars Hero`,"Stravik All Star")+`<div class="wrap ab-note"><p class="loading">Loading your rewards…</p></div>`;
+  let D=null;try{D=must(await C.rpc("stravik_as_counter"));}catch(e){}
+  const M=(D&&D.months)||[],last=M[0],Q=quarterNow();
+  const qTotal=M.filter(m=>m.period>=Q.start&&m.period<Q.end).reduce((a,m)=>a+Number(m.value||0),0);
+  const qShare=M.filter(m=>m.period>=Q.start&&m.period<Q.end).reduce((a,m)=>a+Number(m.share||0),0);
+  const boost=D&&D.booster_until&&new Date(D.booster_until)>new Date();
+  app.querySelector(".ab-note").outerHTML=`<div class="wrap as-hero">
+    ${boost?`<div class="as-boost"><b>Launch booster:</b> you earn 4% on your Stravik sales until ${esc(day(D.booster_until))}.</div>`:""}
+    <section class="as-card as-big">
+      ${last?`<div class="as-label">Your reward for ${esc(monthName(last.period))}</div>
+      <div class="as-amount" data-count="${Number(last.share||0)}">R0.00</div>
+      <p>From <b>${esc(rand(last.value))}</b> of Stravik products you sold (${num(last.units)} ${last.units===1?"part":"parts"}), at ${last.booster?"4% launch booster":"2%"}. ${last.status==="Approved"?"Approved: your store pays you through payroll.":"Being checked: approved by the 10th, then your store pays you through payroll."}</p>
+      ${last.heroes>1&&last.rank<=3?`<div class="as-rank r${last.rank}"><span>${last.rank===1?"1st":last.rank===2?"2nd":"3rd"}</span>${last.rank===1?`Top Hero at your store in ${esc(monthName(last.period).split(" ")[0])}!`:`${last.rank===2?"Second":"Third"} of ${num(last.heroes)} Heroes at your store in ${esc(monthName(last.period).split(" ")[0])}`}</div>`:""}`:
+      `<div class="as-label">Your rewards</div><div class="as-amount">R0.00</div><p>Nothing has been reported for you yet. Your rewards appear after your store sends its monthly Stravik sales report.</p>`}
+    </section>
+    <section class="as-card">
+      <h2 class="ab-h">Your badges in ${esc(qName(Q.start))}</h2>
+      <p class="as-sub">${esc(rand(qTotal))} of Stravik sales this quarter · ${esc(rand(qShare))} in rewards so far</p>
+      ${badgesHtml(qTotal)}
+    </section>
+    ${last&&last.store_pct!=null?`<section class="as-card"><h2 class="ab-h">Store of the Month race</h2>
+      <p>Your store reached <b>${esc(String(last.store_pct))}%</b> of its target for ${esc(monthName(last.period).split(" ")[0])}. ${last.store_award?"It is <b>leading its class</b>: R1,000 extra for its Heroes if it stays on top.":"The store with the highest % in its class wins R1,000 extra for its Heroes."}</p></section>`:""}
+    ${M.length>1?`<section class="as-card"><h2 class="ab-h">Your months</h2><div class="as-hist">${M.map(m=>
+      `<div><b>${esc(monthName(m.period))}</b><span>${esc(rand(m.value))} sold</span><span class="as-hist-r">${esc(rand(m.share))}</span></div>`).join("")}</div></section>`:""}
+    <p class="dhint">Signed in with ${esc(showMobile(cm.mobile))}. <button type="button" class="linkbtn" id="asout">Sign out</button></p>
   </div>`;
   app.querySelector("#asout").onclick=signOut;
-  C.rpc("stravik_as_counter").then(r=>{const L=r.data||[],el=app.querySelector("#asmine");if(!el||!L.length)return;
-    el.innerHTML=`<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Your units</th><th class="n">Your Stravik sales</th><th class="n">Your share</th><th>Status</th></tr></thead><tbody>${L.map(m=>
-      `<tr><td><b>${esc(monthName(m.period))}</b></td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.value))}</td><td class="n"><b>${esc(rand(m.share))}</b>${m.booster?` <span class="ab-dim">4%</span>`:""}</td><td>${m.status==="Approved"?"Approved":"Being checked"}</td></tr>`).join("")}</tbody></table></div>
-      <p class="dhint">Your sales are counted at your store's buy price, for the parts covered by its invoices. Your share is paid by your store through payroll once the month is approved.</p>`;});
+  countUp(app);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// store owner: counter staff
+// store owner: the dashboard in two halves, then the report and the Heroes below
 // ---------------------------------------------------------------------------------------------------------------
-const O={data:null,edit:null,tab:/staff/.test(location.hash)?"staff":"reports"};
+const O={staff:null,store:"",panel:null,edit:null};
+const R={setup:null,calc:null,draft:null,view:null,period:null};
 async function call(body){
   const r=await C.functions.invoke("stravik-staff",{body});
   if(r.error){let m=r.error.message;try{const j=await r.error.context.json();if(j&&j.error)m=j.error;}catch(e){}throw new Error(m);}
   if(r.data&&r.data.error)throw new Error(r.data.error);
   return r.data;
 }
-async function load(){O.data=must(await C.rpc("stravik_my_staff"));}
-// a store owner is a normal customer of the site: show the site menu and send the logo home
-function siteMenu(on){document.body.classList.toggle("portal",!on);const b=document.querySelector("a.brand");if(b)b.href=on?"/":"/allstar/";}
+async function loadAll(){
+  const r=await Promise.all([C.rpc("stravik_my_staff"),C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner")]);
+  const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);
+}
+const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
+
+// left half: the store's reward this quarter
+function storeCard(){
+  const A=R.calc||{},Q=quarterNow(),T=Number(A.quarterly_target||0);
+  const q=(A.quarters||[]).find(x=>x.quarter===Q.start)||{value_checked:0,reports:0,reports_due:0,award:0};
+  const v=Number(q.value_checked||0),pct=T?v/T*100:0,reached=TIERS.filter(t=>pct>=t.at).pop(),next=TIERS.find(t=>pct<t.at);
+  const reward=reached?v*reached.rate:0;
+  let say;
+  if(!next)say=`<b>Gold!</b> The top tier: 3% on every Stravik sale this quarter. Keep going, every sale adds to your reward.`;
+  else{const gap=next.at/100*T-v,k=pct/next.at;
+    say=k>=0.85?`<b>You're almost there!</b> Only ${esc(rand0(gap))} more product value for <b>${next.name}</b>.`:
+      k>=0.5?`Halfway to <b>${next.name}</b>: ${esc(rand0(gap))} to go.`:
+      v>0?`On your way to <b>${next.name}</b>: ${esc(rand0(gap))} to go.`:`Your climb to <b>Bronze</b> starts with your first Stravik sale this quarter.`;}
+  const lastM=(A.months||[])[0];
+  return `<section class="as-card as-store ${reached?"t-"+reached.k:"t-none"}">
+    <div class="as-cardh"><span class="as-kicker">Your store · ${esc(qName(Q.start))}</span><span class="as-tier">${reached?`<i class="as-medal ${reached.k}"></i>${reached.name}`:"Not yet Bronze"}</span></div>
+    <div class="as-label">Your reward so far</div>
+    <div class="as-amount" data-count="${reward}">R0.00</div>
+    <p class="as-sub">${reached?`${Math.round(reached.rate*100)}% of ${esc(rand(v))} product value this quarter`:`Product value this quarter: <b>${esc(rand(v))}</b>`}</p>
+    <div class="as-track" role="img" aria-label="${pct.toFixed(0)}% of your quarterly target">
+      <span class="z bronze"></span><span class="z silver"></span><span class="z gold"></span>
+      <i class="fill" data-w="${Math.min(100,pct/150*100).toFixed(1)}%"></i>
+    </div>
+    <div class="as-steps">${TIERS.map(t=>`<div class="as-step ${pct>=t.at?"on":""} ${t.k}"><i class="as-medal ${t.k}"></i><b>${t.name}</b><span>${esc(rand0(t.at/100*T))}</span><span>${Math.round(t.rate*100)}% reward</span></div>`).join("")}</div>
+    <p class="as-say">${say}</p>
+    <p class="as-fine">${pct.toFixed(0)}% of your quarterly target of ${esc(rand0(T))} · ${num(Q.left)} days left in ${esc(qName(Q.start))}.${lastM&&lastM.award?` Your store is leading its class for <b>Store of the Month</b>.`:""}${q.award?` And for <b>Store of the Quarter</b>.`:""}</p>
+  </section>`;
+}
+// right half: the Heroes' rewards in the latest month reported
+function heroesCard(){
+  const A=R.calc||{},m=(A.months||[])[0],staff=(O.staff||[]).filter(s=>s.active);
+  const boost=A.first_delivery&&new Date(new Date(A.first_delivery).getTime()+60*864e5)>new Date();
+  if(!m)return `<section class="as-card as-heroes"><div class="as-cardh"><span class="as-kicker">All Stars Heroes</span></div>
+    <div class="as-label">Your Heroes' rewards</div><div class="as-amount">R0.00</div>
+    <p class="as-sub">Send your first monthly sales report to see what each Hero earned.</p>
+    ${staff.length?`<ul class="as-heroes-l">${staff.map(s=>`<li><span class="as-av">${esc(first(s.name).slice(0,1))}</span><b>${esc(s.name)}</b><span class="as-hv">R0.00</span></li>`).join("")}</ul>`:`<p class="as-say">Add your counter team as Heroes, so each one sees their own rewards.</p>`}
+    <p><button type="button" class="btn line small" data-open="heroes">${staff.length?"Manage your Heroes":"Add your Heroes"}</button></p></section>`;
+  const P=(m.people||[]),top=Math.max(1,...P.map(p=>Number(p.value||0)));
+  const named=P.filter(p=>p.staff_id).sort((a,b)=>b.value-a.value),un=P.find(p=>!p.staff_id);
+  const quiet=staff.filter(s=>!P.some(p=>p.staff_id===s.id));
+  return `<section class="as-card as-heroes">
+    <div class="as-cardh"><span class="as-kicker">All Stars Heroes · ${esc(monthName(m.period))}</span>${boost||m.booster?`<span class="as-pill-boost">4% booster</span>`:""}</div>
+    <div class="as-label">Rewards for your Heroes</div>
+    <div class="as-amount" data-count="${Number(m.pool||0)}">R0.00</div>
+    <p class="as-sub">${m.booster?"4%":"2%"} of ${esc(rand(m.value_checked))} product value, by who sold it${m.award?" · <b>+R1,000</b> if you stay Store of the Month":""}</p>
+    <ul class="as-heroes-l">${named.map((p,i)=>`<li class="${i<3?"r"+(i+1):""}"><span class="as-av">${i<3?["1","2","3"][i]:esc(first(p.name).slice(0,1))}</span><b>${esc(p.name)}</b>
+        <span class="as-hbar"><i data-w="${(Number(p.value||0)/top*100).toFixed(1)}%"></i></span><span class="as-hv">${esc(rand(p.share))}</span><span class="as-hs">${esc(rand(p.value))} sold</span></li>`).join("")}
+      ${quiet.map(s=>`<li class="quiet"><span class="as-av">${esc(first(s.name).slice(0,1))}</span><b>${esc(s.name)}</b><span class="as-hbar"></span><span class="as-hv">R0.00</span><span class="as-hs">no Stravik sales</span></li>`).join("")}
+      ${un?`<li class="un"><span class="as-av">?</span><b>Not linked to a Hero</b><span class="as-hbar"><i data-w="${(Number(un.value||0)/top*100).toFixed(1)}%"></i></span><span class="as-hv">${esc(rand(un.share))}</span><span class="as-hs">sales without a Hero's name</span></li>`:""}</ul>
+    ${named[0]&&named.length>1?`<p class="as-say"><b>${esc(first(named[0].name))}</b> is your top Hero this month!</p>`:""}
+    <p class="as-fine">You pay your Heroes through payroll once the month is approved. Each Hero sees only their own rewards.</p>
+    <p><button type="button" class="btn line small" data-open="heroes">Manage your Heroes</button></p>
+  </section>`;
+}
 function owner(email){
   siteMenu(true);
-  document.title="Stravik All Star | "+O.data.store;
-  const S=O.data.staff,act=S.filter(s=>s.active).length;
-  app.innerHTML=head(O.data.store,"Stravik All Star for your store: send your monthly Stravik sales report, and manage the counter staff who sign in to see their share.","Stravik All Star").replace("</h1>","</h1><p><a class=\"btn line small\" href=\"/\">← Back to your products and prices</a></p>")+
-  `<section class="ab-stats" aria-label="Counter team"><div class="wrap"><div class="ab-stat"><b>${act}</b><span>${act===1?"counter person registered":"counter staff registered"}</span></div><div class="ab-stat"><b>${S.filter(s=>s.last_login_at).length}</b><span>have signed in</span></div></div></section>
-   <div class="wrap ab-dash">
-     <div class="ab-tabs" role="tablist"><button type="button" data-tab="reports" aria-selected="${O.tab==="reports"}">Sales reports</button><button type="button" data-tab="staff" aria-selected="${O.tab==="staff"}">Counter staff</button></div>
-     <div id="abpane"></div>
-     <p class="dhint ab-foot">Signed in as ${esc(email)}. <a class="linkbtn" href="/">Your products and prices</a> · <button type="button" class="linkbtn" id="asout">Sign out</button></p>
-   </div>`;
+  document.title="Stravik All Star | "+O.store;
+  app.innerHTML=head(O.store,"Stravik All Star: your store's reward on the left, your All Stars Heroes' rewards on the right.","Stravik All Star").replace("</h1>","</h1><p><a class=\"btn line small\" href=\"/\">← Back to your products and prices</a></p>")+
+  `<div class="wrap as-dash">
+    <div class="as-split">${storeCard()}${heroesCard()}</div>
+    <div class="as-actions">
+      <button type="button" class="as-act${O.panel==="report"?" on":""}" data-open="report"><b>Send your monthly sales report</b><span>By the 5th: last month's Stravik sales from your POS</span></button>
+      <button type="button" class="as-act${O.panel==="heroes"?" on":""}" data-open="heroes"><b>Your All Stars Heroes</b><span>${num((O.staff||[]).filter(s=>s.active).length)} registered · add, new PIN, switch off</span></button>
+    </div>
+    <div id="aspanel"></div>
+    <p class="dhint ab-foot">Signed in as ${esc(email)}. <a class="linkbtn" href="/">Your products and prices</a> · <button type="button" class="linkbtn" id="asout">Sign out</button></p>
+  </div>`;
   app.querySelector("#asout").onclick=signOut;
-  app.querySelectorAll(".ab-tabs button").forEach(b=>b.onclick=()=>{if(R.draft&&!confirm("Leave this report without sending it?"))return;R.draft=null;R.view=null;O.tab=b.dataset.tab;history.replaceState(null,"","#"+O.tab);owner(email);});
-  (O.tab==="staff"?paneStaff:paneReports)();
+  app.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{
+    if(R.draft&&!confirm("Leave this report without sending it?"))return;
+    const p=b.dataset.open;O.panel=O.panel===p&&b.classList.contains("as-act")?null:p;R.draft=null;R.view=null;owner(email);
+    const el=app.querySelector("#aspanel");if(el&&O.panel)el.scrollIntoView({behavior:"smooth",block:"start"});});
+  countUp(app);
+  panel();
 }
-function paneStaff(){
-  const P=app.querySelector("#abpane"),S=O.data.staff;
-  P.innerHTML=`<p class="ab-lead">Registering your counter staff is one of the conditions for your quarterly owner rebate. Use each person's own mobile number. "Name in sales report" is how the person appears in your POS system, so their sales can be matched to them; leave it empty if it is the same as their name.</p>
-    ${S.length?`<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Name</th><th>Mobile</th><th>Name in sales report</th><th>Access</th><th>PIN set</th><th>Last signed in</th><th></th></tr></thead><tbody>${S.map(s=>
-      `<tr><td><b>${esc(s.name)}</b></td><td>${esc(showMobile(s.mobile))}</td><td>${esc(s.pos_name||"")}</td><td>${s.active?`<span class="ab-pill ok">On</span>`:`<span class="ab-pill">Off</span>`}</td><td>${esc(day(s.pin_set_at))}</td><td>${s.last_login_at?esc(day(s.last_login_at)):`<span class="ab-dim">Not yet</span>`}</td>
+function panel(){const P=app.querySelector("#aspanel");if(!P)return;if(O.panel==="report")paneReports();else if(O.panel==="heroes")paneHeroes();else P.innerHTML="";}
+async function refreshOwner(){await loadAll();owner(SD().state.me.email);}
+
+// ---- the Heroes: add, edit, new PIN, switch off/on
+function paneHeroes(){
+  const P=app.querySelector("#aspanel"),S=O.staff||[];
+  P.innerHTML=`<section class="as-panel"><h2 class="ab-h">Your All Stars Heroes</h2>
+    <p class="ab-lead">Add each person who sells at your counter, with their own mobile number and a 6-digit PIN you give them in person. They sign in at stravikparts.com/allstar/ and see only their own rewards. "Name in sales report" is how the person appears in your POS, so their sales are matched to them.</p>
+    ${S.length?`<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Hero</th><th>Mobile</th><th>Name in sales report</th><th>Access</th><th>Last signed in</th><th></th></tr></thead><tbody>${S.map(s=>
+      `<tr><td><b>${esc(s.name)}</b></td><td>${esc(showMobile(s.mobile))}</td><td>${esc(s.pos_name||"")}</td><td>${s.active?`<span class="ab-pill ok">On</span>`:`<span class="ab-pill">Off</span>`}</td><td>${s.last_login_at?esc(day(s.last_login_at)):`<span class="ab-dim">Not yet</span>`}</td>
        <td class="as-acts"><button type="button" class="linkbtn" data-edit="${s.id}">Edit</button><button type="button" class="linkbtn" data-pin="${s.id}">New PIN</button><button type="button" class="linkbtn" data-act="${s.id}" data-on="${s.active?"":"1"}">${s.active?"Switch off":"Switch on"}</button></td></tr>`+
-      (O.edit&&O.edit.id===s.id?`<tr class="ab-od"><td colspan="7">${form(O.edit.mode,s)}</td></tr>`:"")).join("")}</tbody></table></div>`:
-     `<div class="ab-empty"><h3>No counter staff yet</h3><p>Add the people who sell at your counter. Each one gets their own sign-in with their mobile number and a PIN you choose.</p></div>`}
-    <h2 class="ab-h">Add a counter person</h2>${form("add",null)}`;
+      (O.edit&&O.edit.id===s.id?`<tr class="ab-od"><td colspan="6">${form(O.edit.mode,s)}</td></tr>`:"")).join("")}</tbody></table></div>`:""}
+    <h2 class="ab-h">Add a Hero</h2>${form("add",null)}</section>`;
   wire(P);
 }
 function form(mode,s){
   const id=s?s.id:"new";
-  if(mode==="pin")return `<form class="as-form" data-f="pin" data-id="${id}" novalidate><div class="is-fields"><label>New PIN for ${esc(s.name)}<input name="pin" type="password" inputmode="numeric" maxlength="6" placeholder="6 digits" autocomplete="new-password"></label></div><p class="dhint">Give the new PIN to ${esc(s.name.split(" ")[0])} in person. Their old PIN stops working straight away.</p><div class="ab-row"><button class="btn gold" type="submit">Save PIN</button><button type="button" class="linkbtn" data-cancel>Cancel</button></div></form>`;
+  if(mode==="pin")return `<form class="as-form" data-f="pin" data-id="${id}" novalidate><div class="is-fields"><label>New PIN for ${esc(s.name)}<input name="pin" type="password" inputmode="numeric" maxlength="6" placeholder="6 digits" autocomplete="new-password"></label></div><p class="dhint">Give the new PIN to ${esc(first(s.name))} in person. Their old PIN stops working straight away.</p><div class="ab-row"><button class="btn gold" type="submit">Save PIN</button><button type="button" class="linkbtn" data-cancel>Cancel</button></div></form>`;
   return `<form class="as-form" data-f="${mode}" data-id="${id}" novalidate><div class="is-fields">
     <label>Name<input name="name" maxlength="80" value="${esc(s?s.name:"")}" autocomplete="off"></label>
     ${mode==="add"?`<label>Mobile number<input name="mobile" type="tel" inputmode="tel" placeholder="082 123 4567" autocomplete="off"></label>`:""}
     <label>Name in sales report (optional)<input name="pos_name" maxlength="80" value="${esc(s?s.pos_name||"":"")}" autocomplete="off"></label>
     ${mode==="add"?`<label>PIN<input name="pin" type="password" inputmode="numeric" maxlength="6" placeholder="6 digits" autocomplete="new-password"></label>`:""}</div>
-    ${mode==="add"?`<p class="dhint">The person signs in at stravikparts.com/allstar/ with this mobile number and PIN. Give them the PIN in person.</p>`:""}
-    <div class="ab-row"><button class="btn gold" type="submit">${mode==="add"?"Add":"Save"}</button>${mode==="edit"?`<button type="button" class="linkbtn" data-cancel>Cancel</button>`:""}</div></form>`;
+    <div class="ab-row"><button class="btn gold" type="submit">${mode==="add"?"Add Hero":"Save"}</button>${mode==="edit"?`<button type="button" class="linkbtn" data-cancel>Cancel</button>`:""}</div></form>`;
 }
 function wire(P){
-  P.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{O.edit={id:b.dataset.edit,mode:"edit"};paneStaff();});
-  P.querySelectorAll("[data-pin]").forEach(b=>b.onclick=()=>{O.edit={id:b.dataset.pin,mode:"pin"};paneStaff();const i=P.querySelector('[data-f="pin"] input');if(i)i.focus();});
-  P.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>{O.edit=null;paneStaff();});
+  P.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{O.edit={id:b.dataset.edit,mode:"edit"};paneHeroes();});
+  P.querySelectorAll("[data-pin]").forEach(b=>b.onclick=()=>{O.edit={id:b.dataset.pin,mode:"pin"};paneHeroes();const i=P.querySelector('[data-f="pin"] input');if(i)i.focus();});
+  P.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>{O.edit=null;paneHeroes();});
   P.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{
-    const s=O.data.staff.find(x=>x.id===b.dataset.act),on=!!b.dataset.on;
-    if(!on&&!confirm("Switch off "+s.name+"? They can no longer sign in. Their past sales and payments stay on record."))return;
-    b.disabled=true;try{await call({action:"active",id:s.id,active:on});await load();owner(SD().state.me.email);toast(s.name+(on?" can sign in again.":" is switched off."));}catch(e){toast(msg(e));b.disabled=false;}
+    const s=O.staff.find(x=>x.id===b.dataset.act),on=!!b.dataset.on;
+    if(!on&&!confirm("Switch off "+s.name+"? They can no longer sign in. Their past sales and rewards stay on record."))return;
+    b.disabled=true;try{await call({action:"active",id:s.id,active:on});await refreshOwner();toast(s.name+(on?" can sign in again.":" is switched off."));}catch(e){toast(msg(e));b.disabled=false;}
   });
   P.querySelectorAll("form.as-form").forEach(f=>f.addEventListener("submit",async ev=>{
     ev.preventDefault();
@@ -182,37 +317,15 @@ function wire(P){
       body={action:"add",name:v("name"),mobile:v("mobile"),pos_name:v("pos_name"),pin:v("pin")};
     }
     btn.disabled=true;
-    try{await call(body);O.edit=null;await load();owner(SD().state.me.email);
-      toast(mode==="add"?body.name+" is added and can sign in now.":mode==="pin"?"New PIN saved.":"Saved.");}
+    try{await call(body);O.edit=null;await refreshOwner();
+      toast(mode==="add"?body.name+" is now an All Stars Hero and can sign in.":mode==="pin"?"New PIN saved.":"Saved.");}
     catch(e){toast(msg(e));btn.disabled=false;}
   }));
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// store owner: monthly sales reports (export from the POS, upload, match codes once, submit)
+// the monthly sales report: export from the POS, upload, match codes once, send
 // ---------------------------------------------------------------------------------------------------------------
-const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const monthName=p=>{const m=/^(\d{4})-(\d{2})/.exec(p||"");return m?MONTHS[+m[2]-1]+" "+m[1]:"";};
-const rand=v=>v==null||v===""?"":"R"+Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-const num=n=>Number(n||0).toLocaleString("en-US");
-const R={setup:null,draft:null,view:null,period:null};
-async function loadSetup(){const r=await Promise.all([C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner")]);R.setup=must(r[0]);R.calc=must(r[1]);}
-const qName=d=>{const m=/^(\d{4})-(\d{2})/.exec(d||"");return m?"Q"+(Math.floor((+m[2]-1)/3)+1)+" "+m[1]:"";};
-const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
-// the quarter so far: checked sales against the quarterly target T, the tier reached and what the next one needs
-function rewards(){
-  const A=R.calc;if(!A||!A.quarterly_target)return "";
-  const n=new Date(),cq=n.getFullYear()+"-"+String(Math.floor(n.getMonth()/3)*3+1).padStart(2,"0")+"-01";
-  const q=(A.quarters||[]).find(x=>x.quarter===cq)||{value_checked:0,reports:0,reports_due:0,staff_ok:A.counter_staff>0,award:0};
-  const T=Number(A.quarterly_target),v=Number(q.value_checked||0),pct=T?v/T*100:0;
-  const tiers=[[60,"Bronze","1%"],[100,"Silver","2%"],[150,"Gold","3%"]],reached=tiers.filter(t=>pct>=t[0]).pop(),next=tiers.find(t=>pct<t[0]);
-  const pool=(A.months||[]).filter(m=>m.period>=cq&&m.period<new Date(n.getFullYear(),Math.floor(n.getMonth()/3)*3+3,1).toISOString().slice(0,10)).reduce((a,m)=>a+Number(m.pool||0),0);
-  return `<div class="as-q"><div class="as-qh"><h2 class="ab-h">${esc(qName(cq))} so far</h2><span>${reached?`<span class="ab-pill ok">${reached[1]}: ${reached[2]} owner rebate</span>`:`<span class="ab-pill">Not yet Bronze</span>`}</span></div>
-    <div class="as-bar" role="img" aria-label="${pct.toFixed(1)}% of the quarterly target"><i style="width:${Math.min(100,pct/150*100).toFixed(1)}%"></i>${tiers.map(t=>`<b style="left:${(t[0]/150*100).toFixed(1)}%"><span>${t[1]}</span></b>`).join("")}</div>
-    <p><b>${esc(rand(v))}</b> of your quarterly target ${esc(rand(T))} (${pct.toFixed(1)}%), counted at your buy price and covered by your invoices.${next?` ${esc(rand(next[0]/100*T-v))} more for ${next[1]} (${next[2]} on all your Stravik sales of the quarter).`:" You have reached Gold."}</p>
-    <p class="dhint">Counter pool so far this quarter: <b>${esc(rand(pool))}</b>. Rebate conditions: monthly reports ${q.reports_due?`${num(Math.min(q.reports,q.reports_due))} of ${num(q.reports_due)} sent`:"sent each month"} · counter staff registered: ${A.counter_staff?num(A.counter_staff):"none yet"} · core range on shelf and account in good standing are checked by your Stravik field team.${A.first_delivery?"":" Your first delivery has not arrived yet."}</p>
-    ${q.award?`<p class="dhint">You are leading your class for <b>Store of the Quarter</b> (R2,500 extra for your counter team), confirmed when the quarter ends.</p>`:""}</div>`;
-}
 // the months a report can be for: the last 12 ended months (a test store may also report the current month)
 function periods(){
   const n=new Date(),out=[];
@@ -284,25 +397,22 @@ function personOf(name){
   if(R.draft&&n in R.draft.people)return R.draft.people[n];
   return undefined;
 }
-
 function paneReports(){
-  const P=app.querySelector("#abpane"),S=R.setup;
-  if(!S){P.innerHTML=`<p class="loading">Loading…</p>`;loadSetup().then(paneReports).catch(e=>{P.innerHTML=`<p class="dnote bad">${esc(msg(e))}</p>`;});return;}
+  const P=app.querySelector("#aspanel"),S=R.setup;
   if(R.draft)return paneDraft();
   if(R.view)return paneView();
   const ps=periods();if(!R.period||ps.indexOf(R.period)<0)R.period=ps[0];
   const done=new Map(S.reports.map(r=>[r.period.slice(0,7),r]));
-  P.innerHTML=`<p class="ab-lead">By the 5th of each month, upload last month's Stravik sales, exported from your POS system: invoice date, invoice number, part number, quantity, value and salesperson. Your rebate and the counter team's share are worked out from these sales at your buy price.</p>
+  P.innerHTML=`<section class="as-panel"><h2 class="ab-h">Send your monthly sales report</h2>
+    <p class="ab-lead">By the 5th, upload last month's Stravik sales exported from your POS: invoice date, invoice number, part number, quantity, value and salesperson. Your own part codes are matched to Stravik numbers once, and remembered.</p>
     <div class="as-up">
       <label>Month<select id="rper">${ps.map(p=>`<option value="${p}"${p===R.period?" selected":""}>${monthName(p)}${done.has(p)?" (sent)":""}</option>`).join("")}</select></label>
       <button type="button" class="btn gold" id="rup">Upload the sales report</button><input type="file" id="rfile" accept=".xlsx,.csv,.txt" hidden>
       <button type="button" class="btn line small" id="rtpl">Download the template</button>
     </div>
-    <p class="dhint">Excel (.xlsx) or CSV. Part numbers can be Stravik numbers or your own codes: your own codes are matched to Stravik numbers once, and remembered. Sending a month again replaces that month's report until it is approved.</p>
-    ${rewards()}
-    <h2 class="ab-h">Your reports</h2>
-    ${S.reports.length?`<div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Lines</th><th class="n">Units</th><th class="n">Value at your buy price</th><th class="n">Covered by your invoices</th><th class="n">Counter pool</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>{const c=calcOf(r.id)||{};return `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td><span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status)}</span>${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n">${num(r.lines)}</td><td class="n">${num(r.units)}</td><td class="n">${esc(rand(r.value_credited))}</td><td class="n"><b>${esc(rand(c.value_checked))}</b></td><td class="n">${esc(rand(c.pool))}${c.booster?` <span class="ab-dim">4%</span>`:""}</td><td>${esc(day(r.submitted_at))}</td></tr>`;}).join("")}</tbody></table></div>`:
-      `<div class="ab-empty"><h3>No reports yet</h3><p>Your first report is due by the 5th of the month after your first Stravik delivery.</p></div>`}`;
+    <p class="dhint">Excel (.xlsx) or CSV. Sending a month again replaces that month's report until it is approved.</p>
+    ${S.reports.length?`<h2 class="ab-h">Reports sent</h2><div class="ab-scroll"><table class="ab-table" id="rtab"><thead><tr><th>Month</th><th>Status</th><th class="n">Product value</th><th class="n">Heroes' rewards</th><th>Sent</th></tr></thead><tbody>${S.reports.map(r=>{const c=calcOf(r.id)||{};return `<tr class="ab-o" data-r="${r.id}" tabindex="0"><td class="no">${esc(monthName(r.period))}</td><td><span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status==="Submitted"?"Being checked":r.status)}</span>${r.late?` <span class="ab-dim">late</span>`:""}</td><td class="n"><b>${esc(rand(c.value_checked))}</b></td><td class="n">${esc(rand(c.pool))}</td><td>${esc(day(r.submitted_at))}</td></tr>`;}).join("")}</tbody></table></div>`:""}
+  </section>`;
   P.querySelector("#rper").onchange=e=>{R.period=e.target.value;};
   const file=P.querySelector("#rfile");P.querySelector("#rup").onclick=()=>{R.period=P.querySelector("#rper").value;file.click();};
   file.onchange=async()=>{const f=file.files[0];file.value="";if(!f)return;
@@ -311,9 +421,9 @@ function paneReports(){
   P.querySelector("#rtpl").onclick=template;
   const tb=P.querySelector("#rtab");if(tb){const open=id=>openReport(id);tb.onclick=e=>{const tr=e.target.closest("tr[data-r]");if(tr)open(tr.dataset.r);};tb.onkeydown=e=>{if(e.key==="Enter"){const tr=e.target.closest("tr[data-r]");if(tr)open(tr.dataset.r);}};}
 }
-// the uploaded file before it is sent: codes and salespeople to match, problems, totals
+// the uploaded file before it is sent: codes and salespeople to match, problems, product value
 function paneDraft(){
-  const P=app.querySelector("#abpane"),D=R.draft,S=R.setup,price=new Map(S.parts.map(p=>[p[0],p[1]]));
+  const P=app.querySelector("#aspanel"),D=R.draft,S=R.setup,price=new Map(S.parts.map(p=>[p[0],p[1]]));
   const unk=new Map(),pun=new Map(),probs=[];let units=0,val=0,stravik=0,other=0;
   const lo=D.period+"-01",hi=D.period+"-31";let outside=0;
   D.lines.forEach(l=>{
@@ -326,16 +436,17 @@ function paneDraft(){
   });
   const opts=S.parts.map(p=>`<option value="${esc(p[0])}">${esc(p[0]+" – "+(p[2]||"").slice(0,70))}</option>`).join("");
   const ready=!unk.size&&!pun.size&&!probs.length&&stravik>0;
-  P.innerHTML=`<p class="ab-lead"><b>${esc(D.file)}</b> for <b>${esc(monthName(D.period))}</b>: ${num(D.lines.length)} lines read, ${num(stravik)} Stravik ${stravik===1?"line":"lines"}${other?`, ${num(other)} ${other===1?"line":"lines"} not Stravik (left out)`:""}.</p>
-    ${unk.size?`<h2 class="ab-h">Match your part codes (${unk.size})</h2><p class="dhint">These codes are not Stravik numbers. Choose the Stravik part for each one, or "Not a Stravik part". Your choice is remembered for the next reports.</p>
-      <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Your code</th><th class="n">Lines</th><th class="n">Units</th><th>Stravik part</th></tr></thead><tbody>${Array.from(unk).map(([c,u])=>
-        `<tr><td class="no">${esc(c)}</td><td class="n">${num(u.n)}</td><td class="n">${num(u.q)}</td><td><select class="as-sel" data-code="${esc(c)}"><option value="">Choose…</option><option value="-">Not a Stravik part</option>${opts}</select></td></tr>`).join("")}</tbody></table></div>`:""}
-    ${pun.size?`<h2 class="ab-h">Match your salespeople (${pun.size})</h2><p class="dhint">These names are not on your counter staff list. Choose who each one is, or "No counter person": those sales count for the store, and you split their share by name later.</p>
-      <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Name in the report</th><th class="n">Lines</th><th>Counter person</th></tr></thead><tbody>${Array.from(pun).map(([k,u])=>
-        `<tr><td><b>${esc(u.name)}</b></td><td class="n">${num(u.n)}</td><td><select class="as-sel" data-person="${esc(k)}"><option value="">Choose…</option><option value="-">No counter person</option>${S.staff.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>`:""}
+  P.innerHTML=`<section class="as-panel"><h2 class="ab-h">${esc(monthName(D.period))}: check and send</h2>
+    <p class="ab-lead"><b>${esc(D.file)}</b>: ${num(stravik)} Stravik ${stravik===1?"line":"lines"}${other?`, ${num(other)} other ${other===1?"line":"lines"} left out`:""}.</p>
+    ${unk.size?`<h3 class="as-h3">Which Stravik part is each of your codes? (${unk.size})</h3><p class="dhint">Choose once; it is remembered for your next reports.</p>
+      <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Your code</th><th class="n">Units</th><th>Stravik part</th></tr></thead><tbody>${Array.from(unk).map(([c,u])=>
+        `<tr><td class="no">${esc(c)}</td><td class="n">${num(u.q)}</td><td><select class="as-sel" data-code="${esc(c)}"><option value="">Choose…</option><option value="-">Not a Stravik part</option>${opts}</select></td></tr>`).join("")}</tbody></table></div>`:""}
+    ${pun.size?`<h3 class="as-h3">Which Hero is each salesperson? (${pun.size})</h3><p class="dhint">Choose once; it is remembered. "Not a Hero" keeps the sales for the store.</p>
+      <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Name in the report</th><th class="n">Lines</th><th>Hero</th></tr></thead><tbody>${Array.from(pun).map(([k,u])=>
+        `<tr><td><b>${esc(u.name)}</b></td><td class="n">${num(u.n)}</td><td><select class="as-sel" data-person="${esc(k)}"><option value="">Choose…</option><option value="-">Not a Hero</option>${(O.staff||[]).filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>`:""}
     ${probs.length?`<div class="dnote bad"><b>Fix these lines in the file and upload it again:</b> ${esc(probs.slice(0,10).join("; "))}${probs.length>10?" and "+(probs.length-10)+" more":""}.</div>`:""}
     ${outside?`<div class="dnote">${num(outside)} ${outside===1?"line has an invoice date":"lines have invoice dates"} outside ${esc(monthName(D.period))}. Check you chose the right month.</div>`:""}
-    <div class="ab-save" id="rsave"><span>${ready?`${num(units)} units, ${esc(rand(val))} at your buy price excl. VAT`:`Match the codes${pun.size?" and salespeople":""} above to send the report`}</span><button type="button" class="btn gold" id="rgo"${ready?"":" disabled"}>Send the report for ${esc(monthName(D.period))}</button><button type="button" class="linkbtn" id="rcancel">Cancel</button></div>`;
+    <div class="ab-save" id="rsave"><span>${ready?`${num(units)} parts · ${esc(rand(val))} product value`:`Answer the questions above to send the report`}</span><button type="button" class="btn gold" id="rgo"${ready?"":" disabled"}>Send ${esc(monthName(D.period))}</button><button type="button" class="linkbtn" id="rcancel">Cancel</button></div></section>`;
   P.querySelectorAll("select[data-code]").forEach(s=>s.onchange=()=>{if(!s.value)return;D.map[s.dataset.code]=s.value==="-"?null:s.value;paneDraft();});
   P.querySelectorAll("select[data-person]").forEach(s=>s.onchange=()=>{if(!s.value)return;D.people[s.dataset.person]=s.value==="-"?"":s.value;paneDraft();});
   P.querySelector("#rcancel").onclick=()=>{R.draft=null;paneReports();};
@@ -346,29 +457,25 @@ async function send(){
   const lines=D.lines.map(l=>{const pn=partOf(l.code),pid=l.person?personOf(l.person):"";
     return {invoice_date:l.date,invoice_no:l.invoice,code:l.code,pn:pn==null?null:pn,qty:l.qty,value:l.value==null?"":String(l.value),salesperson:l.person,staff_id:pid||null};});
   try{const r=must(await C.rpc("stravik_sales_submit",{p:{period:D.period,file_name:D.file,lines}}));
-    R.draft=null;await loadSetup();paneReports();
-    toast(`Report for ${monthName(D.period)} sent: ${num(r.lines)} lines, ${rand(r.value_credited)} at your buy price.${r.replaced?" It replaces the one sent before.":""}${r.late?" It was sent after the 5th.":""}`);
-  }catch(e){toast(msg(e));btn.disabled=false;btn.textContent="Send the report for "+monthName(D.period);}
+    R.draft=null;await refreshOwner();
+    toast(`${monthName(D.period)} sent.${r.replaced?" It replaces the report sent before.":""}${r.late?" It was sent after the 5th.":""} Your rewards are updated.`);
+  }catch(e){toast(msg(e));btn.disabled=false;btn.textContent="Send "+monthName(D.period);}
 }
 async function openReport(id){
   try{R.view=must(await C.rpc("stravik_sales_report",{p_id:Number(id)}));paneView();}catch(e){toast(msg(e));}
 }
+// one report: product value and the Heroes' rewards, then the parts
 function paneView(){
-  const P=app.querySelector("#abpane"),V=R.view,r=V.report,L=V.lines;
-  const by=(k,lbl)=>{const m=new Map();L.forEach(l=>{const key=k(l);let x=m.get(key);if(!x)m.set(key,x={key,label:lbl(l),u:0,v:0});x.u+=l.qty;x.v+=Number(l.credited||0);});return Array.from(m.values()).sort((a,b)=>b.v-a.v);};
-  const parts=by(l=>l.pn,l=>l.pn+" – "+(l.desc||"")),people=by(l=>l.staff||"",l=>l.staff||"No counter person");
-  P.innerHTML=`<p><button type="button" class="linkbtn" id="rback">← All reports</button></p>
-    <h2 class="ab-h">${esc(monthName(r.period))} <span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status)}</span></h2>
-    <p class="ab-lead">${esc(r.file_name||"")} · sent ${esc(day(r.submitted_at))}${r.late?" (after the 5th)":""} · ${num(r.lines)} ${r.lines===1?"line":"lines"}, ${num(r.units)} ${r.units===1?"unit":"units"}, <b>${esc(rand(r.value_credited))}</b> at your buy price excl. VAT (${esc(rand(r.value_reported))} in your POS).</p>
-    ${(()=>{const c=calcOf(r.id);if(!c)return "";const nc=Number(c.not_covered||0);
-      return `<div class="as-q"><p>Covered by your invoices: <b>${esc(rand(c.value_checked))}</b>${nc>0.004?` · <span class="flag">${esc(rand(nc))} not covered</span>: more units reported than invoiced to your store for these parts, so they are not paid`:""}. Counter pool: <b>${esc(rand(c.pool))}</b> (${c.booster?"4% launch booster in your first 60 days":"2%"} of the covered value).</p>
-        <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Counter person</th><th class="n">Units</th><th class="n">Covered value</th><th class="n">Share of the pool</th></tr></thead><tbody>${(c.people||[]).map(p=>`<tr><td>${p.name?esc(p.name):`<span class="ab-dim">Not assigned: you split this by name</span>`}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td><td class="n"><b>${esc(rand(p.share))}</b></td></tr>`).join("")}</tbody></table></div>
-        ${c.award?`<p class="dhint">Your store leads its class for <b>Store of the Month</b> with ${esc(String(c.pct))}% of its monthly target: R1,000 extra for the counter team, confirmed when the month is approved.</p>`:""}</div>`;})()}
-    <h2 class="ab-h">By salesperson (as reported)</h2><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Counter person</th><th class="n">Units</th><th class="n">Value at your buy price</th></tr></thead><tbody>${people.map(x=>`<tr><td>${esc(x.label)}</td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
-    <h2 class="ab-h">By part</h2><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th class="n">Units</th><th class="n">Value at your buy price</th></tr></thead><tbody>${parts.map(x=>`<tr><td>${esc(x.label)}</td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
-    <p><button type="button" class="btn line small" id="rxls">Download the lines</button></p>`;
+  const P=app.querySelector("#aspanel"),V=R.view,r=V.report,L=V.lines,c=calcOf(r.id)||{people:[]};
+  const parts=new Map();L.forEach(l=>{let x=parts.get(l.pn);if(!x)parts.set(l.pn,x={pn:l.pn,d:l.desc,u:0,v:0});x.u+=l.qty;x.v+=Number(l.credited||0);});
+  P.innerHTML=`<section class="as-panel"><p><button type="button" class="linkbtn" id="rback">← All reports</button></p>
+    <h2 class="ab-h">${esc(monthName(r.period))} <span class="ab-pill ${r.status==="Approved"?"ok":""}">${esc(r.status==="Submitted"?"Being checked":r.status)}</span></h2>
+    <p class="ab-lead">Product value <b>${esc(rand(c.value_checked))}</b> · rewards for your Heroes <b>${esc(rand(c.pool))}</b> (${c.booster?"4% launch booster":"2%"}).${Number(c.not_covered||0)>0.004?` <span class="ab-dim">${esc(rand(c.not_covered))} of what you reported is more than was invoiced to your store, so it does not count.</span>`:""}</p>
+    <div class="ab-scroll"><table class="ab-table"><thead><tr><th>Hero</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Reward</th></tr></thead><tbody>${(c.people||[]).map(p=>`<tr><td>${p.name?`<b>${esc(p.name)}</b>`:`<span class="ab-dim">Not linked to a Hero</span>`}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td><td class="n"><b>${esc(rand(p.share))}</b></td></tr>`).join("")}</tbody></table></div>
+    <h3 class="as-h3">Parts reported</h3><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Part</th><th class="n">Units</th><th class="n">At your buy price</th></tr></thead><tbody>${Array.from(parts.values()).sort((a,b)=>b.v-a.v).map(x=>`<tr><td><b>${esc(x.pn)}</b> <span class="ab-dim">${esc(x.d||"")}</span></td><td class="n">${num(x.u)}</td><td class="n">${esc(rand(x.v))}</td></tr>`).join("")}</tbody></table></div>
+    <p><button type="button" class="btn line small" id="rxls">Download the lines</button></p></section>`;
   P.querySelector("#rback").onclick=()=>{R.view=null;paneReports();};
-  P.querySelector("#rxls").onclick=()=>xlsx([{name:"Lines",head:["Invoice date","Invoice","Your code","Stravik PN","Description","Quantity","Value in your POS","Salesperson","Counter person","Your buy price","Value at your buy price"],
+  P.querySelector("#rxls").onclick=()=>xlsx([{name:"Lines",head:["Invoice date","Invoice","Your code","Stravik PN","Description","Quantity","Value in your POS","Salesperson","Hero","Your buy price","At your buy price"],
     widths:[12,14,14,12,46,9,14,18,20,12,16],rows:L.map(l=>[l.date||"",l.invoice||"",l.code,l.pn,l.desc||"",l.qty,l.value==null?"":Number(l.value),l.salesperson||"",l.staff||"",Number(l.price||0),Number(l.credited||0)])}],
     "Stravik_sales_report_"+r.period.slice(0,7)+".xlsx");
 }
@@ -383,7 +490,7 @@ function template(){
   const S=R.setup;
   xlsx([{name:"Sales",head:["Invoice date","Invoice number","Part number","Quantity","Value excl. VAT","Salesperson"],widths:[14,16,16,10,16,22],rows:[]},
     {name:"Your Stravik parts",head:["Stravik PN","Description","Range","Your buy price excl. VAT"],widths:[14,60,16,16],rows:S.parts.map(p=>[p[0],p[2]||"",p[3]||"",Number(p[1])])},
-    {name:"Counter staff",head:["Name","Name in sales report"],widths:[28,28],rows:S.staff.filter(s=>s.active).map(s=>[s.name,s.pos_name||""])}],"Stravik_All_Star_sales_template.xlsx");
+    {name:"Your Heroes",head:["Name","Name in sales report"],widths:[28,28],rows:(O.staff||[]).filter(s=>s.active).map(s=>[s.name,s.pos_name||""])}],"Stravik_All_Star_sales_template.xlsx");
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -394,15 +501,15 @@ async function start(){
   if(!session)return signIn();
   try{
     const cm=must(await C.rpc("stravik_counter_me"));
-    if(cm)return counter(cm);
+    if(cm)return hero(cm);
     const me=await SD().refresh();if(!me)return signIn();
     const d=me.dealer;
     if(d&&d.status==="Approved"&&d.account_type!=="head_office"){
-      O.data=must(await C.rpc("stravik_my_staff"));
-      if(O.data)return owner(me.email);
+      const st=must(await C.rpc("stravik_my_staff"));
+      if(st){await loadAll();return owner(me.email);}
       return note(d.trading_name||d.company_name,"All Star is for the stores of a group taking part in the programme, such as Autobarn. Your store is not part of it yet. Please contact your Stravik sales manager.");
     }
-    if(d&&d.account_type==="head_office")return note(d.trading_name||d.company_name,`All Star is run by each store. Your stores' figures will appear on your <a href="/autobarn/">head office dashboard</a>.`);
+    if(d&&d.account_type==="head_office")return note(d.trading_name||d.company_name,`All Star is run by each store. Your stores' progress is on the All Star tab of your <a href="/autobarn/#allstar">head office dashboard</a>.`);
     if(me.partner&&!me.staff){location.href="/insync/";return;}
     if(me.staff)return note("All Star",`You are signed in as <b>${esc(me.email)}</b>, a staff account. All Star is managed in the <a href="/admin/">admin site</a>.`);
     return note("All Star",`You are signed in as <b>${esc(me.email)}</b>, which is not part of All Star.`);
