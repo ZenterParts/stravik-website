@@ -274,10 +274,17 @@ async function hero(cm){
       <p>Your store reached <b>${esc(String(last.store_pct))}%</b> of its target for ${esc(monthName(last.period).split(" ")[0])}. ${last.store_award?"It is <b>leading its class</b>: R1,000 extra for its Heroes if it stays on top.":"The store with the highest % in its class wins R1,000 extra for its Heroes."}</p></section>`:""}
     ${M.length>1?`<section class="as-card"><h2 class="ab-h">Your months</h2><div class="as-hist">${M.map(m=>
       `<div><b>${esc(monthName(m.period))}</b><span>${num(m.units)} ${m.units===1?"part":"parts"}</span><span class="as-hist-r">${esc(rand(m.share))}</span></div>`).join("")}</div></section>`:""}
+    ${M.some(m=>m.payout)?`<section class="as-card"><h2 class="ab-h">Your payments</h2><div class="hz-pays">${M.filter(m=>m.payout).map(m=>{const p=m.payout;
+      return `<div class="hz-pay"><div><b>${esc(monthName(m.period))}</b><span>${p.paid_at?`${esc(rand(p.paid))} paid by your store on ${esc(day(p.paid_at))}`:`${esc(rand(p.calc))} approved, your store pays you through payroll`}${p.cn_no?` · credit note ${esc(p.cn_no)}`:""}</span></div>
+        ${p.confirmed_at?`<span class="ab-pill ok">You confirmed</span>`:p.disputed_at?`<span class="ab-pill bad">You said not received</span><button type="button" class="linkbtn" data-pc="${p.id}" data-ok="1">I have it now</button>`:
+          p.paid_at?`<span class="hz-pbtn"><button type="button" class="btn gold small" data-pc="${p.id}" data-ok="1">I received it</button><button type="button" class="linkbtn" data-pc="${p.id}" data-ok="0">Not received</button></span>`:`<span class="ab-dim">Not paid yet</span>`}</div>`;}).join("")}</div></section>`:""}
     <p class="dhint">Signed in with ${esc(showMobile(cm.mobile))}. <button type="button" class="linkbtn" id="asout">Sign out</button></p>
   </div>`;
   app.querySelector("#asout").onclick=signOut;
   const again=()=>start();
+  app.querySelectorAll("[data-pc]").forEach(b=>b.onclick=async()=>{const ok=b.dataset.ok==="1";let note=null;
+    if(!ok){note=prompt("What is wrong? For example: not in my pay slip yet.");if(note===null)return;}
+    b.disabled=true;try{must(await C.rpc("stravik_as_payout_confirm",{p_id:Number(b.dataset.pc),p_ok:ok,p_note:note}));toast(ok?"Thank you! Payment confirmed.":"Sent: your store and Stravik will look at it.");again();}catch(e){toast(msg(e));b.disabled=false;}});
   app.querySelector("#hzpic").onclick=()=>pickPhoto(D?D.id:cm.id,again);
   const del=app.querySelector("#hzdel");if(del)del.onclick=async()=>{if(!confirm("Remove your photo?"))return;try{await removePhoto(D.id);toast("Photo removed.");again();}catch(e){toast(msg(e));}};
   countUp(app);
@@ -295,8 +302,8 @@ async function call(body){
   return r.data;
 }
 async function loadAll(){
-  const r=await Promise.all([C.rpc("stravik_my_staff"),C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner"),C.rpc("stravik_as_owner_breakdown")]);
-  const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);R.bd=must(r[3]);
+  const r=await Promise.all([C.rpc("stravik_my_staff"),C.rpc("stravik_sales_setup"),C.rpc("stravik_as_owner"),C.rpc("stravik_as_owner_breakdown"),C.rpc("stravik_as_owner_statements")]);
+  const st=must(r[0]);O.staff=st.staff;O.store=st.store;R.setup=must(r[1]);R.calc=must(r[2]);R.bd=must(r[3]);R.money=r[4].error?null:r[4].data;
   O.pics=await photoUrls((O.staff||[]).filter(x=>x.photo_at).map(x=>x.id));
 }
 const calcOf=id=>R.calc&&(R.calc.months||[]).find(m=>String(m.report_id)===String(id));
@@ -368,6 +375,8 @@ function storeCard(){
     </div>
   </section>`;
 }
+// Heroes still to be marked paid for approved months
+const toPay=()=>((R.money&&R.money.payouts)||[]).filter(x=>x.staff_id&&Number(x.calc)>0&&!x.paid_at).length;
 // ---- bottom: a card for each Hero
 function heroesSection(){
   const B=R.bd||{heroes:[]},A=R.calc||{},staff=(O.staff||[]).filter(s=>s.active),lastM=(A.months||[])[0];
@@ -430,6 +439,7 @@ function owner(email){
     <div class="as-actions">
       <button type="button" class="as-act${O.panel==="report"?" on":""}" data-open="report"><b>Send your monthly sales report</b><span>By the 5th: last month's Stravik sales</span></button>
       <button type="button" class="as-act${O.panel==="heroes"?" on":""}" data-open="heroes"><b>Manage your Heroes</b><span>${num((O.staff||[]).filter(s=>s.active).length)} registered · add, new PIN, switch off</span></button>
+      <button type="button" class="as-act${O.panel==="money"?" on":""}${toPay()?" warn":""}" data-open="money"><b>Statements and paying your Heroes</b><span>${toPay()?`${num(toPay())} ${toPay()===1?"Hero":"Heroes"} to pay`:"Credit notes, and your Heroes' payments"}</span></button>
     </div>
     <div id="aspanel"></div>
     <p class="dhint ab-foot">Signed in as ${esc(email)}. <a class="linkbtn" href="/">Your products and prices</a> · <button type="button" class="linkbtn" id="asout">Sign out</button></p>
@@ -452,7 +462,77 @@ function owner(email){
   wireDonuts(app);
   panel();
 }
-function panel(){const P=app.querySelector("#aspanel");if(!P)return;if(O.panel==="report")paneReports();else if(O.panel==="heroes")paneHeroes();else P.innerHTML="";}
+function panel(){const P=app.querySelector("#aspanel");if(!P)return;if(O.panel==="report")paneReports();else if(O.panel==="heroes")paneHeroes();else if(O.panel==="money")paneMoney();else P.innerHTML="";}
+// ---------------------------------------------------------------------------------------------------------------
+// statements, credit notes and paying the Heroes (store owner)
+// ---------------------------------------------------------------------------------------------------------------
+const CNK={month:"Monthly statement",award:"Award",quarter:"Quarter"};
+const CNS={Held:"Held",["To issue"]:"With DP World InSync",Issued:"Credit note issued",Used:"Set against an order",Expired:"Expired, not used"};
+const cnPill=c=>`<span class="ab-pill ${c.status==="Held"||c.status==="Expired"?"bad":c.status==="To issue"?"":"ok"}">${esc(CNS[c.status]||c.status)}</span>`;
+function paneMoney(){
+  const P=app.querySelector("#aspanel"),M=R.money||{credit_notes:[],payouts:[],quarters:[]};
+  const periods=Array.from(new Set(M.credit_notes.filter(c=>c.kind==="month").map(c=>c.period))).sort().reverse();
+  const cnLine=c=>`<div class="mn-cn"><div class="mn-cnh"><b>${esc(CNK[c.kind]||c.kind)}</b>${cnPill(c)}<b class="mn-amt">${esc(rand(c.amount))}</b></div>
+      <ul>${(c.lines||[]).map(l=>`<li><span>${esc(l.description||l.type)}</span><b>${esc(rand(l.amount))}</b></li>`).join("")}</ul>
+      <p class="dhint">${c.status==="Held"?`Held: ${esc(c.hold_reason||"")}. It goes to DP World InSync as soon as this is sorted out.`:
+        c.status==="To issue"?"Approved: DP World InSync issues the credit note and sets it against your next order.":
+        c.status==="Issued"?`Credit note <b>${esc(c.cn_no)}</b> of ${esc(day(c.cn_date))}, set against your next order. Unused credit expires ${esc(day(c.expires_on))}.`:
+        c.status==="Used"?`Credit note <b>${esc(c.cn_no)}</b> of ${esc(day(c.cn_date))}, set against ${esc(c.used_ref||"your order")} on ${esc(day(c.used_on))}.`:
+        `Credit note <b>${esc(c.cn_no||"")}</b> expired on ${esc(day(c.expires_on))} without being used.`}</p></div>`;
+  const month=p=>{
+    const cns=M.credit_notes.filter(c=>c.period===p),pays=M.payouts.filter(x=>x.period===p),heroes=pays.filter(x=>x.staff_id),share=pays.find(x=>!x.staff_id);
+    const total=pays.reduce((a,x)=>a+Number(x.calc||0),0),paid=heroes.reduce((a,x)=>a+Number(x.paid||0),0),due=pays[0]&&pays[0].due;
+    const open=O.mnOpen===p,late=due&&new Date(due+"T23:59:59")<new Date()&&heroes.some(x=>!x.paid_at&&Number(x.calc)>0);
+    return `<article class="mn-month as-card" data-p="${p}">
+      <div class="mn-head"><h3>${esc(monthName(p))}</h3><span>${esc(rand(cns.reduce((a,c)=>a+Number(c.amount||0),0)))} credited to your store</span>
+        <span class="ab-pill ${heroes.every(x=>x.confirmed_at||!Number(x.calc))&&heroes.length?"ok":late?"bad":""}">${heroes.length?(heroes.every(x=>x.confirmed_at||!Number(x.calc))?"Heroes paid and confirmed":heroes.every(x=>x.paid_at||!Number(x.calc))?"Paid, waiting for the Heroes to confirm":late?"Pay your Heroes: the 25th has passed":"Pay your Heroes by "+day(due)):""}</span>
+        <button type="button" class="linkbtn" data-mn="${p}">${open?"Close":"Open"}</button></div>
+      ${open?`<div class="mn-body">${cns.map(cnLine).join("")}
+        <h4>Pay your Heroes</h4>
+        <p class="dhint">Pay each Hero through your payroll by <b>${esc(day(due))}</b>, then mark it here. Each Hero confirms on their own page. While a payment is overdue or not confirmed, your next credit note waits.</p>
+        <form class="mn-pay" data-p="${p}" novalidate><div class="ab-scroll"><table class="ab-table"><thead><tr><th>Hero</th><th class="n">Their reward</th><th class="n">You pay</th><th>Status</th></tr></thead><tbody>
+          ${heroes.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td class="n">${esc(rand(x.calc))}</td><td class="n"><input class="mn-in" name="${x.staff_id}" inputmode="decimal" value="${x.paid!=null?Number(x.paid).toFixed(2):Number(x.calc).toFixed(2)}"></td>
+            <td>${x.disputed_at?`<span class="ab-pill bad">Not received</span>${x.dispute_note?`<div class="ab-dim">“${esc(x.dispute_note)}”</div>`:""}`:x.confirmed_at?`<span class="ab-pill ok">Confirmed</span>`:x.paid_at?`<span class="ab-pill">Paid ${esc(day(x.paid_at))}, to confirm</span>`:`<span class="ab-dim">Not paid yet</span>`}</td></tr>`).join("")}
+          ${share&&Number(share.calc)>0?`<tr class="mn-share"><td><b>To share as you choose</b><div class="ab-dim">${esc(String(share.name||"").replace(/^To share: /,""))}</div></td><td class="n">${esc(rand(share.calc))}</td><td class="n" colspan="2"><span class="ab-dim">Add it to the Heroes' amounts above</span></td></tr>`:""}
+        </tbody></table></div>
+        <p class="mn-tot">Total for your Heroes: <b>${esc(rand(total))}</b> · marked paid: <b>${esc(rand(paid))}</b></p>
+        <div class="ab-row"><button class="btn gold" type="submit">Mark as paid</button><button type="button" class="btn line small" data-print="${p}">Print or save the statement</button></div></form></div>`:""}
+    </article>`;};
+  const qs=(M.quarters||[]).map(q=>`<div class="mn-q"><b>${esc(qName(q.quarter))}</b> ${q.tier?medal(q.tier.toLowerCase(),22,q.tier):""}<span>${esc(rand(q.value))} product value · ${esc(String(q.pct))}% of ${esc(rand0(q.target))}</span>
+      <span>${Number(q.rebate)>0?`Owner rebate <b>${esc(rand(q.rebate))}</b>`:q.gate_note?`No owner rebate: ${esc(q.gate_note)}`:"No owner rebate"}${Number(q.award)>0?` · Store of the Quarter <b>${esc(rand(q.award))}</b> for your Heroes`:""}</span></div>`).join("");
+  P.innerHTML=`<section class="as-panel"><h2 class="ab-h">Statements and paying your Heroes</h2>
+    <p class="ab-lead">Each approved month becomes a statement: a credit note from DP World InSync, set against your next order, and the amounts you pay your Heroes through payroll. No cash is paid out.</p>
+    ${R.money&&R.money.hold_reason?`<div class="dnote bad"><b>Your next credit note is on hold:</b> ${esc(R.money.hold_reason)}.</div>`:""}
+    ${qs?`<h3 class="as-h3">Quarters</h3>${qs}`:""}
+    ${periods.length?periods.map(month).join(""):`<div class="ab-empty"><h3>No statements yet</h3><p>Your first statement appears once Stravik has approved a monthly sales report.</p></div>`}</section>`;
+  P.querySelectorAll("[data-mn]").forEach(b=>b.onclick=()=>{O.mnOpen=O.mnOpen===b.dataset.mn?null:b.dataset.mn;paneMoney();});
+  P.querySelectorAll("form.mn-pay").forEach(f=>f.addEventListener("submit",async ev=>{ev.preventDefault();
+    const rows=[...f.querySelectorAll(".mn-in")].map(i=>({staff_id:i.name,amount:Number(String(i.value).replace(/[^\d.]/g,""))}));
+    if(rows.some(r=>!isFinite(r.amount))){toast("Check the amounts.");return;}
+    if(!confirm("Mark these Heroes as paid for "+monthName(f.dataset.p)+"? Each one is asked to confirm."))return;
+    const b=f.querySelector("button[type=submit]");b.disabled=true;
+    try{must(await C.rpc("stravik_as_payout_mark",{p_period:f.dataset.p.slice(0,7),p_rows:rows}));R.money=must(await C.rpc("stravik_as_owner_statements"));toast("Marked as paid. Your Heroes are asked to confirm.");paneMoney();}
+    catch(e){toast(msg(e));b.disabled=false;}}));
+  P.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printStatement(b.dataset.print));
+}
+// a printable statement of one month (the browser's print dialog also saves it as a PDF)
+function printStatement(p){
+  const M=R.money,cns=M.credit_notes.filter(c=>c.period===p),pays=M.payouts.filter(x=>x.period===p);
+  const w=window.open("","_blank");if(!w){toast("Allow pop-ups to print the statement.");return;}
+  w.document.write(`<!doctype html><html><head><title>Stravik All Star statement ${esc(monthName(p))}</title><style>
+    body{font:14px/1.45 Arial,sans-serif;color:#0b203d;margin:32px}h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:22px 0 6px}
+    table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid #dde2e8;text-align:left}td.n,th.n{text-align:right}.muted{color:#4a5a70}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #c99a1c;padding-bottom:10px}</style></head><body>
+    <div class="top"><div><h1>Stravik All Star statement</h1><div class="muted">${esc(O.store)} · ${esc(monthName(p))}</div></div><div><b>STRAVIK</b><div class="muted">Own the road.</div></div></div>
+    ${cns.map(c=>`<h2>${esc(CNK[c.kind]||c.kind)}: ${esc(CNS[c.status]||c.status)}${c.cn_no?", credit note "+esc(c.cn_no)+" of "+esc(day(c.cn_date)):""}</h2>
+      <table>${(c.lines||[]).map(l=>`<tr><td>${esc(l.description||l.type)}</td><td class="n">${esc(rand(l.amount))}</td></tr>`).join("")}<tr><th>Total</th><th class="n">${esc(rand(c.amount))}</th></tr></table>`).join("")}
+    <h2>Your All Stars Heroes</h2><table><tr><th>Hero</th><th class="n">Reward</th><th class="n">Paid</th><th>Status</th></tr>
+      ${pays.map(x=>`<tr><td>${esc(x.staff_id?x.name:"To share as you choose")}</td><td class="n">${esc(rand(x.calc))}</td><td class="n">${x.paid!=null?esc(rand(x.paid)):""}</td><td>${x.staff_id?(x.confirmed_at?"Confirmed":x.disputed_at?"Not received":x.paid_at?"Paid "+esc(day(x.paid_at)):"Not paid yet"):""}</td></tr>`).join("")}</table>
+    <p class="muted" style="margin-top:24px">Paid to the store as credit notes by DP World InSync and set against its next order; the store pays its Heroes through its payroll. Printed ${esc(day(new Date().toISOString()))}.</p>
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
 async function refreshOwner(){await loadAll();owner(SD().state.me.email);}
 
 // ---- the Heroes: add, edit, new PIN, switch off/on

@@ -3,6 +3,10 @@
 //     the delivery details and the parts. DP World InSync fills in its reference, the invoice, the waybill and the
 //     dispatch and delivery dates; the order's status follows what is filled in.
 //   - Sales by store: orders, units and value per store, grouped by the store's group (Autobarn).
+//   - All Star credit notes: the approved All Star credit notes to issue to the stores (counter pool, launch booster,
+//     awards, owner rebate); DP World InSync enters its credit note number and date, and later the order it was set
+//     against. Unused credit expires 6 months after the credit note date. Monthly reconciliation download.
+//     Data: stravik_dpw_credit_notes(), stravik_dpw_cn_update().
 // Who may sign in: the emails in the table stravik_partner_users (admin site > Orders > DP World InSync users).
 // Data: Supabase functions stravik_dpw_orders() and stravik_dpw_update(), which only answer those people.
 // Uses the same sign-in as customer accounts (assets/dealer.js); styles from assets/autobarn.css.
@@ -84,7 +88,7 @@ function note(html){
 // the portal
 // ---------------------------------------------------------------------------------------------------------------
 const H={data:null,tab:"orders",status:"open",store:"",text:"",open:new Set()};
-const TABS=[["orders","Orders"],["stores","Sales by store"]];
+const TABS=[["orders","Orders"],["stores","Sales by store"],["allstar","All Star credit notes"]];
 const P=()=>app.querySelector("#abpane");
 const empty=(t,p)=>`<div class="ab-empty"><h3>${esc(t)}</h3><p>${p}</p></div>`;
 
@@ -109,7 +113,54 @@ function stats(){
   const cells=[[num(c("With DPW")),"to pick and invoice"],[num(c("Invoiced")),"invoiced, to dispatch"],[num(c("Dispatched")),"on the way"],[num(c("Delivered")),"delivered"],[money(os.reduce((a,o)=>a+Number(o.invoice_amount||0),0)),"invoiced incl. VAT"]];
   app.querySelector("#abstats").innerHTML=cells.map(x=>`<div class="ab-stat"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></div>`).join("");
 }
-function pane(){(H.tab==="stores"?paneStores:paneOrders)();}
+function pane(){(H.tab==="stores"?paneStores:H.tab==="allstar"?paneCredit:paneOrders)();}
+
+// ---------------------------------------------------------------------------------------------------------------
+// All Star credit notes
+// ---------------------------------------------------------------------------------------------------------------
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const mName=p=>{const m=/^(\d{4})-(\d{2})/.exec(p||"");return m?MONTHS[+m[2]-1]+" "+m[1]:"";};
+const KIND={month:"Monthly",award:"Award",quarter:"Quarter"};
+const CS={"To issue":"To issue",Issued:"Issued",Used:"Set against an order",Expired:"Expired, not used"};
+async function paneCredit(){
+  const el=P();
+  if(!H.cn){el.innerHTML=`<p class="loading">Loading…</p>`;try{H.cn=must(await C.rpc("stravik_dpw_credit_notes"))||[];}catch(e){el.innerHTML=`<p class="dnote bad">${esc(msg(e))}</p>`;return;}}
+  const L=H.cn,c=s=>L.filter(x=>x.status===s),sum=a=>a.reduce((t,x)=>t+Number(x.amount||0),0);
+  const months=Array.from(new Set(L.map(x=>x.period.slice(0,7)))).sort().reverse();
+  el.innerHTML=`<p class="ab-lead">Approved Stravik All Star credit notes for the stores. Issue each one to the store, set it against the store's next order, and enter it here. No cash is paid out. Unused credit expires 6 months after the credit note date.</p>
+    <div class="ab-bars" style="margin-bottom:16px"><div class="ab-bar"><span class="l">To issue</span><span class="t"><i style="width:${L.length?Math.round(c("To issue").length/L.length*100):0}%"></i></span><span class="v">${num(c("To issue").length)} · ${esc(money(sum(c("To issue"))))}</span></div>
+      <div class="ab-bar"><span class="l">Issued, not yet used</span><span class="t"><i style="width:${L.length?Math.round(c("Issued").length/L.length*100):0}%"></i></span><span class="v">${num(c("Issued").length)} · ${esc(money(sum(c("Issued"))))}</span></div></div>
+    <div class="as-up" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px"><label style="display:grid;gap:4px;font-weight:600;font-size:13.5px">Reconciliation for<select id="cnm">${months.map(m=>`<option value="${m}">${mName(m)}</option>`).join("")}</select></label><button type="button" class="btn line small" id="cnx"${months.length?"":" disabled"}>Download the reconciliation</button></div>
+    ${L.length?`<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Store</th><th>For</th><th>Lines</th><th class="n">Amount</th><th>Status</th><th>Your side</th></tr></thead><tbody>${L.map(x=>{
+      const st=x.status,lines=(x.lines||[]).map(l=>`<div>${esc(l.type)}: ${esc(money(l.amount))}</div>`).join("");
+      const side=st==="To issue"?`<form class="cnf" data-id="${x.id}" data-a="issue" novalidate><input name="no" placeholder="Credit note no." maxlength="60" style="width:130px"> <input name="date" type="date" value="${new Date().toISOString().slice(0,10)}"> <button class="btn gold small" type="submit">Issued</button></form>`:
+        st==="Issued"?`<div>No. <b>${esc(x.cn_no)}</b>, ${esc(day(x.cn_date))} · expires ${esc(day(x.expires_on))}</div><form class="cnf" data-id="${x.id}" data-a="used" novalidate style="margin-top:4px"><input name="ref" placeholder="Order or invoice no." maxlength="80" style="width:150px"> <input name="date" type="date" value="${new Date().toISOString().slice(0,10)}"> <button class="btn line small" type="submit">Set against order</button></form>`:
+        st==="Used"?`<div>No. <b>${esc(x.cn_no)}</b>, ${esc(day(x.cn_date))}</div><div class="ab-dim">Against ${esc(x.used_ref||"")} on ${esc(day(x.used_on))}</div>`:`<div>No. <b>${esc(x.cn_no||"")}</b>, ${esc(day(x.cn_date))}</div><div class="ab-dim">Expired ${esc(day(x.expires_on))}</div>`;
+      return `<tr><td><b>${esc(x.store.name)}</b>${x.store.code?`<div class="ab-dim">${esc(x.store.code)}</div>`:""}</td><td>${esc(mName(x.period))}<div class="ab-dim">${esc(KIND[x.kind]||x.kind)}</div></td><td class="small">${lines}</td><td class="n"><b>${esc(money(x.amount))}</b></td><td><span class="ab-pill ${st==="To issue"?"":"ok"}">${esc(CS[st]||st)}</span></td><td>${side}</td></tr>`;}).join("")}</tbody></table></div>`:
+      empty("No All Star credit notes yet","They appear here once Stravik has approved a store's monthly All Star statement.")}`;
+  el.querySelectorAll("form.cnf").forEach(f=>f.addEventListener("submit",async ev=>{ev.preventDefault();
+    const a=f.dataset.a,v=n=>(f.querySelector(`[name=${n}]`)||{}).value||"",b=f.querySelector("button");
+    const p=a==="issue"?{action:"issue",cn_no:v("no").trim(),cn_date:v("date")}:{action:"used",ref:v("ref").trim(),date:v("date")};
+    if(a==="issue"&&!p.cn_no){toast("Enter your credit note number.");return;}
+    b.disabled=true;try{must(await C.rpc("stravik_dpw_cn_update",{p_id:Number(f.dataset.id),p}));H.cn=null;await paneCredit();toast(a==="issue"?"Credit note saved as issued.":"Saved: set against the order.");}catch(e){toast(msg(e));b.disabled=false;}}));
+  const x=el.querySelector("#cnx");if(x)x.onclick=()=>reconcile(el.querySelector("#cnm").value);
+}
+// the month's reconciliation: every credit note of the month, and the totals by who funds them
+async function reconcile(m){
+  try{
+    const X=await excel(),wb=new X.Workbook(),L=(H.cn||[]).filter(x=>x.period.slice(0,7)===m),bold={bold:true};
+    const ws=wb.addWorksheet("Credit notes");ws.addRow(["Store","Customer code","Kind","Line","Funded by","Amount","Credit note no.","Date","Status","Set against","On"]).font=bold;
+    L.forEach(x=>(x.lines||[]).forEach(l=>ws.addRow([x.store.name,x.store.code||"",KIND[x.kind]||x.kind,l.type,l.funded_by==="zenter"?"Zenter Parts (to reimburse)":"All Star price line",Number(l.amount),x.cn_no||"",x.cn_date||"",CS[x.status]||x.status,x.used_ref||"",x.used_on||""])));
+    [28,14,10,20,26,12,16,12,18,18,12].forEach((w,i)=>{ws.getColumn(i+1).width=w;});ws.getColumn(6).numFmt="#,##0.00";ws.views=[{state:"frozen",ySplit:1}];
+    const t=wb.addWorksheet("Totals"),by=(f,s)=>L.reduce((a,x)=>a+(x.lines||[]).filter(l=>(!f||l.funded_by===f)&&(!s||x.status===s)).reduce((b,l)=>b+Number(l.amount),0),0);
+    t.addRow(["Stravik All Star reconciliation, "+mName(m)]).font={bold:true,size:13};t.addRow([]);
+    t.addRow(["","All Star price line","Zenter Parts (to reimburse)","Total"]).font=bold;
+    [["Approved",null],["To issue","To issue"],["Issued, not yet used","Issued"],["Set against an order","Used"],["Expired, not used","Expired"]].forEach(r=>t.addRow([r[0],by("price",r[1]),by("zenter",r[1]),by(null,r[1])]));
+    [30,22,28,16].forEach((w,i)=>{t.getColumn(i+1).width=w;});[2,3,4].forEach(c=>{t.getColumn(c).numFmt="#,##0.00";});
+    const blob=new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download="Stravik_All_Star_reconciliation_"+m+".xlsx";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(e){toast(msg(e));}
+}
 function orders(){
   const q=H.text.trim().toLowerCase();
   return H.data.orders.filter(o=>(H.status==="all"||(H.status==="open"?o.status!=="Delivered":o.status===H.status))&&(!H.store||o.store===H.store)&&

@@ -259,3 +259,32 @@
 
 /* the last-two-weeks nudge in the store's message */
 .as-hurry{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;background:rgba(201,154,28,.18);font-weight:600;font-size:14px}
+
+/* ---- statements, credit notes and paying the Heroes */
+.as-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.as-act.warn{border-color:var(--as-bronze);background:linear-gradient(180deg,rgba(184,115,58,.10),transparent),var(--card)}
+.as-act.warn span{color:#9a4a12;font-weight:700}
+.mn-month{margin:12px 0 0;padding:14px 18px}
+.mn-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.mn-head h3{margin:0;font-size:18px}
+.mn-head>span:first-of-type{color:var(--muted)}
+.mn-head .linkbtn{margin-left:auto}
+.mn-body{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.mn-body h4{margin:16px 0 4px;font-size:16px}
+.mn-cn{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
+.mn-cnh{display:flex;align-items:center;gap:10px}
+.mn-amt{margin-left:auto;font-variant-numeric:tabular-nums}
+.mn-cn ul{list-style:none;margin:6px 0;padding:0;display:grid;gap:3px}
+.mn-cn li{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.mn-cn li span{color:var(--muted)}
+.mn-in{width:110px;text-align:right;font:inherit;padding:5px 8px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.mn-share td{background:var(--paper)}
+.mn-tot{margin:8px 0}
+.mn-q{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:8px 0;border-bottom:1px solid var(--line)}
+.mn-q span{color:var(--muted)}
+.hz-pays{display:grid;gap:8px}
+.hz-pay{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);text-align:left}
+.hz-pay>div{display:grid}
+.hz-pay>div span{color:var(--muted);font-size:14px}
+.hz-pbtn{display:flex;gap:10px;align-items:center}
+@media (max-width:900px){.as-actions{grid-template-columns:1fr}}

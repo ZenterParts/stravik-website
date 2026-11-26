@@ -63,7 +63,8 @@
     $('cpSearch').innerHTML = '';
     $('asMonth').onchange = function () { L.go(L.href('allstar') + '?m=' + this.value + '&test=' + (S.test ? 1 : 0)); };
     $('asTest').onchange = function () { L.go(L.href('allstar') + '?m=' + S.period + '&test=' + this.value); };
-    L.content('<div id="asTodo"></div><div class="cards" id="asStats" style="margin-bottom:14px"></div><div id="asList"><p class="muted">Loading…</p></div>');
+    L.content('<div id="asTodo"></div><div class="cards" id="asStats" style="margin-bottom:14px"></div><div id="asList"><p class="muted">Loading…</p></div><div id="asMoney" style="margin-top:26px"></div>');
+    money();
     notice();
     try {
       var d = L.must(await sb.rpc('stravik_as_admin_month', { p_period: S.period, p_test: S.test })), st = d.stores || [];
@@ -105,6 +106,48 @@
             Number(s.heroes || 0), s.low ? 'Yes' : '', Number(r.award) > 0 ? 'Yes' : '', r.checked_by || '', r.approved_by || '']; }) }], 'Stravik_All_Star_' + S.period + (S.test ? '_test' : '') + '.xlsx');
       };
     } catch (e) { L.fail(e); }
+  }
+
+  // ---------- the month's credit notes (approved statements, awards, quarter close) and closing the month
+  var CNS = { Held: 'Held', 'To issue': 'To issue (InSync)', Issued: 'Issued', Used: 'Set against an order', Expired: 'Expired, not used' };
+  var CNC = { Held: 'warn', 'To issue': 'New', Issued: 'Quoted', Used: 'Active', Expired: 'Inactive' };
+  var KIND = { month: 'Monthly', award: 'Store of the Month', quarter: 'Quarter' };
+  async function money() {
+    var box = $('asMoney'); if (!box) return;
+    try {
+      var d = L.must(await sb.rpc('stravik_as_admin_money', { p_period: S.period, p_test: S.test })), cns = d.credit_notes || [];
+      var q3 = /-(03|06|09|12)$/.test(S.period);
+      var sum = function (f) { return cns.reduce(function (a, c) { return a + (c.lines || []).filter(function (l) { return !f || l.funded_by === f; }).reduce(function (b, l) { return b + Number(l.amount); }, 0); }, 0); };
+      box.innerHTML = '<h2 style="margin:0 0 4px">Credit notes for ' + esc(monthName(S.period)) + '</h2>' +
+        '<p class="muted" style="margin:0 0 10px">Each approved report makes its store\'s monthly credit note (counter pool and launch booster). Closing the month adds Store of the Month' + (q3 ? ', and closes the quarter: owner rebates and Store of the Quarter' : '') + '. ' +
+        (d.closed ? '<b>This month is closed.</b>' : 'Close it once every report of the month is approved or rejected.') + '</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">' + (d.can_close && !d.closed ? '<button type="button" class="btn" id="asClose">Close ' + esc(monthName(S.period)) + (q3 ? ' and the quarter' : '') + '</button>' : '') +
+        (cns.length ? '<button type="button" class="btn ghost" id="asRec">Download the reconciliation</button>' : '') + '</div>' +
+        (cns.length ? '<div class="cards" style="margin-bottom:10px">' + [[rand(sum('price')), 'from the All Star price line'], [rand(sum('zenter')), 'Zenter funded (booster, awards)'], [cns.filter(function (c) { return c.status === 'Held'; }).length, 'held']]
+          .map(function (x) { return '<div class="card"><div class="stat">' + esc(String(x[0])) + '</div><div class="stat-l">' + esc(x[1]) + '</div></div>'; }).join('') + '</div>' +
+          L.listView([
+            { label: 'Store', render: function (c) { return '<b>' + esc(c.store.name) + '</b><div class="small muted">' + esc(c.store.code || '') + '</div>'; } },
+            { label: 'Kind', render: function (c) { return esc(KIND[c.kind] || c.kind); } },
+            { label: 'Lines', render: function (c) { return (c.lines || []).map(function (l) { return '<div class="small">' + esc(l.type) + ': ' + rand(l.amount) + (l.funded_by === 'zenter' ? ' <span class="muted">(Zenter)</span>' : '') + '</div>'; }).join(''); } },
+            { label: 'Amount', num: true, render: function (c) { return '<b>' + rand(c.amount) + '</b>'; } },
+            { label: 'Status', render: function (c) { return L.pill(CNS[c.status] || c.status, CNC[c.status] || '') + (c.status === 'Held' ? '<div class="small flag">' + esc(c.hold_reason || '') + '</div>' : '') + (c.cn_no ? '<div class="small muted">No. ' + esc(c.cn_no) + ', ' + esc(c.cn_date) + '</div>' : ''); } },
+            { label: 'Heroes paid', render: function (c) { var p = c.payouts || {}; return c.kind !== 'month' || !p.heroes ? '' : esc(p.paid + ' of ' + p.heroes + ' paid, ' + p.confirmed + ' confirmed') + (p.disputed ? ' <span class="flag">' + p.disputed + ' not received</span>' : ''); } },
+            { label: '', render: function (c) { return c.status === 'Held' && d.can_close ? '<button type="button" class="btn small ghost" data-rel="' + c.id + '">Release</button>' : ''; } }
+          ], cns) : '<p class="muted">No credit notes for this month yet.</p>');
+      var cl = $('asClose'); if (cl) cl.onclick = async function () {
+        if (!confirm('Close ' + monthName(S.period) + (q3 ? ' and the quarter' : '') + ' for ' + (S.test ? 'the test stores' : 'all stores') + '? This decides the awards' + (q3 ? ' and the owner rebates' : '') + ' and cannot be undone.')) return;
+        this.disabled = true;
+        try { var r = L.must(await sb.rpc('stravik_as_close_month', { p_period: S.period, p_test: S.test })); L.toast((r || []).map(function (x) { return x.network + ': ' + x.store_of_month + ' Store of the Month' + (q3 ? ', ' + x.quarter_closed + ' stores closed, ' + rand(x.rebates) + ' rebates' : ''); }).join(' · ') || 'Closed'); money(); }
+        catch (e) { L.fail(e); this.disabled = false; }
+      };
+      box.querySelectorAll('[data-rel]').forEach(function (b) { b.onclick = async function () { var n = prompt('Release this credit note to DP World InSync although a Hero payment is open? Note (optional):'); if (n === null) return;
+        try { L.must(await sb.rpc('stravik_as_admin_release', { p_id: Number(b.dataset.rel), p_note: n })); L.toast('Released'); money(); } catch (e) { L.fail(e); } }; });
+      var rc = $('asRec'); if (rc) rc.onclick = function () {
+        var rows = []; cns.forEach(function (c) { (c.lines || []).forEach(function (l) { rows.push([c.store.name, c.store.code || '', KIND[c.kind] || c.kind, l.type, l.funded_by === 'zenter' ? 'Zenter Parts (to reimburse)' : 'All Star price line', Number(l.amount), CNS[c.status] || c.status, c.cn_no || '', c.cn_date || '', c.hold_reason || '']); }); });
+        L.saveXlsx([{ name: 'Credit notes', head: ['Store', 'Customer code', 'Kind', 'Line', 'Funded by', 'Amount', 'Status', 'Credit note no.', 'Date', 'Hold reason'], widths: [28, 14, 16, 20, 26, 12, 20, 16, 12, 40], rows: rows,
+          top: [['Stravik All Star credit notes, ' + monthName(S.period) + (S.test ? ' (test stores)' : '') + ' · price line ' + rand(sum('price')) + ' · Zenter funded ' + rand(sum('zenter'))]] }], 'Stravik_All_Star_credit_notes_' + S.period + (S.test ? '_test' : '') + '.xlsx');
+      };
+    } catch (e) { box.innerHTML = '<p class="flag">' + esc(e.message || e) + '</p>'; }
   }
 
   // ---------- one report
