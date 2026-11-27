@@ -220,7 +220,7 @@ function monthColumns(months,T,qStart){
         <text x="${(+x+bw/2).toFixed(1)}" y="${(base-hb-ha-6).toFixed(1)}" class="mc-v">${Math.round(c.after/T*100)}%</text>`:`<text x="${(+x+bw/2).toFixed(1)}" y="${(base-6).toFixed(1)}" class="mc-v dim">${c.p<new Date().toISOString().slice(0,7)?"no report":"to come"}</text>`}
       <text x="${(+x+bw/2).toFixed(1)}" y="${H-12}" class="mc-x">${esc(MONTHS[+c.p.slice(5,7)-1].slice(0,3))}</text></g>`;}).join("");
   return `<div class="mc"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="The quarter so far after each month, against the Bronze, Silver and Gold targets">${lines}<line x1="${L}" x2="${W-R+6}" y1="${Tp+ch}" y2="${Tp+ch}" class="mc-axis"></line>${bars}</svg>
-    <p class="mc-key"><span><i class="mc-before"></i>Before the month</span><span><i class="mc-add"></i>Added that month</span></p></div>`;
+    <p class="mc-key"><span><i class="mc-before"></i>Previous month</span><span><i class="mc-add"></i>Added that month</span></p></div>`;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
