@@ -217,7 +217,7 @@ function monthColumns(months,T,qStart){
     return `<g class="mc-col" style="animation-delay:${(i*0.12).toFixed(2)}s">
       ${c.m&&c.before>0?`<rect x="${x}" y="${(base-hb).toFixed(1)}" width="${bw.toFixed(1)}" height="${hb.toFixed(1)}" rx="3" class="mc-before"></rect>`:""}
       ${c.m?`<rect x="${x}" y="${(base-hb-ha).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(ha,0).toFixed(1)}" rx="3" class="mc-add"><title>${esc(monthName(c.p))}: +${esc(rand(c.m.value))}</title></rect>
-        <text x="${(+x+bw/2).toFixed(1)}" y="${(base-hb-ha-6).toFixed(1)}" class="mc-v">${Math.round(c.after/T*100)}%</text>`:`<text x="${(+x+bw/2).toFixed(1)}" y="${(base-6).toFixed(1)}" class="mc-v dim">${c.p<new Date().toISOString().slice(0,7)?"no report":"to come"}</text>`}
+        <text x="${(+x+bw/2).toFixed(1)}" y="${(base-hb-ha-6).toFixed(1)}" class="mc-v">${Math.round(c.after/T*100)}%</text>`:`<text x="${(+x+bw/2).toFixed(1)}" y="${(base-6).toFixed(1)}" class="mc-v dim">${(t=>c.p<t?"no report":c.p===t?"This month":"Next month")(new Date().toISOString().slice(0,7))}</text>`}
       <text x="${(+x+bw/2).toFixed(1)}" y="${H-12}" class="mc-x">${esc(MONTHS[+c.p.slice(5,7)-1].slice(0,3))}</text></g>`;}).join("");
   return `<div class="mc"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="The quarter so far after each month, against the Bronze, Silver and Gold targets">${lines}<line x1="${L}" x2="${W-R+6}" y1="${Tp+ch}" y2="${Tp+ch}" class="mc-axis"></line>${bars}</svg>
     <p class="mc-key"><span><i class="mc-before"></i>Previous months</span><span><i class="mc-add"></i>Added that month</span></p></div>`;
@@ -368,10 +368,10 @@ function storeCard(){
       ${months.length?`<h3 class="as-h3">Month by month</h3>${monthColumns(B.months||[],T,Q.start)}<div class="ab-scroll"><table class="ab-table"><thead><tr><th>Month</th><th class="n">Parts</th><th class="n">Product value</th><th class="n">Quarter so far</th><th class="n">% of target</th><th>Tier reached</th><th>Report</th></tr></thead><tbody>${months.map(m=>
         `<tr><td><b>${esc(monthName(m.period))}</b></td><td class="n">${num(m.units)}</td><td class="n">${esc(rand(m.value))}</td><td class="n">${esc(rand(m.cum))}</td><td class="n">${m.cpct.toFixed(0)}%</td><td>${tierAt(m.cpct)}</td><td>${statPill(m)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="dhint">No reports for this quarter yet.</p>`}
       ${(B.ranges||[]).length?`<h3 class="as-h3">By range</h3>${donut(B.ranges.map(r=>({label:r.range,value:Number(r.value),sub:num(r.units)+" parts · "+rand(r.value)})),rand0(v),"")}`:""}
-      ${(B.parts||[]).length?`<h3 class="as-h3">${O.allParts||B.parts.length<=5?"Your Stravik products":"Your top products"}</h3><div class="ab-scroll"><table class="ab-table hz-top5"><thead><tr><th class="n">#</th><th>Part</th><th>Range</th><th class="n">Units</th><th class="n">Product value</th><th class="n">Share</th></tr></thead><tbody>${(O.allParts?B.parts:B.parts.slice(0,5)).map((p,i)=>
+      ${(B.parts||[]).length?`<h3 class="as-h3">Top selling items</h3><div class="ab-scroll"><table class="ab-table hz-top5"><thead><tr><th class="n">#</th><th>Part</th><th>Range</th><th class="n">Units</th><th class="n">Product value</th><th class="n">Share</th></tr></thead><tbody>${(O.allParts?B.parts:B.parts.slice(0,5)).map((p,i)=>
         `<tr class="${i<3?"t"+(i+1):""}"><td class="n">${i<3?medal(["gold","silver","bronze"][i],20,"No. "+(i+1)):i+1}</td><td><b>${esc(p.pn)}</b> <span class="ab-dim">${esc((p.desc||"").slice(0,60))}</span></td><td>${esc(p.range||"")}</td><td class="n">${num(p.units)}</td><td class="n">${esc(rand(p.value))}</td><td class="n">${v?(Number(p.value)/v*100<0.5&&Number(p.value)>0?"<1%":(Number(p.value)/v*100).toFixed(0)+"%"):""}</td></tr>`).join("")}</tbody></table></div>
       <p class="hz-more">${B.parts.length>5?`<button type="button" class="linkbtn" id="hzall">${O.allParts?"Show the top 5 only":`See all ${num(B.parts.length)} products`}</button>`:""}<button type="button" class="linkbtn" id="hzxls2">Download in detail (Excel)</button></p>`:""}
-      <p class="dhint">Product value is the units you reported at your buy price, for the parts invoiced to your store.${notCov>0.004?` ${esc(rand(notCov))} you reported this quarter is more than was invoiced to you, so it does not count.`:""}</p>
+      ${notCov>0.004?`<p class="dhint">${esc(rand(notCov))} you reported this quarter is more than was invoiced to you, so it does not count.</p>`:""}
     </div>
   </section>`;
 }
@@ -416,12 +416,22 @@ function heroesSection(){
   </section>`;
 }
 // the breakdown as an Excel file
-function downloadBreakdown(){
+async function downloadBreakdown(){
   const A=R.calc||{},B=R.bd||{},Q=quarterNow(),T=Number(A.quarterly_target||0),names={};(O.staff||[]).forEach(s=>{names[s.id]=s.name;});
   const v=(B.months||[]).reduce((a,m)=>a+Number(m.value||0),0),pct=T?v/T*100:0,reached=TIERS.filter(t=>pct>=t.at).pop();
+  // every line reported this quarter (not the rejected reports), in date order
+  const reps=((R.setup&&R.setup.reports)||[]).filter(r=>r.period>=Q.start&&r.period<Q.end&&r.status!=="Rejected").sort((a,b)=>a.period<b.period?-1:1),lines=[];
+  try{const got=await Promise.all(reps.map(r=>C.rpc("stravik_sales_report",{p_id:r.id}).then(must)));
+    got.forEach((g,i)=>{((g&&g.lines)||[]).forEach(l=>lines.push(Object.assign({},l,{period:reps[i].period,status:reps[i].status})));});
+  }catch(e){toast(msg(e));return;}
+  lines.sort((a,b)=>String(a.date||a.period).localeCompare(String(b.date||b.period))||String(a.invoice||"").localeCompare(String(b.invoice||"")));
+  const day=d=>{if(!d)return "";const x=new Date(String(d).slice(0,10));return isNaN(x)?String(d):x;};
   let run=0;
   xlsx([{name:"Summary",head:["",""],widths:[32,24],rows:[["Store",O.store],["Quarter",qName(Q.start)],["Quarterly target",T],["Product value so far",Number(v.toFixed(2))],["% of target",Number(pct.toFixed(1))],["Tier",reached?reached.name:"Not yet Bronze"],["Reward rate",reached?reached.rate:0],["Your reward so far",Number((reached?v*reached.rate:0).toFixed(2))],
       ["Bronze at",T*0.6],["Silver at",T],["Gold at",T*1.5],["Rewards for your Heroes",Number((B.heroes||[]).reduce((a,h)=>a+Number(h.share||0),0).toFixed(2))]]},
+    {name:"Sales",head:["Invoice date","Invoice number","Part number","Quantity","Value excl. VAT","Salesperson","Month","Stravik PN","Description","Range","Hero","Your buy price","At your buy price","Report"],
+      widths:[13,16,16,10,15,20,14,13,50,16,22,14,16,26],fmts:{1:"dd/mm/yyyy",5:"#,##0.00",12:"#,##0.00",13:"#,##0.00"},
+      rows:lines.map(l=>[day(l.date),l.invoice||"",l.code||l.pn,Number(l.qty),l.value==null?"":Number(l.value),l.salesperson||"",monthName(l.period),l.pn,l.desc||"",l.range||"",l.staff||"Not linked to a Hero",Number(l.price||0),Number(l.credited||0),STAT[l.status]||l.status])},
     {name:"Months",head:["Month","Parts","Reported at your buy price","Product value","Quarter so far","% of target","Heroes' rewards","Report"],widths:[16,8,16,14,14,10,14,26],
       rows:(B.months||[]).map(m=>{run+=Number(m.value||0);return [monthName(m.period),Number(m.units),Number(m.reported),Number(m.value),Number(run.toFixed(2)),T?Number((run/T*100).toFixed(1)):"",Number(m.pool),STAT[m.status]||m.status];})},
     {name:"Ranges",head:["Range","Units","Product value"],widths:[24,10,16],rows:(B.ranges||[]).map(r=>[r.range,Number(r.units),Number(r.value)])},
@@ -869,7 +879,7 @@ function paneView(){
 }
 async function xlsx(sheets,name){
   try{const X=await excel(),wb=new X.Workbook();
-    sheets.forEach(sh=>{const ws=wb.addWorksheet(sh.name);ws.addRow(sh.head).font={bold:true};sh.rows.forEach(r=>ws.addRow(r));(sh.widths||[]).forEach((w,i)=>{ws.getColumn(i+1).width=w;});ws.views=[{state:"frozen",ySplit:1}];});
+    sheets.forEach(sh=>{const ws=wb.addWorksheet(sh.name);ws.addRow(sh.head).font={bold:true};sh.rows.forEach(r=>ws.addRow(r));(sh.widths||[]).forEach((w,i)=>{ws.getColumn(i+1).width=w;});Object.keys(sh.fmts||{}).forEach(i=>{ws.getColumn(+i).numFmt=sh.fmts[i];});ws.views=[{state:"frozen",ySplit:1}];});
     const blob=new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),a=document.createElement("a");
     a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   }catch(e){toast(msg(e));}
