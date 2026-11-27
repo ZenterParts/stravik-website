@@ -169,6 +169,7 @@
 .hz-head{position:relative;display:flex;align-items:center;gap:12px}
 .hz-av{position:relative;flex:none;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;overflow:hidden;background:var(--paper);border:3px solid var(--line);font-weight:800;font-size:20px;color:var(--ink)}
 .hz-av img{width:100%;height:100%;object-fit:cover}
+.hz-av svg{width:100%;height:100%;display:block}
 .hz-av.r1{border-color:var(--as-gold)} .hz-av.r2{border-color:var(--as-silver)} .hz-av.r3{border-color:var(--as-bronze)}
 .hz-av.big{width:108px;height:108px;font-size:32px;border-width:4px}
 .hz-rank{position:absolute;left:44px;top:42px;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;font-weight:800;font-size:13px;box-shadow:0 0 0 2px var(--card)}

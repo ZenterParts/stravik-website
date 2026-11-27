@@ -166,7 +166,26 @@ function pickPhoto(staffId,done){
   i.click();
 }
 const initials=n=>String(n||"?").split(" ").filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase();
-const avatar=(name,url,cls)=>`<span class="hz-av ${cls||""}">${url?`<img src="${esc(url)}" alt="">`:`<span>${esc(initials(name))}</span>`}</span>`;
+// default Hero avatar when there is no photo: a friendly counter person, picked from the Hero's id so it never changes
+const heroArt=seed=>{
+  let h=2166136261;for(const ch of String(seed||""))h=Math.imul(h^ch.charCodeAt(0),16777619)>>>0;
+  const ix=(n,k)=>(h>>>k)%n,BG=["#F3D27A","#BBD3EA","#F4C3A2","#C7E2C1","#D6CCEE","#F0B9B4"],SKIN=["#F6D2B8","#E9B48E","#C98B5F","#9C6440","#6E4329"],
+    HAIR=["#1E1A18","#3B2416","#6B4325","#B98A4C","#8A8580"],SHIRT=["#1F3A68","#C8981E","#2F6F6A","#B5482F","#3E4C59"];
+  const bg=BG[ix(6,0)],si=ix(5,4),skin=SKIN[si],hi=ix(5,8),hair=si>=3&&(hi===1||hi===2)?HAIR[0]:HAIR[hi],shirt=SHIRT[ix(5,12)],style=ix(6,16);
+  const head=`<rect x="28" y="34" width="8" height="9" rx="3" fill="${skin}"/><circle cx="32" cy="27" r="11" fill="${skin}"/>`;
+  const face=`<circle cx="28" cy="27.5" r="1.3" fill="#2A2320"/><circle cx="36" cy="27.5" r="1.3" fill="#2A2320"/><path d="M28.6 31.6q3.4 2.6 6.8 0" fill="none" stroke="#2A2320" stroke-width="1.3" stroke-linecap="round"/>`;
+  const back=style===2?`<path d="M20.5 26c0-8 5-13.5 11.5-13.5S43.5 18 43.5 26v14h-23z" fill="${hair}"/>`:"";
+  const top=[
+    `<path d="M21 26c0-7.5 4.8-12 11-12s11 4.5 11 12c-2-4-5.5-5.6-11-5.6S23 22 21 26z" fill="${hair}"/>`,
+    `<path d="M21.2 24.5c0-7 4.8-11 10.8-11s10.8 4 10.8 11z" fill="#1F3A68"/><path d="M30 24.5h17.5c1 0 1 1.8 0 1.8H30z" fill="#16294A"/><circle cx="32" cy="18.6" r="2" fill="#C8981E"/>`,
+    `<path d="M21 26c0-7.5 4.8-12 11-12s11 4.5 11 12c-3-4.6-6.8-6.4-12.4-6.4-1.8 2.2-5.2 4.6-9.6 6.4z" fill="${hair}"/>`,
+    `<circle cx="32" cy="12.5" r="4.6" fill="${hair}"/><path d="M21 26c0-7.5 4.8-12 11-12s11 4.5 11 12c-2-4-5.5-5.6-11-5.6S23 22 21 26z" fill="${hair}"/>`,
+    `<path d="M21.4 24c.8-6.2 5-10 10.6-10s9.8 3.8 10.6 10c-2.6-3-6-4.2-10.6-4.2S24 21 21.4 24z" fill="${hair}" opacity=".85"/>`,
+    `<path d="M21 25c0-7.2 4.9-11.6 11-11.6S43 17.8 43 25z" fill="#B5482F"/><rect x="20.4" y="22.4" width="23.2" height="4.4" rx="2.2" fill="#8E3522"/>`][style];
+  const body=`<path d="M9 66c0-14 10.3-23.5 23-23.5S55 52 55 66z" fill="${shirt}"/><path d="M27 42.8l5 6.2 5-6.2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.6" stroke-linejoin="round"/><rect x="40" y="51" width="6" height="3.2" rx="1" fill="#fff" fill-opacity=".75"/>`;
+  return `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect width="64" height="64" fill="${bg}"/><g transform="translate(32 64) scale(1.3) translate(-32 -60)">${back}${body}${head}${face}${top}</g></svg>`;
+};
+const avatar=(name,url,cls,seed)=>`<span class="hz-av ${cls||""}">${url?`<img src="${esc(url)}" alt="">`:seed?heroArt(seed):`<span>${esc(initials(name))}</span>`}</span>`;
 
 // ---- medals (SVG): ribbon and coin with a star, in bronze, silver or gold; "none" is a grey outline
 const MEDAL={bronze:["#e0a068","#b8733a","#7a4417"],silver:["#ffffff","#9ea9b3","#5d6874"],gold:["#f6dc7a","#c99a1c","#7a5a00"],none:["#f1f1ef","#d5d8dc","#9aa1a8"]};
@@ -255,7 +274,7 @@ async function hero(cm){
   app.querySelector(".ab-note").outerHTML=`<div class="wrap as-hero">
     ${boost?`<div class="as-boost"><b>Launch booster:</b> you earn 4% on your Stravik sales until ${esc(day(D.booster_until))}.</div>`:""}
     <section class="as-card as-big">
-      <div class="hz-me">${avatar(cm.name,pic,"big"+(last&&last.heroes>1&&last.rank<=3?" r"+last.rank:""))}
+      <div class="hz-me">${avatar(cm.name,pic,"big"+(last&&last.heroes>1&&last.rank<=3?" r"+last.rank:""),(D&&D.id)||cm.name)}
         <button type="button" class="linkbtn" id="hzpic">${pic?"Change your photo":"Add your photo"}</button>${pic?` · <button type="button" class="linkbtn" id="hzdel">Remove</button>`:""}</div>
       ${last?`<div class="as-label">Your reward for ${esc(monthName(last.period))}</div>
       <div class="as-amount" data-count="${Number(last.share||0)}">R0.00</div>
@@ -394,7 +413,7 @@ function heroesSection(){
   const label=quarter?qName(quarterNow().start)+" so far":(lastM?monthName(lastM.period):"Latest month");
   const card=(r,i)=>{const rank=r.share>0&&i<3?i+1:0,open=O.hzOpen===r.s.id,parts=r.h.parts||[],ms=r.h.months||[];
     return `<article class="hz-card${rank?" r"+rank:""}${r.share>0?"":" quiet"}">
-      <div class="hz-head">${avatar(r.s.name,O.pics[r.s.id],rank?"r"+rank:"")}${rank?`<span class="hz-rank">${rank}</span>`:""}
+      <div class="hz-head">${avatar(r.s.name,O.pics[r.s.id],rank?"r"+rank:"",r.s.id)}${rank?`<span class="hz-rank">${rank}</span>`:""}
         <div class="hz-name"><b>${esc(r.s.name)}</b><span>${r.units?`${num(r.units)} ${r.units===1?"part":"parts"} sold`:"No Stravik sales yet"}</span></div></div>
       <div class="hz-amt" data-count="${r.share}">R0.00</div>
       <span class="hz-bar"><i data-w="${(r.units/top*100).toFixed(1)}%"></i></span>
